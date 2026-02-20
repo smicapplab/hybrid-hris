@@ -14,8 +14,10 @@ The system focuses on deterministic background processing, clean domain separati
 - **Employee Management** – Master records, employment type, status, organizational assignment
 - **Organizational Structure** – Departments and positions with relational integrity
 - **Identity & RBAC** – Users, roles, and user-role mappings with soft deletion support
-- **Leave Management (Ledger-Based)** – Accrual, consumption, and adjustment tracking using an append-only ledger model
-- **Database-Sealed Constraints** – Critical business rules enforced at DB level (uniqueness, sign validation, idempotent accrual keys)
+- **Leave Management (Ledger-Based)** – Accrual, consumption, adjustment, multi-level approvals, and policy-driven rules
+- **Leave Policies & Assignments** – Policy definitions, rule enforcement, and employee-level policy mapping with DB-level temporal integrity
+- **Holiday Calendar** – Country-aware holiday support for leave duration calculation
+- **Database-Sealed Constraints** – Critical business rules enforced at DB level (uniqueness, exclusion constraints, sign validation, idempotent accrual keys)
 
 ### Design Philosophy
 
@@ -129,6 +131,20 @@ pnpm --filter web exec tsc --noEmit
 
 ## Database Setup & Reset
 
+### One-Command Reset (Recommended)
+
+```bash
+./scripts/reset-db.sh
+```
+
+This script will:
+- Destroy local database volume
+- Recreate Postgres container
+- Enable required extensions
+- Generate fresh migrations
+- Apply migrations
+- Seed system data
+
 ### Start PostgreSQL (Docker)
 
 ```bash
@@ -159,6 +175,7 @@ Inside psql:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "btree_gist";
 \q
 ```
 
@@ -184,11 +201,11 @@ pnpm --filter @hybrid-hris/db seed
 
 ## Next Steps
 
-- Implement Employee module
-- Implement Organizational structure
-- Add Leave ledger-based accrual engine
-- Add RBAC and audit logging
-- Add background job orchestration (BullMQ / Lambda hybrid)
+- Finalize leave accrual engine (monthly + annual grant model)
+- Implement approval → ledger transactional integration
+- Add hybrid background job execution (BullMQ + Lambda/EventBridge)
+- Implement attendance & working schedule module
+- Harden RBAC and permission boundaries
 
 ---
 
