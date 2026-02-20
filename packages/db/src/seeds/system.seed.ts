@@ -6,6 +6,7 @@ import { employees } from '../schema/employees';
 import { users } from '../schema/users';
 import { userRoles } from '../schema/user-roles';
 import { eq } from 'drizzle-orm';
+import * as bcrypt from 'bcryptjs';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -45,7 +46,9 @@ export async function seedSystem() {
     ]).onConflictDoNothing();
 
     // ---- Initial Admin Employee ----
-    const [adminEmployee] = await db.insert(employees)
+    let adminEmployeeId: string | undefined;
+
+    const insertedEmployees = await db.insert(employees)
         .values({
             employeeNo: 'EMP-0001',
             firstName: 'System',
@@ -57,6 +60,17 @@ export async function seedSystem() {
         .onConflictDoNothing()
         .returning();
 
+    if (insertedEmployees.length > 0) {
+        adminEmployeeId = insertedEmployees[0].id;
+    } else {
+        const existingEmployee = await db.select()
+            .from(employees)
+            .where(eq(employees.employeeNo, 'EMP-0001'));
+        adminEmployeeId = existingEmployee[0]?.id;
+    }
+
+    const passwordHash = await bcrypt.hash('Admin123!', 10);
+
     // Fetch ADMIN role
     const [adminRole] = await db.select()
         .from(roles)
@@ -67,8 +81,9 @@ export async function seedSystem() {
 
     const insertedUsers = await db.insert(users)
         .values({
-            employeeId: adminEmployee?.id,
+            employeeId: adminEmployeeId,
             email: 'admin@hybrid-hris.local',
+            passwordHash,
             isActive: true,
         })
         .onConflictDoNothing()
