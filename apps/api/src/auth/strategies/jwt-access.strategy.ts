@@ -14,7 +14,13 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  async validate(payload: { sub: string; email: string; roles: string[] }) {
+  async validate(payload: {
+    sub: string;
+    email: string;
+    roles: string[];
+    firstName?: string | null;
+    lastName?: string | null;
+  }) {
     const user = await this.usersService.findById(payload.sub);
 
     if (!user) {
@@ -24,6 +30,8 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt') {
     return {
       id: user.id,
       email: user.email,
+      firstName: payload.firstName ?? null,
+      lastName: payload.lastName ?? null,
       roles: payload.roles,
     };
   }

@@ -1,20 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql, getTableColumns } from 'drizzle-orm';
 
 import { Database } from '../database/database';
-import { roles, userRoles, users } from '@hybrid-hris/db/schema';
+import { roles, userRoles, users, employees } from '@hybrid-hris/db/schema';
 
 @Injectable()
 export class UsersService {
-    
+
     constructor(private readonly database: Database) { }
 
     async findActiveByEmail(email: string) {
         const normalized = email.trim().toLowerCase();
+        const userColumns = getTableColumns(users);
 
-        const [user] = await this.database.db
-            .select()
+        const [row] = await this.database.db
+            .select({
+                ...userColumns,
+                firstName: employees.firstName,
+                lastName: employees.lastName,
+            })
             .from(users)
+            .leftJoin(employees, eq(users.employeeId, employees.id))
             .where(
                 and(
                     eq(sql`lower(${users.email})`, normalized),
@@ -24,7 +30,7 @@ export class UsersService {
             )
             .limit(1);
 
-        return user ?? null;
+        return row ?? null;
     }
 
     async getUserRoles(userId: string): Promise<string[]> {
@@ -38,12 +44,12 @@ export class UsersService {
     }
 
     async findById(id: string) {
-      const [user] = await this.database.db
-        .select()
-        .from(users)
-        .where(eq(users.id, id))
-        .limit(1);
+        const [user] = await this.database.db
+            .select()
+            .from(users)
+            .where(eq(users.id, id))
+            .limit(1);
 
-      return user ?? null;
+        return user ?? null;
     }
 }

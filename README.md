@@ -129,6 +129,45 @@ pnpm --filter web exec tsc --noEmit
 
 ---
 
+## Authentication
+
+The API implements JWT-based authentication with database-backed refresh token rotation.
+
+### Architecture
+
+- Access Token (short-lived)
+- Refresh Token (httpOnly cookie)
+- Refresh tokens stored in `user_refresh_tokens` table
+- Rotation + revocation supported
+- Roles embedded in JWT payload
+
+### Default Admin (Development Only)
+
+After running the seed command:
+
+Email: `admin@hybrid-hris.local`
+Password: `Admin123!`
+
+⚠️ Change this password in production environments.
+
+### Environment Variables (API)
+
+Required in `apps/api/.env`:
+
+```
+DATABASE_URL=postgresql://...
+JWT_ACCESS_SECRET=...
+JWT_REFRESH_SECRET=...
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_TTL=7d
+COOKIE_REFRESH_NAME=hris_refresh
+COOKIE_SECURE=false
+COOKIE_SAMESITE=lax
+COOKIE_DOMAIN=
+```
+
+---
+
 ## Database Setup & Reset
 
 ### One-Command Reset (Recommended)

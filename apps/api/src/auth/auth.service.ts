@@ -32,14 +32,23 @@ export class AuthService {
         return user;
     }
 
-    async login(user: typeof users.$inferSelect) {
+    async login(
+        user: typeof users.$inferSelect & {
+            firstName?: string | null;
+            lastName?: string | null;
+        },
+    ) {
         const roles = await this.usersService.getUserRoles(user.id);
 
         const payload = {
             sub: user.id,
             email: user.email,
+            firstName: user.firstName ?? null,
+            lastName: user.lastName ?? null,
             roles,
         };
+
+        console.log(payload)
 
         const accessToken = this.jwtService.sign(payload);
 
