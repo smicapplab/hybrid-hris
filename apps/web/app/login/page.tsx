@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -20,48 +24,79 @@ export default function LoginPage() {
             await login(email, password);
             router.push('/dashboard');
         } catch {
-            setError('Invalid credentials');
+            setError('Invalid email or password. Please try again.');
         }
     }
 
     return (
-        <div className="flex min-h-screen items-center justify-center">
-            <form
-                onSubmit={handleSubmit}
-                className="flex w-full max-w-sm flex-col gap-4 border p-6 rounded"
-            >
-                <h1 className="text-xl font-semibold">Login</h1>
+        <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+            <div className="w-full max-w-md">
+                <Card>
+                    <CardContent>
+                        <div className="flex flex-col items-center gap-2 text-center w-full my-5">
+                            <h1 className="text-2xl font-bold">Sign in to HRIS</h1>
+                            <p className="text-muted-foreground">
+                                Enter your email and password to access the HRIS platform.
+                            </p>
+                        </div>
+                        {error && (
+                            <div className="bg-red-100 text-red-500 text-sm p-2 my-3">
+                                {error}
+                            </div>
+                        )}
+                        <form
+                            onSubmit={handleSubmit}
+                            className="flex w-full max-w-sm flex-col gap-4"
+                        >
+                            <FieldGroup>
+                                <Field>
+                                    <FieldLabel htmlFor="email">Work Email Address</FieldLabel>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        placeholder="name@company.com"
+                                        value={email}
+                                        required
+                                        onChange={(e) => setEmail(e.target.value)}
+                                    />
+                                </Field>
+                            </FieldGroup>
+                            <Field>
+                                <div className="flex items-center">
+                                    <FieldLabel htmlFor="password">Account Password</FieldLabel>
+                                    {/* <a
+                                        href="#"
+                                        className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                                    >
+                                        Forgot your password?
+                                    </a> */}
+                                </div>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    required
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                            </Field>
+                            <Field>
+                                <Button
+                                    type="submit"
+                                    disabled={isLoading}
+                                    className="w-full"
+                                >
+                                    {isLoading ? 'Signing in...' : 'Sign In'}
+                                </Button>
+                            </Field>
+                            <FieldDescription className="px-6 text-center">
+                                Access is restricted to authorized employees only.
+                                Contact HR or IT Support if you experience issues signing in.
+                            </FieldDescription>
+                        </form>
+                    </CardContent>
 
-                <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="border p-2 rounded"
-                    required
-                />
-
-                <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="border p-2 rounded"
-                    required
-                />
-
-                {error && (
-                    <div className="text-red-500 text-sm">{error}</div>
-                )}
-
-                <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="bg-black text-white p-2 rounded disabled:opacity-50"
-                >
-                    {isLoading ? 'Logging in...' : 'Login'}
-                </button>
-            </form>
+                </Card>
+            </div>
         </div>
     );
 }

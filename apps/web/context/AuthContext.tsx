@@ -60,9 +60,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const logout = useCallback(async () => {
-        await apiFetch('/auth/logout', { method: 'POST' });
-        setAccessToken(null);
-        setUser(null);
+        try {
+            await apiFetch('/auth/logout', { method: 'POST' });
+        } catch {
+            // ignore network errors during logout
+        } finally {
+            setAccessToken(null);
+            setUser(null);
+        }
     }, []);
 
     const value = useMemo(

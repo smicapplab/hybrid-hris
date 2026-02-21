@@ -43,13 +43,30 @@ export class UsersService {
         return rows.map((r) => r.code);
     }
 
-    async findById(id: string) {
-        const [user] = await this.database.db
-            .select()
+    async findActiveById(id: string) {
+        const userColumns = getTableColumns(users);
+
+        const [row] = await this.database.db
+            .select({
+                ...userColumns,
+                firstName: employees.firstName,
+                lastName: employees.lastName,
+            })
             .from(users)
-            .where(eq(users.id, id))
+            .leftJoin(employees, eq(users.employeeId, employees.id))
+            .where(
+                and(
+                    eq(users.id, id),
+                    isNull(users.deletedAt),
+                    eq(users.isActive, true),
+                ),
+            )
             .limit(1);
 
-        return user ?? null;
+        console.log("+++++++")
+        console.log(row)
+        console.log("+++++++")
+
+        return row ?? null;
     }
 }

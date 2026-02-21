@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import LayoutClient from './layout-client';
 
 export default function SecureLayout({
     children,
@@ -26,5 +27,5 @@ export default function SecureLayout({
         return null;
     }
 
-    return <>{children}</>;
+    return <LayoutClient>{children}</LayoutClient>;
 }

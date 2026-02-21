@@ -21,7 +21,7 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt') {
     firstName?: string | null;
     lastName?: string | null;
   }) {
-    const user = await this.usersService.findById(payload.sub);
+    const user = await this.usersService.findActiveById(payload.sub);
 
     if (!user) {
       throw new UnauthorizedException();

@@ -15,7 +15,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-    
+
     constructor(private readonly auth: AuthService) { }
 
     private refreshCookieName(): string {
@@ -116,7 +116,18 @@ export class AuthController {
 
     @UseGuards(JwtAuthGuard)
     @Get('me')
-    me(@Req() req: Request & { user: { id: string; email: string; roles: string[] } }) {
+    me(
+        @Req()
+        req: Request & {
+            user: {
+                id: string;
+                email: string;
+                firstName: string | null;
+                lastName: string | null;
+                roles: string[];
+            };
+        },
+    ) {
         return req.user;
     }
 }

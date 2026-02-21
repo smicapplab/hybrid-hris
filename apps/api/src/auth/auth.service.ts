@@ -48,7 +48,6 @@ export class AuthService {
             roles,
         };
 
-        console.log(payload)
 
         const accessToken = this.jwtService.sign(payload);
 
@@ -107,7 +106,7 @@ export class AuthService {
                     .set({ revokedAt: new Date() })
                     .where(eq(userRefreshTokens.id, token.id));
 
-                const user = await this.usersService.findById(userId);
+                const user = await this.usersService.findActiveById(userId);
                 if (!user) throw new UnauthorizedException();
 
                 return this.login(user);
