@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 import * as schema from '@hybrid-hris/db/schema';
 
 @Injectable()
-export class Database implements OnModuleDestroy {
+export class DatabaseService implements OnModuleDestroy {
   private readonly pool: Pool;
   public readonly db: NodePgDatabase<typeof schema>;
 

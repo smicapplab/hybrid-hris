@@ -4,8 +4,8 @@ import * as bcrypt from 'bcrypt';
 import { and, eq, isNull } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
-import { UsersService } from '../users/users.service';
-import { Database } from '../database/database';
+import { UsersService } from '../identity/users/users.service';
+import { DatabaseService } from '../database/database.service';
 import { userRefreshTokens, users } from '@hybrid-hris/db/schema';
 
 @Injectable()
@@ -13,7 +13,7 @@ export class AuthService {
     constructor(
         private readonly usersService: UsersService,
         private readonly jwtService: JwtService,
-        private readonly database: Database,
+        private readonly database: DatabaseService,
     ) { }
 
     async validateUser(email: string, password: string) {

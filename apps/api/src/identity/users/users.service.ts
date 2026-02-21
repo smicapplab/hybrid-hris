@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { and, eq, isNull, sql, getTableColumns } from 'drizzle-orm';
 
-import { Database } from '../database/database';
+import { DatabaseService } from '../../database/database.service';
 import { roles, userRoles, users, employees } from '@hybrid-hris/db/schema';
 
 @Injectable()
 export class UsersService {
 
-    constructor(private readonly database: Database) { }
+    constructor(private readonly database: DatabaseService) { }
 
     async findActiveByEmail(email: string) {
         const normalized = email.trim().toLowerCase();

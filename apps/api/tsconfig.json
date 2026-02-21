@@ -15,7 +15,8 @@
     "paths": {
       "@hybrid-hris/db": ["../../packages/db/dist"],
       "@hybrid-hris/db/*": ["../../packages/db/dist/*"]
-    }
+    },
+    "types": ["node", "jest"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
