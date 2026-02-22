@@ -6,10 +6,18 @@ import { UsersModule } from './identity/users/users.module';
 import { DatabaseModule } from './database/database.module';
 import { RolesModule } from './identity/roles/roles.module';
 import { IdentityModule } from './identity/identity.module';
+import { CoreModule } from './core/core.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, DatabaseModule, RolesModule, IdentityModule],
+  imports: [
+    AuthModule,
+    UsersModule,
+    DatabaseModule,
+    RolesModule,
+    IdentityModule,
+    CoreModule
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

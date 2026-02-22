@@ -5,6 +5,9 @@
     "moduleResolution": "node",
     "target": "ES2022",
     "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false,
+    "rootDir": "src",
     "outDir": "dist",
     "strict": true
   },
