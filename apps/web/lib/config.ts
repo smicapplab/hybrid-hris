@@ -30,8 +30,8 @@ export const navigation: NavCategory[] = [
                 icon: Users,
             },
             {
-                title: "Departments",
-                url: "/people/departments",
+                title: "Org Structure",
+                url: "/people/org-structure",
                 icon: Building2,
             },
             {

@@ -71,15 +71,46 @@ export async function seedSystem() {
         },
     ]).onConflictDoNothing();
 
+    // ---- Ensure Root Org ----
+    let rootOrg = (
+        await db.insert(orgUnits)
+            .values({
+                name: 'Head Office',
+                code: 'HO',
+                isActive: true,
+            })
+            .onConflictDoNothing()
+            .returning()
+    )[0];
+
+    if (!rootOrg) {
+        rootOrg = (
+            await db.select()
+                .from(orgUnits)
+                .where(eq(orgUnits.code, 'HO'))
+        )[0];
+    }
+
     // ---- Ensure Default Org + Position for Admin ----
-    const [defaultOrg] = await db.insert(orgUnits)
-        .values({
-            name: 'System Administration',
-            code: 'SYS_ADMIN',
-            isActive: true,
-        })
-        .onConflictDoNothing()
-        .returning();
+    let defaultOrg = (
+        await db.insert(orgUnits)
+            .values({
+                name: 'System Administration',
+                code: 'SYS_ADMIN',
+                parentId: rootOrg?.id ?? null,
+                isActive: true,
+            })
+            .onConflictDoNothing()
+            .returning()
+    )[0];
+
+    if (!defaultOrg) {
+        defaultOrg = (
+            await db.select()
+                .from(orgUnits)
+                .where(eq(orgUnits.code, 'SYS_ADMIN'))
+        )[0];
+    }
 
     const [defaultPosition] = await db.insert(positions)
         .values({
@@ -160,14 +191,24 @@ export async function seedSystem() {
     if (loadTestData) {
         console.log('Loading test organizational data...');
 
-        const [rootOrg] = await db.insert(orgUnits)
-            .values({
-                name: 'Head Office',
-                code: 'HO',
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning();
+        let rootOrg = (
+            await db.insert(orgUnits)
+                .values({
+                    name: 'Head Office',
+                    code: 'HO',
+                    isActive: true,
+                })
+                .onConflictDoNothing()
+                .returning()
+        )[0];
+
+        if (!rootOrg) {
+            rootOrg = (
+                await db.select()
+                    .from(orgUnits)
+                    .where(eq(orgUnits.code, 'HO'))
+            )[0];
+        }
 
         const [hrOrg] = await db.insert(orgUnits)
             .values({

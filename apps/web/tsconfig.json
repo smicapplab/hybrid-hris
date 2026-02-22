@@ -19,8 +19,11 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@hybrid-hris/db": ["../../packages/db/src"],
+      "@hybrid-hris/db/*": ["../../packages/db/src/*"]
     }
   },
   "include": [

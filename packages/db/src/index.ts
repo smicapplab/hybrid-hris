@@ -1,1 +1,2 @@
-export const test = "db-linked";
+export * from './schema';
+export * from './types';

@@ -3,11 +3,24 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Node",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@hybrid-hris/db": [
+        "packages/db/src"
+      ],
+      "@hybrid-hris/db/*": [
+        "packages/db/src/*"
+      ]
+    }
   }
 }
