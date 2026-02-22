@@ -63,10 +63,6 @@ export class UsersService {
             )
             .limit(1);
 
-        console.log("+++++++")
-        console.log(row)
-        console.log("+++++++")
-
         return row ?? null;
     }
 }

@@ -7,9 +7,12 @@ import {
   uniqueIndex,
   index,
   pgEnum,
+  foreignKey,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
-import { departments } from './departments';
+import { orgUnits } from './org-units';
 import { positions } from './positions';
 
 export const employmentTypeEnum = pgEnum('employment_type', [
@@ -58,11 +61,17 @@ export const employees = pgTable(
     postalCode: varchar('postal_code', { length: 20 }),
     countryCode: varchar('country_code', { length: 10 }).default('PH').notNull(),
 
-    departmentId: uuid('department_id')
-      .references(() => departments.id, { onDelete: 'set null' }),
+    orgUnitId: uuid('org_unit_id')
+      .notNull()
+      .references(() => orgUnits.id, { onDelete: 'restrict' }),
 
     positionId: uuid('position_id')
-      .references(() => positions.id, { onDelete: 'set null' }),
+      .notNull()
+      .references(() => positions.id, { onDelete: 'restrict' }),
+
+    managerId: uuid('manager_id'),
+
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
 
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -70,7 +79,27 @@ export const employees = pgTable(
   (t) => ({
     employeeNoUq: uniqueIndex('employees_employee_no_uq').on(t.employeeNo),
     hireDateIdx: index('employees_hire_date_idx').on(t.hireDate),
-    departmentIdx: index('employees_department_idx').on(t.departmentId),
+    statusIdx: index('employees_status_idx').on(t.status),
+    deletedAtIdx: index('employees_deleted_at_idx').on(t.deletedAt),
+    orgUnitIdx: index('employees_org_unit_idx').on(t.orgUnitId),
     positionIdx: index('employees_position_idx').on(t.positionId),
+    orgUnitPositionIdx: index('employees_org_unit_position_idx').on(
+      t.orgUnitId,
+      t.positionId,
+    ),
+    managerIdx: index('employees_manager_idx').on(t.managerId),
+    managerNotSelfCheck: check(
+      'employees_manager_not_self_check',
+      sql`manager_id IS NULL OR manager_id <> id`,
+    ),
+    hireDateNotFutureCheck: check(
+      'employees_hire_date_not_future_check',
+      sql`hire_date <= CURRENT_DATE`,
+    ),
+    managerFk: foreignKey({
+      columns: [t.managerId],
+      foreignColumns: [t.id],
+      name: 'employees_manager_fk',
+    }).onDelete('set null'),
   }),
 );

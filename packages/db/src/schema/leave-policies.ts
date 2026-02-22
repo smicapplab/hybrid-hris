@@ -6,7 +6,9 @@ import {
     date,
     timestamp,
     uniqueIndex,
+    check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const leavePolicies = pgTable(
     'leave_policies',
@@ -31,5 +33,10 @@ export const leavePolicies = pgTable(
     },
     (t) => ({
         codeUq: uniqueIndex('leave_policies_code_uq').on(t.code),
+
+        effectiveDateOrderCheck: check(
+            'leave_policies_effective_date_order_check',
+            sql`(effective_to IS NULL) OR (effective_to >= effective_from)`
+        ),
     }),
 );

@@ -1,86 +1,9 @@
 {
-  "id": "688286c2-e46d-4b93-a60c-da9e3cf79ab3",
+  "id": "6dedbbcd-e20a-4486-a9ee-4e676c23375e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.departments": {
-      "name": "departments",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(200)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "parent_department_id": {
-          "name": "parent_department_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "departments_name_idx": {
-          "name": "departments_name_idx",
-          "columns": [
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "departments_parent_idx": {
-          "name": "departments_parent_idx",
-          "columns": [
-            {
-              "expression": "parent_department_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.employees": {
       "name": "employees",
       "schema": "",
@@ -181,15 +104,27 @@
           "notNull": true,
           "default": "'PH'"
         },
-        "department_id": {
-          "name": "department_id",
+        "org_unit_id": {
+          "name": "org_unit_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "position_id": {
           "name": "position_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "manager_id": {
+          "name": "manager_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -239,11 +174,41 @@
           "method": "btree",
           "with": {}
         },
-        "employees_department_idx": {
-          "name": "employees_department_idx",
+        "employees_status_idx": {
+          "name": "employees_status_idx",
           "columns": [
             {
-              "expression": "department_id",
+              "expression": "employee_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "employees_deleted_at_idx": {
+          "name": "employees_deleted_at_idx",
+          "columns": [
+            {
+              "expression": "deleted_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "employees_org_unit_idx": {
+          "name": "employees_org_unit_idx",
+          "columns": [
+            {
+              "expression": "org_unit_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -268,20 +233,56 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "employees_org_unit_position_idx": {
+          "name": "employees_org_unit_position_idx",
+          "columns": [
+            {
+              "expression": "org_unit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "employees_manager_idx": {
+          "name": "employees_manager_idx",
+          "columns": [
+            {
+              "expression": "manager_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
-        "employees_department_id_departments_id_fk": {
-          "name": "employees_department_id_departments_id_fk",
+        "employees_org_unit_id_org_units_id_fk": {
+          "name": "employees_org_unit_id_org_units_id_fk",
           "tableFrom": "employees",
-          "tableTo": "departments",
+          "tableTo": "org_units",
           "columnsFrom": [
-            "department_id"
+            "org_unit_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         },
         "employees_position_id_positions_id_fk": {
@@ -294,6 +295,19 @@
           "columnsTo": [
             "id"
           ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "employees_manager_fk": {
+          "name": "employees_manager_fk",
+          "tableFrom": "employees",
+          "tableTo": "employees",
+          "columnsFrom": [
+            "manager_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -301,7 +315,16 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "employees_manager_not_self_check": {
+          "name": "employees_manager_not_self_check",
+          "value": "manager_id IS NULL OR manager_id <> id"
+        },
+        "employees_hire_date_not_future_check": {
+          "name": "employees_hire_date_not_future_check",
+          "value": "hire_date <= CURRENT_DATE"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.employee_leave_policies": {
@@ -336,6 +359,12 @@
         "effective_to": {
           "name": "effective_to",
           "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -385,6 +414,21 @@
           "method": "btree",
           "with": {}
         },
+        "employee_leave_policies_deleted_at_idx": {
+          "name": "employee_leave_policies_deleted_at_idx",
+          "columns": [
+            {
+              "expression": "deleted_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "employee_leave_policies_employee_effective_from_uq": {
           "name": "employee_leave_policies_employee_effective_from_uq",
           "columns": [
@@ -418,7 +462,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         },
         "employee_leave_policies_policy_id_leave_policies_id_fk": {
@@ -888,17 +932,30 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "code": {
+          "name": "code",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "title": {
           "name": "title",
           "type": "varchar(200)",
           "primaryKey": false,
           "notNull": true
         },
-        "level": {
-          "name": "level",
-          "type": "varchar(100)",
+        "description": {
+          "name": "description",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         },
         "created_at": {
           "name": "created_at",
@@ -934,9 +991,360 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "positions_code_unique": {
+          "name": "positions_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.org_units": {
+      "name": "org_units",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "org_units_parent_idx": {
+          "name": "org_units_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "org_units_parent_fk": {
+          "name": "org_units_parent_fk",
+          "tableFrom": "org_units",
+          "tableTo": "org_units",
+          "columnsFrom": [
+            "parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "org_units_code_unique": {
+          "name": "org_units_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.org_unit_positions": {
+      "name": "org_unit_positions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "org_unit_id": {
+          "name": "org_unit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position_id": {
+          "name": "position_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "headcount_limit": {
+          "name": "headcount_limit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "org_unit_positions_org_unit_fk": {
+          "name": "org_unit_positions_org_unit_fk",
+          "tableFrom": "org_unit_positions",
+          "tableTo": "org_units",
+          "columnsFrom": [
+            "org_unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "org_unit_positions_position_fk": {
+          "name": "org_unit_positions_position_fk",
+          "tableFrom": "org_unit_positions",
+          "tableTo": "positions",
+          "columnsFrom": [
+            "position_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "org_unit_position_unique": {
+          "name": "org_unit_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "org_unit_id",
+            "position_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.org_unit_leaders": {
+      "name": "org_unit_leaders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "org_unit_id": {
+          "name": "org_unit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "employee_id": {
+          "name": "employee_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "org_unit_leader_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_primary": {
+          "name": "is_primary",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "effective_from": {
+          "name": "effective_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_to": {
+          "name": "effective_to",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "org_unit_leaders_org_unit_idx": {
+          "name": "org_unit_leaders_org_unit_idx",
+          "columns": [
+            {
+              "expression": "org_unit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "org_unit_leaders_employee_idx": {
+          "name": "org_unit_leaders_employee_idx",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "org_unit_leaders_org_unit_fk": {
+          "name": "org_unit_leaders_org_unit_fk",
+          "tableFrom": "org_unit_leaders",
+          "tableTo": "org_units",
+          "columnsFrom": [
+            "org_unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "org_unit_leaders_employee_fk": {
+          "name": "org_unit_leaders_employee_fk",
+          "tableFrom": "org_unit_leaders",
+          "tableTo": "employees",
+          "columnsFrom": [
+            "employee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "org_unit_leaders_unique": {
+          "name": "org_unit_leaders_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "org_unit_id",
+            "employee_id",
+            "role",
+            "effective_from"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "org_unit_leaders_effective_date_order_check": {
+          "name": "org_unit_leaders_effective_date_order_check",
+          "value": "(effective_to IS NULL) OR (effective_to >= effective_from)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.holidays": {
@@ -976,6 +1384,19 @@
           "notNull": true,
           "default": false
         },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1011,6 +1432,21 @@
           "columns": [
             {
               "expression": "country_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "holidays_deleted_at_idx": {
+          "name": "holidays_deleted_at_idx",
+          "columns": [
+            {
+              "expression": "deleted_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1084,6 +1520,12 @@
           "notNull": true,
           "default": true
         },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1120,6 +1562,21 @@
           "columns": [
             {
               "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leave_types_deleted_at_idx": {
+          "name": "leave_types_deleted_at_idx",
+          "columns": [
+            {
+              "expression": "deleted_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1222,7 +1679,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "leave_policies_effective_date_order_check": {
+          "name": "leave_policies_effective_date_order_check",
+          "value": "(effective_to IS NULL) OR (effective_to >= effective_from)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.leave_policy_rules": {
@@ -1348,7 +1810,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "leave_policy_rules_accrual_method_consistency_check": {
+          "name": "leave_policy_rules_accrual_method_consistency_check",
+          "value": "\n                (accrual_method <> 'MONTHLY' OR accrual_rate_per_month IS NOT NULL)\n                AND\n                (accrual_method <> 'ANNUAL_GRANT' OR annual_grant_amount IS NOT NULL)\n            "
+        }
+      },
       "isRLSEnabled": false
     },
     "public.leave_requests": {
@@ -1518,7 +1985,16 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "leave_requests_date_order_check": {
+          "name": "leave_requests_date_order_check",
+          "value": "end_date >= start_date"
+        },
+        "leave_requests_days_positive_check": {
+          "name": "leave_requests_days_positive_check",
+          "value": "days > 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.leave_request_approvals": {
@@ -1663,9 +2139,9 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "leave_request_approvals_acted_at_required_check": {
-          "name": "leave_request_approvals_acted_at_required_check",
-          "value": "(status = 'PENDING') OR (acted_at IS NOT NULL)"
+        "leave_request_approvals_status_acted_at_consistency_check": {
+          "name": "leave_request_approvals_status_acted_at_consistency_check",
+          "value": "\n                (status = 'PENDING' AND acted_at IS NULL)\n                OR\n                (status <> 'PENDING' AND acted_at IS NOT NULL)\n            "
         }
       },
       "isRLSEnabled": false
@@ -1849,6 +2325,10 @@
         "leave_ledger_amount_sign_check": {
           "name": "leave_ledger_amount_sign_check",
           "value": "\n        (entry_type <> 'ACCRUAL' OR amount > 0)\n        AND\n        (entry_type <> 'CONSUMPTION' OR amount < 0)\n      "
+        },
+        "leave_ledger_period_date_order_check": {
+          "name": "leave_ledger_period_date_order_check",
+          "value": "\n        (period_end IS NULL OR period_start IS NULL)\n        OR\n        (period_end >= period_start)\n      "
         }
       },
       "isRLSEnabled": false
@@ -1875,6 +2355,15 @@
         "CONTRACTUAL",
         "CONSULTANT",
         "INTERN"
+      ]
+    },
+    "public.org_unit_leader_role": {
+      "name": "org_unit_leader_role",
+      "schema": "public",
+      "values": [
+        "HEAD",
+        "CO_HEAD",
+        "ACTING_HEAD"
       ]
     },
     "public.accrual_method": {

@@ -77,5 +77,13 @@ export const leaveLedger = pgTable(
         (entry_type <> 'CONSUMPTION' OR amount < 0)
       `,
     ),
+    periodDateOrderCheck: check(
+      'leave_ledger_period_date_order_check',
+      sql`
+        (period_end IS NULL OR period_start IS NULL)
+        OR
+        (period_end >= period_start)
+      `,
+    ),
   }),
 );

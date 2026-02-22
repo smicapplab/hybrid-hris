@@ -12,7 +12,7 @@ The system focuses on deterministic background processing, clean domain separati
 ### Core Modules
 
 - **Employee Management** – Master records, employment type, status, organizational assignment
-- **Organizational Structure** – Departments and positions with relational integrity
+- **Organizational Structure** – Hierarchical Org Units (multi-level), shared Positions, OrgUnit-Position mapping, and Org Unit Leaders (HEAD / CO_HEAD / ACTING_HEAD)
 - **Identity & RBAC** – Users, roles, and user-role mappings with soft deletion support
 - **Leave Management (Ledger-Based)** – Accrual, consumption, adjustment, multi-level approvals, and policy-driven rules
 - **Leave Policies & Assignments** – Policy definitions, rule enforcement, and employee-level policy mapping with DB-level temporal integrity
@@ -236,6 +236,21 @@ pnpm --filter @hybrid-hris/db db:migrate
 pnpm --filter @hybrid-hris/db seed
 ```
 
+### Optional Test Data
+
+To load structured demo data (multi-level org tree, positions, employees, users, roles, and org leaders):
+
+```bash
+LOAD_TEST_DATA=true pnpm --filter @hybrid-hris/db seed
+```
+
+This will generate:
+- Multi-level Org Units (Head Office → HR → HR Sub-units, IT → IT Sub-units)
+- Positions mapped to specific Org Units
+- Sample employees with manager hierarchy
+- Users automatically created for employees
+- Role assignments (MANAGER / EMPLOYEE)
+- Org Unit leader assignments
 ---
 
 ## Next Steps

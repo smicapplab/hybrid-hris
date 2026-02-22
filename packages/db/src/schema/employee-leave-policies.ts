@@ -20,7 +20,7 @@ export const employeeLeavePolicies = pgTable(
 
         employeeId: uuid('employee_id')
             .notNull()
-            .references(() => employees.id, { onDelete: 'cascade' }),
+            .references(() => employees.id, { onDelete: 'restrict' }),
 
         policyId: uuid('policy_id')
             .notNull()
@@ -28,6 +28,8 @@ export const employeeLeavePolicies = pgTable(
 
         effectiveFrom: date('effective_from').notNull(),
         effectiveTo: date('effective_to'),
+
+        deletedAt: timestamp('deleted_at', { withTimezone: true }),
 
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
@@ -40,6 +42,7 @@ export const employeeLeavePolicies = pgTable(
     (t) => ({
         employeeIdx: index('employee_leave_policies_employee_idx').on(t.employeeId),
         policyIdx: index('employee_leave_policies_policy_idx').on(t.policyId),
+        deletedAtIdx: index('employee_leave_policies_deleted_at_idx').on(t.deletedAt),
         employeeEffectiveFromUq: uniqueIndex(
             'employee_leave_policies_employee_effective_from_uq',
         ).on(t.employeeId, t.effectiveFrom),

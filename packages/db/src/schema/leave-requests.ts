@@ -1,5 +1,3 @@
-
-
 import {
   pgTable,
   uuid,
@@ -8,7 +6,9 @@ import {
   timestamp,
   pgEnum,
   index,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { employees } from './employees';
 import { leaveTypes } from './leave-types';
 import { users } from './users';
@@ -60,5 +60,13 @@ export const leaveRequests = pgTable(
     employeeIdx: index('leave_requests_employee_idx').on(t.employeeId),
     leaveTypeIdx: index('leave_requests_leave_type_idx').on(t.leaveTypeId),
     statusIdx: index('leave_requests_status_idx').on(t.status),
+    dateOrderCheck: check(
+      'leave_requests_date_order_check',
+      sql`end_date >= start_date`
+    ),
+    daysPositiveCheck: check(
+      'leave_requests_days_positive_check',
+      sql`days > 0`
+    ),
   }),
 );

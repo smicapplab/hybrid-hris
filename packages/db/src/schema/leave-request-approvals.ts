@@ -59,9 +59,13 @@ export const leaveRequestApprovals = pgTable(
             'leave_request_approvals_request_level_uq',
         ).on(t.leaveRequestId, t.level),
 
-        actedAtRequiredIfNotPending: check(
-            'leave_request_approvals_acted_at_required_check',
-            sql`(status = 'PENDING') OR (acted_at IS NOT NULL)`,
+        statusActedAtConsistencyCheck: check(
+            'leave_request_approvals_status_acted_at_consistency_check',
+            sql`
+                (status = 'PENDING' AND acted_at IS NULL)
+                OR
+                (status <> 'PENDING' AND acted_at IS NOT NULL)
+            `,
         ),
     }),
 );

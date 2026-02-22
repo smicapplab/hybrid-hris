@@ -1,5 +1,3 @@
-
-
 import {
   pgTable,
   uuid,
@@ -38,6 +36,8 @@ export const leaveTypes = pgTable(
     // Whether this leave type is paid
     isPaid: boolean('is_paid').default(true).notNull(),
 
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -49,5 +49,6 @@ export const leaveTypes = pgTable(
   (t) => ({
     codeUq: uniqueIndex('leave_types_code_uq').on(t.code),
     nameIdx: index('leave_types_name_idx').on(t.name),
+    deletedAtIdx: index('leave_types_deleted_at_idx').on(t.deletedAt),
   }),
 );

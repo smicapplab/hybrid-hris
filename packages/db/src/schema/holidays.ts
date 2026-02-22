@@ -24,6 +24,12 @@ export const holidays = pgTable(
 
         isRecurring: boolean('is_recurring').default(false).notNull(),
 
+        deletedAt: timestamp('deleted_at', { withTimezone: true }),
+
+        updatedAt: timestamp('updated_at', { withTimezone: true })
+            .defaultNow()
+            .notNull(),
+
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
             .notNull(),
@@ -34,5 +40,6 @@ export const holidays = pgTable(
             t.countryCode,
         ),
         countryIdx: index('holidays_country_idx').on(t.countryCode),
+        deletedAtIdx: index('holidays_deleted_at_idx').on(t.deletedAt),
     }),
 );
