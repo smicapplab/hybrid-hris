@@ -6,6 +6,8 @@ import type { InferSelectModel } from 'drizzle-orm';
 
 import { orgUnits } from '@hybrid-hris/db/schema';
 import { employees } from '@hybrid-hris/db/schema';
+import { positions } from '@hybrid-hris/db/schema';
+import { orgUnitPositions } from '@hybrid-hris/db/schema';
 
 type OrgUnit = InferSelectModel<typeof orgUnits>;
 
@@ -191,6 +193,69 @@ export class OrgUnitsService {
         updatedAt: new Date(),
       })
       .where(eq(orgUnits.id, id));
+
+    return { success: true };
+  }
+
+  async getPositionsForOrg(orgUnitId: string) {
+    const existing = await this.db.db
+      .select({ id: orgUnits.id })
+      .from(orgUnits)
+      .where(eq(orgUnits.id, orgUnitId))
+      .limit(1);
+
+    if (!existing.length) {
+      throw new NotFoundException('Org unit not found');
+    }
+
+    return this.db.db
+      .select({
+        id: positions.id,
+        code: positions.code,
+        title: positions.title,
+        description: positions.description,
+        isActive: positions.isActive,
+      })
+      .from(orgUnitPositions)
+      .innerJoin(positions, eq(orgUnitPositions.positionId, positions.id))
+      .where(eq(orgUnitPositions.orgUnitId, orgUnitId))
+      .orderBy(asc(positions.title));
+  }
+
+  async addPositionToOrg(orgUnitId: string, positionId: string): Promise<{ success: true }> {
+    const [org] = await this.db.db
+      .select({ id: orgUnits.id })
+      .from(orgUnits)
+      .where(eq(orgUnits.id, orgUnitId))
+      .limit(1);
+
+    if (!org) throw new NotFoundException('Org unit not found');
+
+    const [position] = await this.db.db
+      .select({ id: positions.id })
+      .from(positions)
+      .where(eq(positions.id, positionId))
+      .limit(1);
+
+    if (!position) throw new NotFoundException('Position not found');
+
+    await this.db.db
+      .insert(orgUnitPositions)
+      .values({ orgUnitId, positionId })
+      .onConflictDoNothing();
+
+    return { success: true };
+  }
+
+  async removePositionFromOrg(orgUnitId: string, positionId: string): Promise<{ success: true }> {
+    await this.db.db
+      .delete(orgUnitPositions)
+      .where(
+        and(
+          eq(orgUnitPositions.orgUnitId, orgUnitId),
+          eq(orgUnitPositions.positionId, positionId),
+        ),
+      );
 
     return { success: true };
   }

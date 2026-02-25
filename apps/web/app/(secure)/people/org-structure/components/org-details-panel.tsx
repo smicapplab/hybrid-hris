@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { OrgUnitNode } from "@/types/org-unit.type"
+import { OrgPositionsTable } from "./org-positions-table"
 
 interface OrgDetailsPanelProps {
     org: OrgUnitNode | null
@@ -108,6 +109,15 @@ export function OrgDetailsPanel({
                             : "Inactive"}
                 </div>
             </div>
+
+            {/* Positions */}
+            <Separator />
+            {!isDeleted && (
+                <div className="space-y-4">
+                    <OrgPositionsTable orgId={org.id} />
+                    <Separator />
+                </div>
+            )}
         </div>
     )
 }

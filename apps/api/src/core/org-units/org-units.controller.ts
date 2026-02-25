@@ -72,4 +72,29 @@ export class OrgUnitsController {
     restore(@Param('id') id: string) {
         return this.service.restoreOrgUnit(id);
     }
+
+    @Get(':id/positions')
+    getPositions(@Param('id') id: string) {
+        return this.service.getPositionsForOrg(id);
+    }
+
+    @Post(':id/positions')
+    @UseGuards(RolesGuard)
+    @Roles('HR_ADMIN', 'ADMIN')
+    addPosition(
+        @Param('id') id: string,
+        @Body() body: { positionId: string },
+    ) {
+        return this.service.addPositionToOrg(id, body.positionId);
+    }
+
+    @Delete(':id/positions/:positionId')
+    @UseGuards(RolesGuard)
+    @Roles('HR_ADMIN', 'ADMIN')
+    removePosition(
+        @Param('id') id: string,
+        @Param('positionId') positionId: string,
+    ) {
+        return this.service.removePositionFromOrg(id, positionId);
+    }
 }
