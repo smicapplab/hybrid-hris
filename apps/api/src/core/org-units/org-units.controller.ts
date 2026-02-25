@@ -7,6 +7,7 @@ import {
     Patch,
     Delete,
     Body,
+    Query,
 } from '@nestjs/common';
 import { OrgUnitsService } from './org-units.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
@@ -19,13 +20,15 @@ export class OrgUnitsController {
     constructor(private readonly service: OrgUnitsService) { }
 
     @Get()
-    getFlat() {
-        return this.service.getFlat();
+    getFlat(@Query('showDeleted') showDeleted?: string) {
+        const includeDeleted = showDeleted === 'true';
+        return this.service.getFlat(includeDeleted);
     }
 
     @Get('tree')
-    getTree() {
-        return this.service.getTree();
+    getTree(@Query('showDeleted') showDeleted?: string) {
+        const includeDeleted = showDeleted === 'true';
+        return this.service.getTree(includeDeleted);
     }
 
     @Get(':id')
@@ -61,5 +64,12 @@ export class OrgUnitsController {
     @Roles('HR_ADMIN', 'ADMIN')
     remove(@Param('id') id: string) {
         return this.service.softDeleteOrgUnit(id);
+    }
+
+    @Patch(':id/restore')
+    @UseGuards(RolesGuard)
+    @Roles('HR_ADMIN', 'ADMIN')
+    restore(@Param('id') id: string) {
+        return this.service.restoreOrgUnit(id);
     }
 }

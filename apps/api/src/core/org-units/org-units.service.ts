@@ -1,40 +1,67 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { DatabaseService } from "src/database/database.service";
 
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 
 import { orgUnits } from '@hybrid-hris/db/schema';
+import { employees } from '@hybrid-hris/db/schema';
 
 type OrgUnit = InferSelectModel<typeof orgUnits>;
 
 interface OrgUnitNode extends OrgUnit {
   children: OrgUnitNode[];
+  isDeletable: boolean;
 }
 
 @Injectable()
 export class OrgUnitsService {
   constructor(private readonly db: DatabaseService) { }
 
-  async getFlat(): Promise<OrgUnit[]> {
-    const deletedAt = orgUnits.deletedAt;
-    const nameCol = orgUnits.name;
+  async getFlat(showDeleted = false): Promise<OrgUnit[]> {
+    if (!showDeleted) {
+      return this.db.db
+        .select()
+        .from(orgUnits)
+        .where(isNull(orgUnits.deletedAt))
+        .orderBy(asc(orgUnits.name));
+    }
 
     return this.db.db
       .select()
       .from(orgUnits)
-      .where(isNull(deletedAt))
-      .orderBy(asc(nameCol));
+      .orderBy(asc(orgUnits.name));
   }
 
-  async getTree(): Promise<OrgUnitNode[]> {
-    const units: OrgUnit[] = await this.getFlat();
+  async getTree(showDeleted = false): Promise<OrgUnitNode[]> {
+    const units: OrgUnit[] = await this.getFlat(showDeleted);
+
+    // Fetch employee counts per org unit
+    const employeeCounts = await this.db.db
+      .select({
+        orgUnitId: employees.orgUnitId,
+        count: sql<number>`count(*)`,
+      })
+      .from(employees)
+      .where(isNull(employees.deletedAt))
+      .groupBy(employees.orgUnitId);
+
+    const employeeMap = new Map<string, number>();
+    for (const row of employeeCounts) {
+      if (row.orgUnitId) {
+        employeeMap.set(row.orgUnitId, Number(row.count));
+      }
+    }
 
     const map = new Map<string, OrgUnitNode>();
     const roots: OrgUnitNode[] = [];
 
     for (const unit of units) {
-      map.set(unit.id, { ...unit, children: [] });
+      map.set(unit.id, {
+        ...unit,
+        children: [],
+        isDeletable: true,
+      });
     }
 
     for (const unit of map.values()) {
@@ -44,6 +71,17 @@ export class OrgUnitsService {
       } else {
         roots.push(unit);
       }
+    }
+
+    // Compute deletable flag
+    for (const node of map.values()) {
+      const hasChildren = node.children.length > 0;
+      const hasEmployees = (employeeMap.get(node.id) ?? 0) > 0;
+
+      // Root cannot be deleted (single-tree rule)
+      const isRoot = node.parentId === null;
+
+      node.isDeletable = !hasChildren && !hasEmployees && !isRoot;
     }
 
     return roots;
@@ -128,6 +166,28 @@ export class OrgUnitsService {
       .set({
         deletedAt: new Date(),
         isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(orgUnits.id, id));
+
+    return { success: true };
+  }
+  async restoreOrgUnit(id: string): Promise<{ success: true }> {
+    const existing = await this.db.db
+      .select()
+      .from(orgUnits)
+      .where(eq(orgUnits.id, id))
+      .limit(1);
+
+    if (!existing.length) {
+      throw new NotFoundException('Org unit not found');
+    }
+
+    await this.db.db
+      .update(orgUnits)
+      .set({
+        deletedAt: null,
+        isActive: true,
         updatedAt: new Date(),
       })
       .where(eq(orgUnits.id, id));
