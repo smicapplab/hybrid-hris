@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { roles } from '../schema/roles';
+import { SystemRole } from '@hybrid-hris/domain';
 import { leaveTypes } from '../schema/leave-types';
 import { employees } from '../schema/employees';
 import { users } from '../schema/users';
@@ -11,6 +12,8 @@ import { orgUnitPositions } from '../schema/org-unit-positions';
 import { orgUnitLeaders } from '../schema/org-unit-leaders';
 import { eq } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
+import { hrSettings } from '../schema/hr-settings';
+
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -26,25 +29,25 @@ export async function seedSystem() {
     // ---- Roles ----
     await db.insert(roles).values([
         {
-            code: 'HR_ADMIN',
+            code: SystemRole.HR_ADMIN,
             name: 'HR Administrator',
             description: 'Full HR system access including role management',
             isSystem: true,
         },
         {
-            code: 'ADMIN',
+            code: SystemRole.ADMIN,
             name: 'Administrator',
             description: 'General administrative access',
             isSystem: true,
         },
         {
-            code: 'MANAGER',
+            code: SystemRole.MANAGER,
             name: 'Manager',
             description: 'Department-level management access',
             isSystem: true,
         },
         {
-            code: 'EMPLOYEE',
+            code: SystemRole.EMPLOYEE,
             name: 'Employee',
             description: 'Basic self-service access',
             isSystem: true,
@@ -70,6 +73,16 @@ export async function seedSystem() {
             isPaid: true,
         },
     ]).onConflictDoNothing();
+
+    // ---- HR Settings (Singleton) ----
+    await db.insert(hrSettings)
+        .values({
+            singleton: true,
+            employeeNoPrefix: 'EMP-',
+            employeeNoNext: 1005,
+            employeeNoPadding: 4,
+        })
+        .onConflictDoNothing();
 
     // ---- Ensure Root Org ----
     let rootOrg = (
@@ -112,15 +125,25 @@ export async function seedSystem() {
         )[0];
     }
 
-    const [defaultPosition] = await db.insert(positions)
-        .values({
-            code: 'SYSTEM_ADMIN',
-            title: 'System Administrator',
-            description: 'System administrative position',
-            isActive: true,
-        })
-        .onConflictDoNothing()
-        .returning();
+    let defaultPosition = (
+        await db.insert(positions)
+            .values({
+                code: 'SYSTEM_ADMIN',
+                title: 'System Administrator',
+                description: 'System administrative position',
+                isActive: true,
+            })
+            .onConflictDoNothing()
+            .returning()
+    )[0];
+
+    if (!defaultPosition) {
+        defaultPosition = (
+            await db.select()
+                .from(positions)
+                .where(eq(positions.code, 'SYSTEM_ADMIN'))
+        )[0];
+    }
 
     // ---- Initial Admin Employee ----
     let adminEmployeeId: string | undefined;
@@ -187,6 +210,18 @@ export async function seedSystem() {
             .onConflictDoNothing();
     }
 
+    // ---- Assign System Admin as Leader of System Administration ----
+    if (adminEmployeeId && defaultOrg) {
+        await db.insert(orgUnitLeaders)
+            .values({
+                orgUnitId: defaultOrg.id,
+                employeeId: adminEmployeeId,
+                role: 'HEAD',
+                effectiveFrom: new Date().toISOString().slice(0, 10),
+            })
+            .onConflictDoNothing();
+    }
+
     // ---- Optional Test Org Structure ----
     if (loadTestData) {
         console.log('Loading test organizational data...');
@@ -241,15 +276,25 @@ export async function seedSystem() {
             .onConflictDoNothing()
             .returning();
 
-        const [managerPosition] = await db.insert(positions)
-            .values({
-                code: 'HR_MANAGER',
-                title: 'HR Manager',
-                description: 'Manages HR department',
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning();
+        let managerPosition = (
+            await db.insert(positions)
+                .values({
+                    code: 'HR_MANAGER',
+                    title: 'HR Manager',
+                    description: 'Manages HR department',
+                    isActive: true,
+                })
+                .onConflictDoNothing()
+                .returning()
+        )[0];
+
+        if (!managerPosition) {
+            managerPosition = (
+                await db.select()
+                    .from(positions)
+                    .where(eq(positions.code, 'HR_MANAGER'))
+            )[0];
+        }
 
         if (hrOrg && managerPosition) {
             await db.insert(orgUnitPositions)
@@ -258,6 +303,20 @@ export async function seedSystem() {
                     positionId: managerPosition.id,
                 })
                 .onConflictDoNothing();
+        }
+
+        // Assign manager position to HR sub-units
+        if (managerPosition) {
+            for (const unit of [hrRecruitment, hrOperations]) {
+                if (!unit) continue;
+
+                await db.insert(orgUnitPositions)
+                    .values({
+                        orgUnitId: unit.id,
+                        positionId: managerPosition.id,
+                    })
+                    .onConflictDoNothing();
+            }
         }
 
         // ---- Additional Org Units ----
@@ -293,25 +352,45 @@ export async function seedSystem() {
             .returning();
 
         // ---- Additional Positions ----
-        const [devPosition] = await db.insert(positions)
-            .values({
-                code: 'SOFTWARE_ENGINEER',
-                title: 'Software Engineer',
-                description: 'Develops and maintains systems',
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning();
+        let devPosition = (
+            await db.insert(positions)
+                .values({
+                    code: 'SOFTWARE_ENGINEER',
+                    title: 'Software Engineer',
+                    description: 'Develops and maintains systems',
+                    isActive: true,
+                })
+                .onConflictDoNothing()
+                .returning()
+        )[0];
 
-        const [itManagerPosition] = await db.insert(positions)
-            .values({
-                code: 'IT_MANAGER',
-                title: 'IT Manager',
-                description: 'Leads IT department',
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning();
+        if (!devPosition) {
+            devPosition = (
+                await db.select()
+                    .from(positions)
+                    .where(eq(positions.code, 'SOFTWARE_ENGINEER'))
+            )[0];
+        }
+
+        let itManagerPosition = (
+            await db.insert(positions)
+                .values({
+                    code: 'IT_MANAGER',
+                    title: 'IT Manager',
+                    description: 'Leads IT department',
+                    isActive: true,
+                })
+                .onConflictDoNothing()
+                .returning()
+        )[0];
+
+        if (!itManagerPosition) {
+            itManagerPosition = (
+                await db.select()
+                    .from(positions)
+                    .where(eq(positions.code, 'IT_MANAGER'))
+            )[0];
+        }
 
         // Map positions to org units
         if (itOrg && devPosition) {
@@ -326,6 +405,31 @@ export async function seedSystem() {
                 .onConflictDoNothing();
         }
 
+        // Allow multiple positions in IT sub-units
+        if (devPosition || itManagerPosition) {
+            for (const unit of [itEngineering, itSupport]) {
+                if (!unit) continue;
+
+                if (devPosition) {
+                    await db.insert(orgUnitPositions)
+                        .values({
+                            orgUnitId: unit.id,
+                            positionId: devPosition.id,
+                        })
+                        .onConflictDoNothing();
+                }
+
+                if (itManagerPosition) {
+                    await db.insert(orgUnitPositions)
+                        .values({
+                            orgUnitId: unit.id,
+                            positionId: itManagerPosition.id,
+                        })
+                        .onConflictDoNothing();
+                }
+            }
+        }
+
         // ---- Sample Employees ----
         const [hrManagerEmployee] = await db.insert(employees)
             .values({
@@ -337,9 +441,21 @@ export async function seedSystem() {
                 status: 'ACTIVE',
                 orgUnitId: hrOrg?.id,
                 positionId: managerPosition?.id,
+                supervisorId: null,
             })
             .onConflictDoNothing()
             .returning();
+
+        if (hrManagerEmployee && hrOrg) {
+            await db.insert(orgUnitLeaders)
+                .values({
+                    orgUnitId: hrOrg.id,
+                    employeeId: hrManagerEmployee.id,
+                    role: 'HEAD',
+                    effectiveFrom: new Date().toISOString().slice(0, 10),
+                })
+                .onConflictDoNothing();
+        }
 
         const [itManagerEmployee] = await db.insert(employees)
             .values({
@@ -351,9 +467,21 @@ export async function seedSystem() {
                 status: 'ACTIVE',
                 orgUnitId: itOrg?.id,
                 positionId: itManagerPosition?.id,
+                supervisorId: null,
             })
             .onConflictDoNothing()
             .returning();
+
+        if (itManagerEmployee && itOrg) {
+            await db.insert(orgUnitLeaders)
+                .values({
+                    orgUnitId: itOrg.id,
+                    employeeId: itManagerEmployee.id,
+                    role: 'HEAD',
+                    effectiveFrom: new Date().toISOString().slice(0, 10),
+                })
+                .onConflictDoNothing();
+        }
 
         // Developers reporting to IT Manager
         if (itManagerEmployee) {
@@ -368,7 +496,7 @@ export async function seedSystem() {
                         status: 'ACTIVE',
                         orgUnitId: itEngineering?.id,
                         positionId: devPosition?.id,
-                        managerId: itManagerEmployee.id,
+                        supervisorId: itManagerEmployee.id,
                     },
                     {
                         employeeNo: 'EMP-1004',
@@ -379,7 +507,7 @@ export async function seedSystem() {
                         status: 'ACTIVE',
                         orgUnitId: itEngineering?.id,
                         positionId: devPosition?.id,
-                        managerId: itManagerEmployee.id,
+                        supervisorId: itManagerEmployee.id,
                     },
                 ])
                 .onConflictDoNothing();

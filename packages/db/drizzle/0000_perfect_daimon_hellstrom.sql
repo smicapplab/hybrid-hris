@@ -23,11 +23,11 @@ CREATE TABLE "employees" (
 	"country_code" varchar(10) DEFAULT 'PH' NOT NULL,
 	"org_unit_id" uuid NOT NULL,
 	"position_id" uuid NOT NULL,
-	"manager_id" uuid,
+	"supervisor_id" uuid,
 	"deleted_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "employees_manager_not_self_check" CHECK (manager_id IS NULL OR manager_id <> id),
+	CONSTRAINT "employees_supervisor_not_self_check" CHECK (supervisor_id IS NULL OR supervisor_id <> id),
 	CONSTRAINT "employees_hire_date_not_future_check" CHECK (hire_date <= CURRENT_DATE)
 );
 --> statement-breakpoint
@@ -244,9 +244,18 @@ CREATE TABLE "leave_ledger" (
       )
 );
 --> statement-breakpoint
+CREATE TABLE "hr_settings" (
+	"singleton" boolean PRIMARY KEY DEFAULT true NOT NULL,
+	"employee_no_prefix" varchar(10) DEFAULT 'EMP-' NOT NULL,
+	"employee_no_next" integer DEFAULT 1 NOT NULL,
+	"employee_no_padding" integer DEFAULT 6 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_positions_id_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "employees" ADD CONSTRAINT "employees_manager_fk" FOREIGN KEY ("manager_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employees" ADD CONSTRAINT "employees_supervisor_fk" FOREIGN KEY ("supervisor_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employee_leave_policies" ADD CONSTRAINT "employee_leave_policies_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employee_leave_policies" ADD CONSTRAINT "employee_leave_policies_policy_id_leave_policies_id_fk" FOREIGN KEY ("policy_id") REFERENCES "public"."leave_policies"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -275,7 +284,7 @@ CREATE INDEX "employees_deleted_at_idx" ON "employees" USING btree ("deleted_at"
 CREATE INDEX "employees_org_unit_idx" ON "employees" USING btree ("org_unit_id");--> statement-breakpoint
 CREATE INDEX "employees_position_idx" ON "employees" USING btree ("position_id");--> statement-breakpoint
 CREATE INDEX "employees_org_unit_position_idx" ON "employees" USING btree ("org_unit_id","position_id");--> statement-breakpoint
-CREATE INDEX "employees_manager_idx" ON "employees" USING btree ("manager_id");--> statement-breakpoint
+CREATE INDEX "employees_supervisor_idx" ON "employees" USING btree ("supervisor_id");--> statement-breakpoint
 CREATE INDEX "employee_leave_policies_employee_idx" ON "employee_leave_policies" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "employee_leave_policies_policy_idx" ON "employee_leave_policies" USING btree ("policy_id");--> statement-breakpoint
 CREATE INDEX "employee_leave_policies_deleted_at_idx" ON "employee_leave_policies" USING btree ("deleted_at");--> statement-breakpoint

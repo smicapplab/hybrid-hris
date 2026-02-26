@@ -5,9 +5,20 @@
     "moduleResolution": "NodeNext",
     "target": "ES2023",
     "declaration": true,
+    "composite": true,
+    "declarationMap": true,
+    "incremental": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "noEmitOnError": true,
     "rootDir": "src",
     "outDir": "dist",
     "strict": true
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
 }

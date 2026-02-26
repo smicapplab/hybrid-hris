@@ -13,6 +13,7 @@ import {
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard'
 import { RolesGuard } from 'src/auth/guards/roles.guard'
 import { Roles } from 'src/auth/decorators/roles.decorator'
+import { SystemRole } from '@hybrid-hris/domain'
 
 import { PositionsService } from './positions.service'
 
@@ -42,7 +43,7 @@ export class PositionsController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles('HR_ADMIN', 'ADMIN')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   @Post()
   async create(
     @Body()
@@ -56,7 +57,7 @@ export class PositionsController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles('HR_ADMIN', 'ADMIN')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   @Patch(':id')
   async update(
     @Param('id') id: string,
@@ -72,14 +73,14 @@ export class PositionsController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles('HR_ADMIN', 'ADMIN')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   @Delete(':id')
   async softDelete(@Param('id') id: string) {
     return this.service.softDelete(id)
   }
 
   @UseGuards(RolesGuard)
-  @Roles('HR_ADMIN', 'ADMIN')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   @Patch(':id/restore')
   async restore(@Param('id') id: string) {
     return this.service.restore(id)

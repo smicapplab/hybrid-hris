@@ -69,7 +69,7 @@ export const employees = pgTable(
       .notNull()
       .references(() => positions.id, { onDelete: 'restrict' }),
 
-    managerId: uuid('manager_id'),
+    supervisorId: uuid('supervisor_id'),
 
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
 
@@ -87,19 +87,19 @@ export const employees = pgTable(
       t.orgUnitId,
       t.positionId,
     ),
-    managerIdx: index('employees_manager_idx').on(t.managerId),
-    managerNotSelfCheck: check(
-      'employees_manager_not_self_check',
-      sql`manager_id IS NULL OR manager_id <> id`,
+    supervisorIdx: index('employees_supervisor_idx').on(t.supervisorId),
+    supervisorNotSelfCheck: check(
+      'employees_supervisor_not_self_check',
+      sql`supervisor_id IS NULL OR supervisor_id <> id`,
     ),
     hireDateNotFutureCheck: check(
       'employees_hire_date_not_future_check',
       sql`hire_date <= CURRENT_DATE`,
     ),
-    managerFk: foreignKey({
-      columns: [t.managerId],
+    supervisorFk: foreignKey({
+      columns: [t.supervisorId],
       foreignColumns: [t.id],
-      name: 'employees_manager_fk',
+      name: 'employees_supervisor_fk',
     }).onDelete('set null'),
   }),
 );

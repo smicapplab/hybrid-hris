@@ -24,7 +24,8 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.1",
-    "pg": "^8.18.0"
+    "pg": "^8.18.0",
+    "@hybrid-hris/domain": "workspace:*"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

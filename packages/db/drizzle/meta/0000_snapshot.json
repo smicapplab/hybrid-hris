@@ -1,5 +1,5 @@
 {
-  "id": "9d9010d6-0ff5-4e6b-9522-779a4fffe297",
+  "id": "af60ad12-40ce-485c-bb10-62ede97da5b8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -116,8 +116,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "manager_id": {
-          "name": "manager_id",
+        "supervisor_id": {
+          "name": "supervisor_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -255,11 +255,11 @@
           "method": "btree",
           "with": {}
         },
-        "employees_manager_idx": {
-          "name": "employees_manager_idx",
+        "employees_supervisor_idx": {
+          "name": "employees_supervisor_idx",
           "columns": [
             {
-              "expression": "manager_id",
+              "expression": "supervisor_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -298,12 +298,12 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "employees_manager_fk": {
-          "name": "employees_manager_fk",
+        "employees_supervisor_fk": {
+          "name": "employees_supervisor_fk",
           "tableFrom": "employees",
           "tableTo": "employees",
           "columnsFrom": [
-            "manager_id"
+            "supervisor_id"
           ],
           "columnsTo": [
             "id"
@@ -316,9 +316,9 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "employees_manager_not_self_check": {
-          "name": "employees_manager_not_self_check",
-          "value": "manager_id IS NULL OR manager_id <> id"
+        "employees_supervisor_not_self_check": {
+          "name": "employees_supervisor_not_self_check",
+          "value": "supervisor_id IS NULL OR supervisor_id <> id"
         },
         "employees_hire_date_not_future_check": {
           "name": "employees_hire_date_not_future_check",
@@ -2331,6 +2331,61 @@
           "value": "\n        (period_end IS NULL OR period_start IS NULL)\n        OR\n        (period_end >= period_start)\n      "
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.hr_settings": {
+      "name": "hr_settings",
+      "schema": "",
+      "columns": {
+        "singleton": {
+          "name": "singleton",
+          "type": "boolean",
+          "primaryKey": true,
+          "notNull": true,
+          "default": true
+        },
+        "employee_no_prefix": {
+          "name": "employee_no_prefix",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'EMP-'"
+        },
+        "employee_no_next": {
+          "name": "employee_no_next",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "employee_no_padding": {
+          "name": "employee_no_padding",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 6
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },

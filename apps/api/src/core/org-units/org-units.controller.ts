@@ -13,6 +13,7 @@ import { OrgUnitsService } from './org-units.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
+import { SystemRole } from '@hybrid-hris/domain';
 
 @Controller('org-units')
 @UseGuards(JwtAuthGuard)
@@ -20,13 +21,13 @@ export class OrgUnitsController {
     constructor(private readonly service: OrgUnitsService) { }
 
     @Get()
-    getFlat(@Query('showDeleted') showDeleted?: string) {
+    getFlat(@Query('showDeleted') showDeleted?: string): Promise<any> {
         const includeDeleted = showDeleted === 'true';
         return this.service.getFlat(includeDeleted);
     }
 
     @Get('tree')
-    getTree(@Query('showDeleted') showDeleted?: string) {
+    getTree(@Query('showDeleted') showDeleted?: string): Promise<any> {
         const includeDeleted = showDeleted === 'true';
         return this.service.getTree(includeDeleted);
     }
@@ -38,14 +39,14 @@ export class OrgUnitsController {
 
     @Post()
     @UseGuards(RolesGuard)
-    @Roles('HR_ADMIN', 'ADMIN')
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     create(@Body() body: { name: string; code: string; parentId?: string | null }) {
         return this.service.createOrgUnit(body);
     }
 
     @Patch(':id')
     @UseGuards(RolesGuard)
-    @Roles('HR_ADMIN', 'ADMIN')
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     update(
         @Param('id') id: string,
         @Body()
@@ -61,14 +62,14 @@ export class OrgUnitsController {
 
     @Delete(':id')
     @UseGuards(RolesGuard)
-    @Roles('HR_ADMIN', 'ADMIN')
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     remove(@Param('id') id: string) {
         return this.service.softDeleteOrgUnit(id);
     }
 
     @Patch(':id/restore')
     @UseGuards(RolesGuard)
-    @Roles('HR_ADMIN', 'ADMIN')
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     restore(@Param('id') id: string) {
         return this.service.restoreOrgUnit(id);
     }
@@ -80,7 +81,7 @@ export class OrgUnitsController {
 
     @Post(':id/positions')
     @UseGuards(RolesGuard)
-    @Roles('HR_ADMIN', 'ADMIN')
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     addPosition(
         @Param('id') id: string,
         @Body() body: { positionId: string },
@@ -90,7 +91,7 @@ export class OrgUnitsController {
 
     @Delete(':id/positions/:positionId')
     @UseGuards(RolesGuard)
-    @Roles('HR_ADMIN', 'ADMIN')
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     removePosition(
         @Param('id') id: string,
         @Param('positionId') positionId: string,

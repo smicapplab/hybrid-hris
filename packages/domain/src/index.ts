@@ -1,2 +1,2 @@
 // Domain layer entry point
-export {};
+export * from './auth/system-role.enum'

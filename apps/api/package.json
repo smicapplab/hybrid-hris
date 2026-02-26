@@ -4,6 +4,7 @@
   "description": "",
   "author": "",
   "private": true,
+  "type": "commonjs",
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
@@ -28,7 +29,10 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
     "bcrypt": "^6.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.4",
     "cookie-parser": "^1.4.7",
+    "dotenv": "^16.6.1",
     "drizzle-orm": "^0.45.1",
     "jsonwebtoken": "^9.0.3",
     "passport": "^0.7.0",

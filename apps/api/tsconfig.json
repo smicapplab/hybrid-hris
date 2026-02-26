@@ -1,23 +1,28 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "target": "ES2023",
-    "outDir": "./dist",
-    "strict": true,
-    "esModuleInterop": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "incremental": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "noEmitOnError": true,
+    "outDir": "dist",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "skipLibCheck": true,
-    "sourceMap": true,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "baseUrl": ".",
     "paths": {
       "@hybrid-hris/db": ["../../packages/db/dist"],
-      "@hybrid-hris/db/*": ["../../packages/db/dist/*"]
-    },
-    "types": ["node", "jest"]
+      "@hybrid-hris/db/*": ["../../packages/db/dist/*"],
+      "@hybrid-hris/domain": ["../../packages/domain/dist"],
+      "@hybrid-hris/domain/*": ["../../packages/domain/dist/*"]
+    }
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+  "references": [
+    { "path": "../../packages/db" },
+    { "path": "../../packages/domain" }
+  ]
 }

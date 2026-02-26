@@ -15,3 +15,4 @@ export * from './leave-policy-rules';
 export * from './leave-requests';
 export * from './leave-request-approvals';
 export * from './leave-ledger';
+export * from './hr-settings';
