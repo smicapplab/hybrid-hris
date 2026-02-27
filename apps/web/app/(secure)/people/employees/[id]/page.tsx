@@ -5,77 +5,80 @@ import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { RequiredInput } from '@/components/ui/required-input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
+import { format } from 'date-fns'
+import { CalendarIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { RequiredSelect } from '@/components/ui/required-select'
 import { Separator } from '@/components/ui/separator'
 import { apiFetch } from '@/lib/api'
 import { AsyncSearchSelect } from '@/components/ui/async-search-select'
 import { SelectItem } from '@/components/ui/select'
+import { removeUndefined, normalizeEmail } from '@/lib/helpers'
+import type {
+    Employee,
+    EmployeeProfile,
+    EmployeeIdentifiers,
+    StatusOptionsResponse,
+    SupervisorOption,
+} from '@/types/employee.type'
+import type { OrgUnitOption } from '@/types/org-unit.type'
+import type { PositionOption } from '@/types/position.types'
+import {
+    isEmployeeStatus,
+    isEmploymentType,
+    isGender,
+    isCivilStatus,
+} from '@hybrid-hris/domain'
 
-interface OrgUnitOption {
-    id: string
-    name: string
-    code?: string
-    path?: string
+const DEFAULT_PROFILE: EmployeeProfile = {
+    employeeId: '',
+    birthDate: null,
+    gender: null,
+    civilStatus: null,
+    nationality: null,
+    personalEmail: null,
+    mobileNo: null,
+    landlineNo: null,
+    emergencyContactName: null,
+    emergencyContactRelationship: null,
+    emergencyContactMobileNo: null,
+    notes: null,
 }
 
-interface PositionOption {
-    id: string
-    title: string
+const DEFAULT_IDENTIFIERS: EmployeeIdentifiers = {
+    employeeId: '',
+    tinNo: null,
+    sssNo: null,
+    philHealthNo: null,
+    pagIbigNo: null,
+    umidNo: null,
+    passportNo: null,
+    passportExpiry: null,
+    driversLicenseNo: null,
+    driversLicenseExpiry: null,
+    prcLicenseNo: null,
+    prcLicenseExpiry: null,
+    companyIdNo: null,
 }
 
-interface SupervisorOption {
-    id: string
-    firstName: string
-    lastName: string
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function stripSystemFields<T extends object>(
+    obj: T | null | undefined,
+): Omit<T, 'employeeId' | 'createdAt' | 'updatedAt'> | null {
+    if (!obj) return null
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { employeeId: _eid, createdAt: _ca, updatedAt: _ua, ...rest } = obj as T & {
+        employeeId?: unknown
+        createdAt?: unknown
+        updatedAt?: unknown
+    }
+    return rest
 }
 
-interface StatusOptionsResponse {
-    current: string
-    allowedNext: string[]
-}
-
-interface Employee {
-    id: string
-    employeeNo: string
-    firstName: string
-    lastName: string
-    middleName?: string | null
-    alternateEmail?: string | null
-    email?: string | null
-    hireDate: string
-    employmentType: string
-    status: string
-    orgUnitId: string
-    positionId: string
-    supervisorId?: string | null
-    addressLine1?: string | null
-    addressLine2?: string | null
-    city?: string | null
-    province?: string | null
-    postalCode?: string | null
-    countryCode?: string | null
-}
-
-type OrgUnitSearchResponse = OrgUnitOption[] | { data: OrgUnitOption[] }
-
-function isOrgUnitArray(value: unknown): value is OrgUnitOption[] {
-    return Array.isArray(value)
-}
-
-function isOrgUnitDataWrapper(value: unknown): value is { data: OrgUnitOption[] } {
-    return (
-        typeof value === 'object' &&
-        value !== null &&
-        'data' in value &&
-        Array.isArray((value as { data: unknown }).data)
-    )
-}
-
-function unwrapOrgUnitSearch(value: OrgUnitSearchResponse | unknown): OrgUnitOption[] {
-    if (isOrgUnitArray(value)) return value
-    if (isOrgUnitDataWrapper(value)) return value.data
-    return []
-}
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function EmployeeDetailPage() {
     const { id } = useParams<{ id: string }>()
@@ -92,31 +95,33 @@ export default function EmployeeDetailPage() {
     const [formError, setFormError] = useState<string | null>(null)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
+    async function refreshStatusOptions() {
+        try {
+            const opts = await apiFetch<StatusOptionsResponse>(`/employees/${id}/status/options`)
+            setAllowedNextStatuses(opts.allowedNext)
+        } catch {
+            setAllowedNextStatuses([])
+        }
+    }
+
     useEffect(() => {
         async function fetchEmployee() {
             try {
                 const data = await apiFetch<Employee>(`/employees/${id}`)
                 setEmployee(data)
                 setOriginalStatus(data.status)
-                try {
-                    const statusOptions = await apiFetch<StatusOptionsResponse>(
-                        `/employees/${id}/status/options`,
-                    )
-                    setAllowedNextStatuses(statusOptions.allowedNext)
-                } catch {
-                    // If endpoint is unavailable, fall back to showing all statuses.
-                    setAllowedNextStatuses([])
-                }
-                // Fetch current org unit so the current selection can render.
-                const currentOrg = await apiFetch<OrgUnitOption>(`/org-units/${data.orgUnitId}`)
-                setCurrentOrgUnit(currentOrg)
 
-                const positionsData = await apiFetch<PositionOption[]>(
-                    `/org-units/${data.orgUnitId}/positions`
-                )
+                const [, orgUnit, positionsData] = await Promise.all([
+                    refreshStatusOptions(),
+                    apiFetch<OrgUnitOption>(`/org-units/${data.orgUnitId}`),
+                    apiFetch<PositionOption[]>(`/org-units/${data.orgUnitId}/positions`),
+                ])
+
+                setCurrentOrgUnit(orgUnit)
                 setPositions(positionsData)
+
                 if (positionsData.length > 0 && !positionsData.some((p) => p.id === data.positionId)) {
-                    setEmployee({ ...data, positionId: positionsData[0]!.id })
+                    setEmployee((prev) => prev ? { ...prev, positionId: positionsData[0]!.id } : prev)
                 }
             } catch (err) {
                 console.error(err)
@@ -126,30 +131,48 @@ export default function EmployeeDetailPage() {
         }
 
         if (id) fetchEmployee()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id])
-
 
     function validateEmployee(e: Employee, availablePositions: PositionOption[]): Record<string, string> {
         const errors: Record<string, string> = {}
-
-        const email = (e.email ?? '').trim()
-        if (!email) errors.email = 'Login Email is required'
-
+        if (!(e.email ?? '').trim()) errors.email = 'Login Email is required'
         if (!e.firstName.trim()) errors.firstName = 'First Name is required'
         if (!e.lastName.trim()) errors.lastName = 'Last Name is required'
-
         if (!e.hireDate.trim()) errors.hireDate = 'Hire Date is required'
         if (!e.employmentType.trim()) errors.employmentType = 'Employment Type is required'
-
         if (!e.orgUnitId.trim()) errors.orgUnitId = 'Org Unit is required'
         if (!e.positionId.trim()) errors.positionId = 'Position is required'
-
         if (availablePositions.length > 0 && e.positionId.trim()) {
-            const ok = availablePositions.some((p) => p.id === e.positionId)
-            if (!ok) errors.positionId = 'Position is not allowed in the specified org unit'
+            if (!availablePositions.some((p) => p.id === e.positionId)) {
+                errors.positionId = 'Position is not allowed in the specified org unit'
+            }
         }
-
         return errors
+    }
+
+    async function handleStatusChange(value: string) {
+        if (!employee || value === employee.status || !isEmployeeStatus(value)) return
+
+        setStatusSaving(true)
+        try {
+            setEmployee((prev) => prev ? { ...prev, status: value } : prev)
+            await apiFetch(`/employees/${id}/status`, {
+                method: 'POST',
+                body: JSON.stringify({ status: value }),
+            })
+            setOriginalStatus(value)
+        } catch (err) {
+            console.error(err)
+            setEmployee((prev) => {
+                if (!prev) return prev
+                const revert = originalStatus && isEmployeeStatus(originalStatus) ? originalStatus : prev.status
+                return { ...prev, status: revert }
+            })
+        } finally {
+            await refreshStatusOptions()
+            setStatusSaving(false)
+        }
     }
 
     async function handleSave() {
@@ -157,58 +180,74 @@ export default function EmployeeDetailPage() {
 
         setFormError(null)
         setFieldErrors({})
+
+        const errors = validateEmployee(employee, positions)
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors)
+            setFormError('Please fix the highlighted fields.')
+            return
+        }
+
         setSaving(true)
         try {
-            const errors = validateEmployee(employee, positions)
-            if (Object.keys(errors).length > 0) {
-                setFieldErrors(errors)
-                setFormError('Please fix the highlighted fields.')
-                setSaving(false)
-                return
-            }
-            // Build update payload (exclude immutable/system fields)
-            const updatePayload = {
-                firstName: employee.firstName,
-                lastName: employee.lastName,
-                middleName: employee.middleName ?? null,
-                alternateEmail: employee.alternateEmail ?? null,
-                email: employee.email && employee.email.trim().length > 0
-                    ? employee.email.trim()
-                    : undefined,
-                hireDate: employee.hireDate,
-                employmentType: employee.employmentType,
-                orgUnitId: employee.orgUnitId,
-                positionId: employee.positionId,
-                supervisorId: employee.supervisorId ?? null,
-                addressLine1: employee.addressLine1 ?? null,
-                addressLine2: employee.addressLine2 ?? null,
-                city: employee.city ?? null,
-                province: employee.province ?? null,
-                postalCode: employee.postalCode ?? null,
-                countryCode: employee.countryCode ?? null,
-            }
+            const {
+                firstName, lastName, middleName, alternateEmail, email,
+                hireDate, employmentType, orgUnitId, positionId, supervisorId,
+                addressLine1, addressLine2, city, province, postalCode, countryCode,
+                profile, identifiers,
+            } = employee
 
             await apiFetch(`/employees/${id}`, {
                 method: 'PATCH',
-                body: JSON.stringify(updatePayload),
+                body: JSON.stringify(removeUndefined({
+                    firstName,
+                    lastName,
+                    middleName: middleName ?? null,
+                    alternateEmail: alternateEmail ?? null,
+                    email: normalizeEmail(email),
+                    hireDate,
+                    employmentType,
+                    orgUnitId,
+                    positionId,
+                    supervisorId: supervisorId ?? null,
+                    addressLine1: addressLine1 ?? null,
+                    addressLine2: addressLine2 ?? null,
+                    city: city ?? null,
+                    province: province ?? null,
+                    postalCode: postalCode ?? null,
+                    countryCode: countryCode ?? null,
+                    profile: stripSystemFields(profile),
+                    identifiers: stripSystemFields(identifiers),
+                })),
             })
 
             router.refresh()
         } catch (err) {
             console.error(err)
+            setFormError(err instanceof Error ? err.message : 'Failed to save. Please try again.')
         } finally {
             setSaving(false)
         }
     }
+
+    const filteredStatuses = [
+        { value: 'ACTIVE', label: 'Active' },
+        { value: 'PROBATION', label: 'Probation' },
+        { value: 'SUSPENDED', label: 'Suspended' },
+        { value: 'RESIGNED', label: 'Resigned' },
+        { value: 'TERMINATED', label: 'Terminated' },
+    ].filter((s) =>
+        !allowedNextStatuses.length || !employee
+            ? true
+            : new Set([employee.status, ...allowedNextStatuses]).has(s.value),
+    )
 
     if (loading) return <div className="p-6">Loading...</div>
     if (!employee) return <div className="p-6">Employee not found</div>
 
     return (
         <div className="p-6 space-y-6">
-            {formError && (
-                <div className="text-sm text-red-600">{formError}</div>
-            )}
+            {formError && <div className="text-sm text-red-600">{formError}</div>}
 
             {/* Employment Status */}
             <Card>
@@ -223,74 +262,11 @@ export default function EmployeeDetailPage() {
                         disabled={statusSaving}
                         touched={!!fieldErrors.status}
                         errorMessage={fieldErrors.status}
-                        onChangeAction={async (value) => {
-                            if (value === employee.status) return
-
-                            setStatusSaving(true)
-                            try {
-                                // optimistic UI
-                                setEmployee((prev) => (prev ? { ...prev, status: value } : prev))
-
-                                await apiFetch(`/employees/${id}/status`, {
-                                    method: 'POST',
-                                    body: JSON.stringify({ status: value }),
-                                })
-
-                                setOriginalStatus(value)
-
-                                try {
-                                    const statusOptions = await apiFetch<StatusOptionsResponse>(
-                                        `/employees/${id}/status/options`,
-                                    )
-                                    setAllowedNextStatuses(statusOptions.allowedNext)
-                                } catch {
-                                    setAllowedNextStatuses([])
-                                }
-                            } catch (err) {
-                                console.error(err)
-                                // revert on failure
-                                setEmployee((prev) =>
-                                    prev ? { ...prev, status: originalStatus ?? prev.status } : prev,
-                                )
-
-                                try {
-                                    const statusOptions = await apiFetch<StatusOptionsResponse>(
-                                        `/employees/${id}/status/options`,
-                                    )
-                                    setAllowedNextStatuses(statusOptions.allowedNext)
-                                } catch {
-                                    setAllowedNextStatuses([])
-                                }
-                            } finally {
-                                setStatusSaving(false)
-                            }
-                        }}
+                        onChangeAction={handleStatusChange}
                     >
-                        {(() => {
-                            const all: Array<{ value: string; label: string }> = [
-                                { value: 'ACTIVE', label: 'Active' },
-                                { value: 'PROBATION', label: 'Probation' },
-                                { value: 'SUSPENDED', label: 'Suspended' },
-                                { value: 'RESIGNED', label: 'Resigned' },
-                                { value: 'TERMINATED', label: 'Terminated' },
-                            ]
-
-                            // If we have transition options, only allow current + allowedNext.
-                            const allowSet =
-                                allowedNextStatuses.length > 0
-                                    ? new Set<string>([employee.status, ...allowedNextStatuses])
-                                    : null
-
-                            const filtered = allowSet
-                                ? all.filter((s) => allowSet.has(s.value))
-                                : all
-
-                            return filtered.map((s) => (
-                                <SelectItem key={s.value} value={s.value}>
-                                    {s.label}
-                                </SelectItem>
-                            ))
-                        })()}
+                        {filteredStatuses.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
                     </RequiredSelect>
                 </CardContent>
             </Card>
@@ -302,77 +278,68 @@ export default function EmployeeDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <RequiredInput
-                            label="Employee No"
-                            value={employee.employeeNo}
-                            onChangeAction={() => { }}
-                            disabled
-                        />
-
+                        <RequiredInput label="Employee No" value={employee.employeeNo} onChangeAction={() => { }} disabled />
                         <RequiredInput
                             label="Login Email"
                             value={employee.email ?? ''}
                             required
                             touched={!!fieldErrors.email}
                             errorMessage={fieldErrors.email}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, email: value })
-                            }
+                            onChangeAction={(v) => setEmployee({ ...employee, email: v })}
                         />
-
                         <RequiredInput
                             label="First Name"
                             value={employee.firstName}
                             required
                             touched={!!fieldErrors.firstName}
                             errorMessage={fieldErrors.firstName}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, firstName: value })
-                            }
+                            onChangeAction={(v) => setEmployee({ ...employee, firstName: v })}
                         />
-
                         <RequiredInput
                             label="Last Name"
                             value={employee.lastName}
                             required
                             touched={!!fieldErrors.lastName}
                             errorMessage={fieldErrors.lastName}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, lastName: value })
-                            }
+                            onChangeAction={(v) => setEmployee({ ...employee, lastName: v })}
                         />
-
                         <RequiredInput
                             label="Middle Name"
                             value={employee.middleName ?? ''}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, middleName: value })
-                            }
+                            onChangeAction={(v) => setEmployee({ ...employee, middleName: v })}
                         />
-
                         <RequiredInput
                             label="Alternate Email"
                             value={employee.alternateEmail ?? ''}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, alternateEmail: value })
-                            }
+                            onChangeAction={(v) => setEmployee({ ...employee, alternateEmail: v })}
                         />
                     </div>
 
                     <Separator />
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <RequiredInput
-                            label="Hire Date"
-                            value={employee.hireDate}
-                            required
-                            touched={!!fieldErrors.hireDate}
-                            errorMessage={fieldErrors.hireDate}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, hireDate: value })
-                            }
-                            className="[&_input]:type-date"
-                        />
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className={cn('w-full justify-start text-left font-normal', !employee.hireDate && 'text-muted-foreground')}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {employee.hireDate ? format(new Date(employee.hireDate), 'yyyy-MM-dd') : 'Pick a date'}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={employee.hireDate ? new Date(employee.hireDate) : undefined}
+                                    onSelect={(date) => {
+                                        if (!date) return
+                                        setEmployee({ ...employee, hireDate: format(date, 'yyyy-MM-dd') })
+                                    }}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
 
                         <RequiredSelect
                             label="Employment Type"
@@ -380,9 +347,10 @@ export default function EmployeeDetailPage() {
                             required
                             touched={!!fieldErrors.employmentType}
                             errorMessage={fieldErrors.employmentType}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, employmentType: value })
-                            }
+                            onChangeAction={(v) => {
+                                if (!isEmploymentType(v)) return
+                                setEmployee({ ...employee, employmentType: v })
+                            }}
                         >
                             <SelectItem value="REGULAR">Regular</SelectItem>
                             <SelectItem value="PROBATIONARY">Probationary</SelectItem>
@@ -396,47 +364,29 @@ export default function EmployeeDetailPage() {
                             value={employee.orgUnitId}
                             onChange={async (value) => {
                                 if (!value) return
-
-                                // update org unit immediately
-                                setEmployee((prev) => (prev ? { ...prev, orgUnitId: value } : prev))
-
-                                // Keep the current org unit cached for label rendering
+                                setEmployee((prev) => prev ? { ...prev, orgUnitId: value } : prev)
                                 try {
-                                    const currentOrg = await apiFetch<OrgUnitOption>(`/org-units/${value}`)
-                                    setCurrentOrgUnit(currentOrg)
+                                    setCurrentOrgUnit(await apiFetch<OrgUnitOption>(`/org-units/${value}`))
                                 } catch {
                                     setCurrentOrgUnit(null)
                                 }
-
                                 const positionsData = await apiFetch<PositionOption[]>(`/org-units/${value}/positions`)
                                 setPositions(positionsData)
-
-                                // default position to first available (or clear if none)
-                                setEmployee((prev) =>
-                                    prev
-                                        ? { ...prev, positionId: positionsData[0]?.id ?? '' }
-                                        : prev
-                                )
+                                setEmployee((prev) => prev ? { ...prev, positionId: positionsData[0]?.id ?? '' } : prev)
                             }}
                             fetchOptions={async (search) => {
-                                // Use the new searchable endpoint (leaf nodes by default)
-                                const res = await apiFetch<OrgUnitSearchResponse>(
-                                    `/org-units/search?leavesOnly=true&showDeleted=false&pageSize=20&limit=20&search=${encodeURIComponent(search)}`
+                                const list = await apiFetch<OrgUnitOption[]>(
+                                    `/org-units/search?leavesOnly=true&showDeleted=false&limit=20&query=${encodeURIComponent(search)}`,
                                 )
-
-                                const list = unwrapOrgUnitSearch(res)
-
-                                // Ensure the current org unit is included so the current label can render
                                 if (currentOrgUnit && !list.some((ou) => ou.id === currentOrgUnit.id)) {
                                     return [currentOrgUnit, ...list]
                                 }
-
                                 return list
                             }}
                             getOptionValue={(o) => o.id}
                             getOptionLabel={(o) => {
-                                const base = o.path && o.path.trim().length > 0 ? o.path : o.name
-                                return o.code && o.code.trim().length > 0 ? `${base} (${o.code})` : base
+                                const base = o.path?.trim() ? o.path : o.name
+                                return o.code?.trim() ? `${base} (${o.code})` : base
                             }}
                             placeholder="Search org unit..."
                         />
@@ -447,26 +397,20 @@ export default function EmployeeDetailPage() {
                             required
                             touched={!!fieldErrors.positionId}
                             errorMessage={fieldErrors.positionId}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, positionId: value })
-                            }
+                            onChangeAction={(v) => setEmployee({ ...employee, positionId: v })}
                         >
                             {positions.map((pos) => (
-                                <SelectItem key={pos.id} value={pos.id}>
-                                    {pos.title}
-                                </SelectItem>
+                                <SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>
                             ))}
                         </RequiredSelect>
 
                         <AsyncSearchSelect
                             label="Supervisor"
                             value={employee.supervisorId}
-                            onChange={(value) =>
-                                setEmployee({ ...employee, supervisorId: value })
-                            }
+                            onChange={(v) => setEmployee({ ...employee, supervisorId: v })}
                             fetchOptions={async (search) => {
                                 const res = await apiFetch<{ data: SupervisorOption[] }>(
-                                    `/employees?status=ACTIVE&status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`
+                                    `/employees?status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`,
                                 )
                                 return res.data
                             }}
@@ -480,53 +424,123 @@ export default function EmployeeDetailPage() {
                     <Separator />
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <RequiredInput
-                            label="Address Line 1"
-                            value={employee.addressLine1 ?? ''}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, addressLine1: value })
-                            }
-                        />
+                        {(['addressLine1', 'addressLine2', 'city', 'province', 'postalCode', 'countryCode'] as const).map((field) => (
+                            <RequiredInput
+                                key={field}
+                                label={field.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
+                                value={employee[field] ?? ''}
+                                onChangeAction={(v) => setEmployee({ ...employee, [field]: v })}
+                            />
+                        ))}
+                    </div>
 
-                        <RequiredInput
-                            label="Address Line 2"
-                            value={employee.addressLine2 ?? ''}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, addressLine2: value })
-                            }
-                        />
+                    <Separator />
 
-                        <RequiredInput
-                            label="City"
-                            value={employee.city ?? ''}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, city: value })
-                            }
-                        />
+                    {/* Profile Information */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className={cn('w-full justify-start text-left font-normal', !employee.profile?.birthDate && 'text-muted-foreground')}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {employee.profile?.birthDate
+                                        ? format(new Date(employee.profile.birthDate), 'yyyy-MM-dd')
+                                        : 'Pick a date'}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={employee.profile?.birthDate ? new Date(employee.profile.birthDate) : undefined}
+                                    onSelect={(date) => {
+                                        if (!date) return
+                                        setEmployee((prev) => prev ? {
+                                            ...prev,
+                                            profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), birthDate: format(date, 'yyyy-MM-dd') },
+                                        } : prev)
+                                    }}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
 
-                        <RequiredInput
-                            label="Province"
-                            value={employee.province ?? ''}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, province: value })
-                            }
-                        />
+                        <RequiredSelect
+                            label="Gender"
+                            value={employee.profile?.gender ?? ''}
+                            onChangeAction={(v) => {
+                                if (!isGender(v)) return
+                                setEmployee((prev) => prev ? {
+                                    ...prev,
+                                    profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), gender: v },
+                                } : prev)
+                            }}
+                        >
+                            <SelectItem value="MALE">Male</SelectItem>
+                            <SelectItem value="FEMALE">Female</SelectItem>
+                            <SelectItem value="NON_BINARY">Non-binary</SelectItem>
+                            <SelectItem value="PREFER_NOT_TO_SAY">Prefer not to say</SelectItem>
+                        </RequiredSelect>
 
-                        <RequiredInput
-                            label="Postal Code"
-                            value={employee.postalCode ?? ''}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, postalCode: value })
-                            }
-                        />
+                        <RequiredSelect
+                            label="Civil Status"
+                            value={employee.profile?.civilStatus ?? ''}
+                            onChangeAction={(v) => {
+                                if (!isCivilStatus(v)) return
+                                setEmployee((prev) => prev ? {
+                                    ...prev,
+                                    profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), civilStatus: v },
+                                } : prev)
+                            }}
+                        >
+                            <SelectItem value="SINGLE">Single</SelectItem>
+                            <SelectItem value="MARRIED">Married</SelectItem>
+                            <SelectItem value="SEPARATED">Separated</SelectItem>
+                            <SelectItem value="WIDOWED">Widowed</SelectItem>
+                            <SelectItem value="ANNULLED">Annulled</SelectItem>
+                            <SelectItem value="LIVE_IN">Live-in</SelectItem>
+                        </RequiredSelect>
 
-                        <RequiredInput
-                            label="Country Code"
-                            value={employee.countryCode ?? ''}
-                            onChangeAction={(value) =>
-                                setEmployee({ ...employee, countryCode: value })
-                            }
-                        />
+                        {(['mobileNo', 'emergencyContactName', 'emergencyContactMobileNo'] as const).map((field) => (
+                            <RequiredInput
+                                key={field}
+                                label={field.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
+                                value={employee.profile?.[field] ?? ''}
+                                onChangeAction={(v) =>
+                                    setEmployee((prev) => prev ? {
+                                        ...prev,
+                                        profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), [field]: v },
+                                    } : prev)
+                                }
+                            />
+                        ))}
+                    </div>
+
+                    <Separator />
+
+                    {/* Government Identifiers */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {(
+                            [
+                                ['tinNo', 'TIN No'],
+                                ['sssNo', 'SSS No'],
+                                ['philHealthNo', 'PhilHealth No'],
+                                ['pagIbigNo', 'Pag-IBIG No'],
+                            ] as const
+                        ).map(([field, label]) => (
+                            <RequiredInput
+                                key={field}
+                                label={label}
+                                value={employee.identifiers?.[field] ?? ''}
+                                onChangeAction={(v) =>
+                                    setEmployee((prev) => prev ? {
+                                        ...prev,
+                                        identifiers: { ...(prev.identifiers ?? { ...DEFAULT_IDENTIFIERS, employeeId: prev.id }), [field]: v },
+                                    } : prev)
+                                }
+                            />
+                        ))}
                     </div>
 
                     <div className="flex justify-end">

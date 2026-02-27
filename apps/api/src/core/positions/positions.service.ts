@@ -142,7 +142,7 @@ export class PositionsService {
 
         return { success: true }
     }
-    
+
     async restore(id: string) {
         const existing = await this.getById(id)
 

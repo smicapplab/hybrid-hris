@@ -7,19 +7,7 @@ import {
     IsEmail,
     Matches,
 } from 'class-validator'
-
-const GENDERS = ['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY'] as const
-const CIVIL_STATUSES = [
-    'SINGLE',
-    'MARRIED',
-    'SEPARATED',
-    'WIDOWED',
-    'ANNULLED',
-    'LIVE_IN',
-] as const
-
-export type Gender = (typeof GENDERS)[number]
-export type CivilStatus = (typeof CIVIL_STATUSES)[number]
+import { Gender, GENDERS, CivilStatus, CIVIL_STATUSES } from '@hybrid-hris/domain'
 
 export class UpdateEmployeeProfileDto {
     @IsOptional()

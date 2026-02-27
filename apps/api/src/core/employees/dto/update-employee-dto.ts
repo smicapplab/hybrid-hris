@@ -8,17 +8,12 @@ import {
     MaxLength,
     Matches,
     ValidateIf,
+    ValidateNested,
 } from 'class-validator'
-
-const EMPLOYMENT_TYPES = [
-    'REGULAR',
-    'PROBATIONARY',
-    'CONTRACTUAL',
-    'CONSULTANT',
-    'INTERN',
-] as const
-
-export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number]
+import { Type } from 'class-transformer'
+import { EmploymentType, EMPLOYMENT_TYPES } from '@hybrid-hris/domain'
+import { UpdateEmployeeProfileDto } from './update-employee-profile.dto'
+import { UpdateEmployeeIdentifiersDto } from './update-employee-identifiers.dto'
 
 const NON_EMPTY = /\S/
 const COUNTRY_CODE = /^[A-Z]{2,3}$/
@@ -122,4 +117,15 @@ export class UpdateEmployeeDto {
     @IsOptional()
     @IsUUID()
     supervisorId?: string | null
+
+    // Optional nested updates (handled in service layer)
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => UpdateEmployeeProfileDto)
+    profile?: UpdateEmployeeProfileDto
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => UpdateEmployeeIdentifiersDto)
+    identifiers?: UpdateEmployeeIdentifiersDto
 }

@@ -1,16 +1,25 @@
 import { Injectable } from '@nestjs/common'
-import { and, eq, inArray, sql, SQL } from 'drizzle-orm'
-import { PgTransaction } from 'drizzle-orm/pg-core'
-import { InferInsertModel, InferSelectModel } from 'drizzle-orm'
+import { and, eq, inArray, isNull, sql, SQL, InferInsertModel, InferSelectModel } from 'drizzle-orm'
 import { EmployeeFilterDto } from './dto/employee-filter.dto'
-import { DatabaseService } from 'src/database/database.service'
-import { employees, orgUnits, positions, users, roles, userRoles } from '@hybrid-hris/db'
+import { DbOrTx, Tx } from 'src/database/database.types'
+import {
+    employees,
+    employeeIdentifiers,
+    employeeProfiles,
+    hrSettings,
+    orgUnits,
+    orgUnitPositions,
+    positions,
+    roles,
+    userRoles,
+    users,
+} from '@hybrid-hris/db'
 
 @Injectable()
 export class EmployeesRepository {
-    constructor(private readonly db: DatabaseService) { }
-
-    async findWithFilters(filter: EmployeeFilterDto) {
+    
+    // ─── Listing ──────────────────────────────────────────────────────────────
+    async findWithFilters(db: DbOrTx, filter: EmployeeFilterDto) {
         const {
             search,
             roleIds,
@@ -58,17 +67,11 @@ export class EmployeesRepository {
         }
 
         if (status?.length) {
-            conditions.push(
-                inArray(
-                    employees.status,
-                    status
-                )
-            )
+            conditions.push(inArray(employees.status, status))
         }
 
-        // Soft delete filter (default: exclude deleted)
         if (!showDeleted) {
-            conditions.push(sql`${employees.deletedAt} IS NULL`)
+            conditions.push(isNull(employees.deletedAt))
         }
 
         if (roleIds?.length) {
@@ -86,7 +89,7 @@ export class EmployeesRepository {
 
         const offset = (page - 1) * pageSize
 
-        const baseSelect = this.db.db
+        const baseSelect = db
             .select({
                 id: employees.id,
                 employeeNo: employees.employeeNo,
@@ -96,17 +99,32 @@ export class EmployeesRepository {
                 hireDate: employees.hireDate,
                 positionTitle: positions.title,
                 orgUnitName: orgUnits.name,
+
+                // user (auth)
+                email: users.email,
+
+                // profile (non-auth)
+                personalEmail: employeeProfiles.personalEmail,
+                mobileNo: employeeProfiles.mobileNo,
+
+                // identifiers (PH-centric)
+                tinNo: employeeIdentifiers.tinNo,
+                sssNo: employeeIdentifiers.sssNo,
+                philHealthNo: employeeIdentifiers.philHealthNo,
+                pagIbigNo: employeeIdentifiers.pagIbigNo,
             })
             .from(employees)
             .leftJoin(positions, eq(employees.positionId, positions.id))
             .leftJoin(orgUnits, eq(employees.orgUnitId, orgUnits.id))
             .leftJoin(users, eq(users.employeeId, employees.id))
+            .leftJoin(employeeProfiles, eq(employeeProfiles.employeeId, employees.id))
+            .leftJoin(employeeIdentifiers, eq(employeeIdentifiers.employeeId, employees.id))
 
         const dataQuery = conditions.length
             ? baseSelect.where(and(...conditions))
             : baseSelect
 
-        const countBase = this.db.db
+        const countBase = db
             .select({ count: sql<number>`count(*)` })
             .from(employees)
 
@@ -128,9 +146,7 @@ export class EmployeesRepository {
             : dataQuery.orderBy(sql`${sortColumn} ASC`, employees.id)
 
         const [data, totalResult] = await Promise.all([
-            orderedQuery
-                .limit(pageSize)
-                .offset(offset),
+            orderedQuery.limit(pageSize).offset(offset),
             countQuery,
         ])
 
@@ -147,31 +163,151 @@ export class EmployeesRepository {
         }
     }
 
-    insertEmployee(
-        tx: PgTransaction<any, any, any>,
-        data: InferInsertModel<typeof employees>,
-    ) {
-        return tx
-            .insert(employees)
-            .values(data)
-            .returning()
+    async findByIdWithDetails(
+        db: DbOrTx,
+        employeeId: string,
+        opts?: { includeDeleted?: boolean },
+    ): Promise<{
+        employee: InferSelectModel<typeof employees>
+        email: string | null
+        profile: InferSelectModel<typeof employeeProfiles> | null
+        identifiers: InferSelectModel<typeof employeeIdentifiers> | null
+    } | null> {
+        const includeDeleted = opts?.includeDeleted ?? false
+
+        const whereClause = includeDeleted
+            ? eq(employees.id, employeeId)
+            : and(eq(employees.id, employeeId), isNull(employees.deletedAt))
+
+        const [row] = await db
+            .select({
+                employee: employees,
+                email: users.email,
+                profile: employeeProfiles,
+                identifiers: employeeIdentifiers,
+            })
+            .from(employees)
+            .leftJoin(users, eq(users.employeeId, employees.id))
+            .leftJoin(employeeProfiles, eq(employeeProfiles.employeeId, employees.id))
+            .leftJoin(employeeIdentifiers, eq(employeeIdentifiers.employeeId, employees.id))
+            .where(whereClause)
+            .limit(1)
+
+        return row ?? null
     }
 
-    insertUser(
-        tx: PgTransaction<any, any, any>,
-        data: InferInsertModel<typeof users>,
-    ) {
-        return tx
-            .insert(users)
-            .values(data)
-            .returning()
+    // ─── Lookups ──────────────────────────────────────────────────────────────
+
+    async findEmployee(db: DbOrTx, id: string): Promise<InferSelectModel<typeof employees> | undefined> {
+        const [row] = await db
+            .select()
+            .from(employees)
+            .where(eq(employees.id, id))
+            .limit(1)
+
+        return row
     }
 
-    async assignEmployeeRoles(
-        tx: PgTransaction<any, any, any>,
-        payload: { userId: string; additionalRoleIds: string[] },
-    ) {
-        // Always fetch EMPLOYEE role
+    async findUserByEmployeeId(db: DbOrTx, employeeId: string): Promise<InferSelectModel<typeof users> | undefined> {
+        const [row] = await db
+            .select()
+            .from(users)
+            .where(eq(users.employeeId, employeeId))
+            .limit(1)
+
+        return row
+    }
+
+    async findUserByEmail(db: DbOrTx, email: string): Promise<{ id: string } | undefined> {
+        const [row] = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1)
+
+        return row
+    }
+
+    async findPositionById(db: DbOrTx, id: string): Promise<InferSelectModel<typeof positions> | undefined> {
+        const [row] = await db
+            .select()
+            .from(positions)
+            .where(eq(positions.id, id))
+            .limit(1)
+
+        return row
+    }
+
+    async findOrgUnitById(db: DbOrTx, id: string): Promise<InferSelectModel<typeof orgUnits> | undefined> {
+        const [row] = await db
+            .select()
+            .from(orgUnits)
+            .where(eq(orgUnits.id, id))
+            .limit(1)
+
+        return row
+    }
+
+    async findOrgUnitPositionMapping(db: DbOrTx, orgUnitId: string, positionId: string): Promise<boolean> {
+        const [row] = await db
+            .select({ orgUnitId: orgUnitPositions.orgUnitId })
+            .from(orgUnitPositions)
+            .where(
+                and(
+                    eq(orgUnitPositions.orgUnitId, orgUnitId),
+                    eq(orgUnitPositions.positionId, positionId),
+                ),
+            )
+            .limit(1)
+
+        return !!row
+    }
+
+    async findFirstNonDeletedSubordinate(
+        db: DbOrTx,
+        supervisorId: string,
+    ): Promise<{ status: InferSelectModel<typeof employees>['status'] } | undefined> {
+        const [row] = await db
+            .select({ status: employees.status })
+            .from(employees)
+            .where(
+                and(
+                    eq(employees.supervisorId, supervisorId),
+                    isNull(employees.deletedAt),
+                ),
+            )
+            .limit(1)
+
+        return row
+    }
+
+    async lockAndIncrementHrSettings(tx: Tx): Promise<InferSelectModel<typeof hrSettings> | undefined> {
+        const [settings] = await tx
+            .select()
+            .from(hrSettings)
+            .limit(1)
+            .for('update')
+
+        if (!settings) return undefined
+
+        await tx
+            .update(hrSettings)
+            .set({ employeeNoNext: settings.employeeNoNext + 1 })
+
+        return settings
+    }
+
+    // ─── Writes ───────────────────────────────────────────────────────────────
+
+    insertEmployee(tx: Tx, data: InferInsertModel<typeof employees>) {
+        return tx.insert(employees).values(data).returning()
+    }
+
+    insertUser(tx: Tx, data: InferInsertModel<typeof users>) {
+        return tx.insert(users).values(data).returning()
+    }
+
+    async assignEmployeeRoles(tx: Tx, payload: { userId: string; additionalRoleIds: string[] }) {
         const [employeeRole]: InferSelectModel<typeof roles>[] = await tx
             .select()
             .from(roles)
@@ -183,9 +319,7 @@ export class EmployeesRepository {
 
         const roleIds = [
             employeeRole.id,
-            ...payload.additionalRoleIds.filter(
-                (id) => id !== employeeRole.id,
-            ),
+            ...payload.additionalRoleIds.filter((id) => id !== employeeRole.id),
         ]
 
         if (!roleIds.length) return
@@ -196,5 +330,83 @@ export class EmployeesRepository {
                 roleId,
             })),
         )
+    }
+
+    async updateEmployee(
+        tx: Tx,
+        id: string,
+        payload: Partial<InferSelectModel<typeof employees>>,
+    ): Promise<InferSelectModel<typeof employees>> {
+        const [updated] = await tx
+            .update(employees)
+            .set(payload)
+            .where(eq(employees.id, id))
+            .returning()
+
+        return updated
+    }
+
+    async updateUserEmail(tx: Tx, userId: string, email: string): Promise<void> {
+        await tx
+            .update(users)
+            .set({ email })
+            .where(eq(users.id, userId))
+    }
+
+    async setUserActive(tx: Tx, employeeId: string, isActive: boolean): Promise<void> {
+        await tx
+            .update(users)
+            .set({ isActive })
+            .where(eq(users.employeeId, employeeId))
+    }
+
+    async upsertProfile(
+        tx: Tx,
+        employeeId: string,
+        payload: Partial<InferSelectModel<typeof employeeProfiles>>,
+    ): Promise<void> {
+        const [existing] = await tx
+            .select()
+            .from(employeeProfiles)
+            .where(eq(employeeProfiles.employeeId, employeeId))
+            .limit(1)
+
+        if (existing) {
+            await tx
+                .update(employeeProfiles)
+                .set(payload)
+                .where(eq(employeeProfiles.employeeId, employeeId))
+        } else {
+            await tx.insert(employeeProfiles).values({
+                employeeId,
+                ...payload,
+                createdAt: new Date(),
+            })
+        }
+    }
+
+    async upsertIdentifiers(
+        tx: Tx,
+        employeeId: string,
+        payload: Partial<InferSelectModel<typeof employeeIdentifiers>>,
+    ): Promise<void> {
+        const [existing] = await tx
+            .select()
+            .from(employeeIdentifiers)
+            .where(eq(employeeIdentifiers.employeeId, employeeId))
+            .limit(1)
+
+        if (existing) {
+            await tx
+                .update(employeeIdentifiers)
+                .set(payload)
+                .where(eq(employeeIdentifiers.employeeId, employeeId))
+        } else {
+            await tx.insert(employeeIdentifiers).values({
+                employeeId,
+                ...payload,
+                createdAt: new Date(),
+            })
+        }
     }
 }

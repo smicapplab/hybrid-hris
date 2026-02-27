@@ -2,12 +2,13 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { EmployeesRepository } from './employees.repository'
 import { EmployeeFilterDto } from './dto/employee-filter.dto'
 import { CreateEmployeeDto } from './dto/create-employee.dto'
-import { DatabaseService } from 'src/database/database.service'
-import { hrSettings, positions } from '@hybrid-hris/db'
-import { InferSelectModel, eq, and, isNull } from 'drizzle-orm'
 import { UpdateEmployeeDto } from './dto/update-employee-dto'
-import { employees, orgUnits, orgUnitPositions } from '@hybrid-hris/db'
-import { users } from '@hybrid-hris/db'
+import { employees } from '@hybrid-hris/db'
+import { InferSelectModel } from 'drizzle-orm'
+import { DatabaseService } from 'src/database/database.service'
+import { Tx } from 'src/database/database.types'
+
+type EmployeeDbStatus = InferSelectModel<typeof employees>['status']
 
 @Injectable()
 export class EmployeesService {
@@ -16,7 +17,7 @@ export class EmployeesService {
         private readonly db: DatabaseService,
     ) { }
 
-    private readonly allowedStatusTransitions: Record<InferSelectModel<typeof employees>['status'], readonly InferSelectModel<typeof employees>['status'][]> = {
+    private readonly allowedStatusTransitions: Record<EmployeeDbStatus, readonly EmployeeDbStatus[]> = {
         ACTIVE: ['SUSPENDED', 'RESIGNED', 'TERMINATED'],
         PROBATION: ['ACTIVE', 'RESIGNED', 'TERMINATED'],
         SUSPENDED: ['ACTIVE', 'TERMINATED'],
@@ -28,39 +29,60 @@ export class EmployeesService {
      * Returns the allowed next statuses from the current status.
      * UI can mirror this logic to filter dropdown options.
      */
-    getAllowedNextStatuses(
-        current: InferSelectModel<typeof employees>['status'],
-    ): readonly InferSelectModel<typeof employees>['status'][] {
+    getAllowedNextStatuses(current: EmployeeDbStatus): readonly EmployeeDbStatus[] {
         return this.allowedStatusTransitions[current] ?? []
     }
 
-    private isAllowedStatusTransition(
-        from: InferSelectModel<typeof employees>['status'],
-        to: InferSelectModel<typeof employees>['status'],
-    ): boolean {
+    private isAllowedStatusTransition(from: EmployeeDbStatus, to: EmployeeDbStatus): boolean {
         const allowed = this.allowedStatusTransitions[from]
         return Array.isArray(allowed) && allowed.includes(to)
     }
 
+    private async hasActiveSubordinates(tx: Tx, id: string): Promise<boolean> {
+        const subordinate = await this.employeesRepository.findFirstNonDeletedSubordinate(tx, id)
+        return !!(
+            subordinate &&
+            subordinate.status !== 'TERMINATED' &&
+            subordinate.status !== 'RESIGNED'
+        )
+    }
+
+    private async hasCircularSupervisorChain(
+        tx: Tx,
+        employeeId: string,
+        proposedSupervisorId: string,
+    ): Promise<boolean> {
+        let currentId: string | null = proposedSupervisorId
+
+        while (currentId) {
+            if (currentId === employeeId) return true
+            const row = await this.employeesRepository.findEmployee(tx, currentId)
+            if (!row) break
+            currentId = row.supervisorId
+        }
+
+        return false
+    }
+
+    private async generateEmployeeNo(tx: Tx): Promise<string> {
+        const settings = await this.employeesRepository.lockAndIncrementHrSettings(tx)
+
+        if (!settings) {
+            throw new NotFoundException('HR settings not initialized')
+        }
+
+        const padding = Number(settings.employeeNoPadding)
+        const padded = String(settings.employeeNoNext).padStart(padding, '0')
+
+        return `${settings.employeeNoPrefix}${padded}`
+    }
+
     async findAll(filter: EmployeeFilterDto) {
-        return this.employeesRepository.findWithFilters(filter)
+        return this.employeesRepository.findWithFilters(this.db.db, filter)
     }
 
     async findById(id: string) {
-        const [result] = await this.db.db
-            .select({
-                employee: employees,
-                email: users.email,
-            })
-            .from(employees)
-            .leftJoin(users, eq(users.employeeId, employees.id))
-            .where(
-                and(
-                    eq(employees.id, id),
-                    isNull(employees.deletedAt),
-                ),
-            )
-            .limit(1)
+        const result = await this.employeesRepository.findByIdWithDetails(this.db.db, id)
 
         if (!result) {
             throw new NotFoundException('Employee not found')
@@ -69,11 +91,12 @@ export class EmployeesService {
         return {
             ...result.employee,
             email: result.email ?? null,
+            profile: result.profile ?? null,
+            identifiers: result.identifiers ?? null,
         }
     }
 
     async create(dto: CreateEmployeeDto) {
-        // Validate hire date (cannot be in the future)
         const today = new Date()
         today.setHours(0, 0, 0, 0)
 
@@ -83,84 +106,24 @@ export class EmployeesService {
         if (hireDate > today) {
             throw new BadRequestException('Hire date cannot be in the future')
         }
-        return this.db.db.transaction(async (tx) => {
-            // Lock hr_settings row
-            const [settings]: InferSelectModel<typeof hrSettings>[] = await tx
-                .select()
-                .from(hrSettings)
-                .limit(1)
-                .for('update')
 
-            if (!settings) {
-                throw new NotFoundException('HR settings not initialized')
-            }
+        return this.db.withTransaction(async (tx) => {
+            const employeeNo = dto.employeeNo ?? await this.generateEmployeeNo(tx)
 
-            // Generate employee number if not provided
-            let employeeNo = dto.employeeNo
-
-            if (!employeeNo) {
-                const nextValue = settings.employeeNoNext
-
-                await tx
-                    .update(hrSettings)
-                    .set({ employeeNoNext: nextValue + 1 })
-
-                const padding = Number(settings.employeeNoPadding)
-                const padded = String(nextValue).padStart(
-                    padding,
-                    '0',
-                )
-
-                employeeNo = `${settings.employeeNoPrefix}${padded}`
-            }
-
-            // Validate position exists
-            const positionExists = await tx
-                .select()
-                .from(positions)
-                .where(eq(positions.id, dto.positionId))
-                .limit(1)
-
-            if (!positionExists.length) {
+            if (!await this.employeesRepository.findPositionById(tx, dto.positionId)) {
                 throw new BadRequestException('Invalid positionId')
             }
 
-            // Validate org unit exists
-            const [orgUnit] = await tx
-                .select()
-                .from(orgUnits)
-                .where(eq(orgUnits.id, dto.orgUnitId))
-                .limit(1)
-
-            if (!orgUnit) {
+            if (!await this.employeesRepository.findOrgUnitById(tx, dto.orgUnitId)) {
                 throw new BadRequestException('Invalid orgUnitId')
             }
 
-            // Enforce orgUnit-position consistency
-            const [mapping] = await tx
-                .select()
-                .from(orgUnitPositions)
-                .where(
-                    and(
-                        eq(orgUnitPositions.orgUnitId, dto.orgUnitId),
-                        eq(orgUnitPositions.positionId, dto.positionId),
-                    ),
-                )
-                .limit(1)
-
-            if (!mapping) {
-                throw new BadRequestException(
-                    'Position is not allowed in the specified org unit',
-                )
+            if (!await this.employeesRepository.findOrgUnitPositionMapping(tx, dto.orgUnitId, dto.positionId)) {
+                throw new BadRequestException('Position is not allowed in the specified org unit')
             }
 
-            // Validate supervisor consistency if provided
             if (dto.supervisorId) {
-                const [supervisor] = await tx
-                    .select()
-                    .from(employees)
-                    .where(eq(employees.id, dto.supervisorId))
-                    .limit(1)
+                const supervisor = await this.employeesRepository.findEmployee(tx, dto.supervisorId)
 
                 if (!supervisor) {
                     throw new BadRequestException('Invalid supervisorId')
@@ -171,21 +134,12 @@ export class EmployeesService {
                 }
             }
 
-            // Normalize login email
             const normalizedEmail = dto.email.toLowerCase().trim()
 
-            // Enforce unique login email
-            const [emailConflict] = await tx
-                .select({ id: users.id })
-                .from(users)
-                .where(eq(users.email, normalizedEmail))
-                .limit(1)
-
-            if (emailConflict) {
+            if (await this.employeesRepository.findUserByEmail(tx, normalizedEmail)) {
                 throw new BadRequestException('Login email already in use')
             }
 
-            // Insert employee
             const [employee] = await this.employeesRepository.insertEmployee(tx, {
                 employeeNo,
                 firstName: dto.firstName,
@@ -201,15 +155,12 @@ export class EmployeesService {
                 throw new BadRequestException('Failed to create employee')
             }
 
-
-            // Create user
             const [user] = await this.employeesRepository.insertUser(tx, {
                 email: normalizedEmail,
                 employeeId: employee.id,
                 isActive: true,
             })
 
-            // Assign EMPLOYEE role (and additional roles if provided)
             await this.employeesRepository.assignEmployeeRoles(tx, {
                 userId: user.id,
                 additionalRoleIds: dto.roleIds ?? [],
@@ -220,13 +171,8 @@ export class EmployeesService {
     }
 
     async update(id: string, dto: UpdateEmployeeDto) {
-        return this.db.db.transaction(async (tx) => {
-            // Load existing employee
-            const [existing] = await tx
-                .select()
-                .from(employees)
-                .where(eq(employees.id, id))
-                .limit(1)
+        return this.db.withTransaction(async (tx) => {
+            const existing = await this.employeesRepository.findEmployee(tx, id)
 
             if (!existing) {
                 throw new NotFoundException('Employee not found')
@@ -236,7 +182,6 @@ export class EmployeesService {
                 throw new BadRequestException('Cannot update a deleted employee')
             }
 
-            // Prevent immutable field updates (defensive check)
             if ('employeeNo' in dto) {
                 throw new BadRequestException('employeeNo cannot be modified')
             }
@@ -253,74 +198,37 @@ export class EmployeesService {
                 }
             }
 
-            // Validate position if provided
-            if (dto.positionId) {
-                const [position] = await tx
-                    .select()
-                    .from(positions)
-                    .where(eq(positions.id, dto.positionId))
-                    .limit(1)
-
-                if (!position) {
-                    throw new BadRequestException('Invalid positionId')
-                }
+            if (dto.positionId && !await this.employeesRepository.findPositionById(tx, dto.positionId)) {
+                throw new BadRequestException('Invalid positionId')
             }
 
-            // Handle login email update
             if (dto.email !== undefined) {
                 const normalizedEmail = dto.email.toLowerCase().trim()
-                const [user] = await tx
-                    .select()
-                    .from(users)
-                    .where(eq(users.employeeId, id))
-                    .limit(1)
+                const user = await this.employeesRepository.findUserByEmployeeId(tx, id)
 
                 if (!user) {
                     throw new NotFoundException('Associated user not found')
                 }
 
                 if (normalizedEmail !== user.email) {
-                    const [conflict] = await tx
-                        .select({ id: users.id })
-                        .from(users)
-                        .where(eq(users.email, normalizedEmail))
-                        .limit(1)
-
-                    if (conflict) {
+                    if (await this.employeesRepository.findUserByEmail(tx, normalizedEmail)) {
                         throw new BadRequestException('Login email already in use')
                     }
 
-                    await tx
-                        .update(users)
-                        .set({ email: normalizedEmail })
-                        .where(eq(users.id, user.id))
+                    await this.employeesRepository.updateUserEmail(tx, user.id, normalizedEmail)
                 }
             }
 
-            // Validate org unit if provided
-            if (dto.orgUnitId) {
-                const [orgUnit] = await tx
-                    .select()
-                    .from(orgUnits)
-                    .where(eq(orgUnits.id, dto.orgUnitId))
-                    .limit(1)
-
-                if (!orgUnit) {
-                    throw new BadRequestException('Invalid orgUnitId')
-                }
+            if (dto.orgUnitId && !await this.employeesRepository.findOrgUnitById(tx, dto.orgUnitId)) {
+                throw new BadRequestException('Invalid orgUnitId')
             }
 
-            // Validate supervisor
             if (dto.supervisorId) {
                 if (dto.supervisorId === id) {
                     throw new BadRequestException('Employee cannot supervise themselves')
                 }
 
-                const [supervisor] = await tx
-                    .select()
-                    .from(employees)
-                    .where(eq(employees.id, dto.supervisorId))
-                    .limit(1)
+                const supervisor = await this.employeesRepository.findEmployee(tx, dto.supervisorId)
 
                 if (!supervisor) {
                     throw new BadRequestException('Invalid supervisorId')
@@ -330,67 +238,26 @@ export class EmployeesService {
                     throw new BadRequestException('Supervisor must be ACTIVE')
                 }
 
-                // Prevent circular supervision
-                let currentSupervisorId = supervisor.supervisorId
-
-                while (currentSupervisorId) {
-                    if (currentSupervisorId === id) {
-                        throw new BadRequestException('Circular supervisor hierarchy detected')
-                    }
-
-                    const [parent] = await tx
-                        .select()
-                        .from(employees)
-                        .where(eq(employees.id, currentSupervisorId))
-                        .limit(1)
-
-                    if (!parent) break
-
-                    currentSupervisorId = parent.supervisorId
+                if (await this.hasCircularSupervisorChain(tx, id, dto.supervisorId)) {
+                    throw new BadRequestException('Circular supervisor hierarchy detected')
                 }
             }
 
-            // Enforce orgUnit-position consistency
             const effectiveOrgUnitId = dto.orgUnitId ?? existing.orgUnitId
             const effectivePositionId = dto.positionId ?? existing.positionId
 
-            const [mapping] = await tx
-                .select()
-                .from(orgUnitPositions)
-                .where(
-                    and(
-                        eq(orgUnitPositions.orgUnitId, effectiveOrgUnitId),
-                        eq(orgUnitPositions.positionId, effectivePositionId),
-                    ),
-                )
-                .limit(1)
-
-            if (!mapping) {
-                throw new BadRequestException(
-                    'Position is not allowed in the specified org unit',
-                )
+            if (!await this.employeesRepository.findOrgUnitPositionMapping(tx, effectiveOrgUnitId, effectivePositionId)) {
+                throw new BadRequestException('Position is not allowed in the specified org unit')
             }
 
-            // Build safe update payload (exclude undefined fields)
-            const updatePayload: Partial<InferSelectModel<typeof employees>> = {}
-
             const allowedFields: (keyof InferSelectModel<typeof employees>)[] = [
-                'firstName',
-                'middleName',
-                'lastName',
-                'alternateEmail',
-                'hireDate',
-                'employmentType',
-                'addressLine1',
-                'addressLine2',
-                'city',
-                'province',
-                'postalCode',
-                'countryCode',
-                'orgUnitId',
-                'positionId',
-                'supervisorId',
+                'firstName', 'middleName', 'lastName', 'alternateEmail',
+                'hireDate', 'employmentType', 'addressLine1', 'addressLine2',
+                'city', 'province', 'postalCode', 'countryCode',
+                'orgUnitId', 'positionId', 'supervisorId',
             ]
+
+            const updatePayload: Partial<InferSelectModel<typeof employees>> = {}
 
             for (const field of allowedFields) {
                 const value = dto[field as keyof UpdateEmployeeDto]
@@ -399,28 +266,52 @@ export class EmployeesService {
                 }
             }
 
-            updatePayload['updatedAt'] = new Date()
+            updatePayload.updatedAt = new Date()
 
-            const [updated] = await tx
-                .update(employees)
-                .set(updatePayload)
-                .where(eq(employees.id, id))
-                .returning()
+            const updated = await this.employeesRepository.updateEmployee(tx, id, updatePayload)
+
+            if (dto.profile) {
+                await this.employeesRepository.upsertProfile(tx, id, {
+                    birthDate: dto.profile.birthDate ?? null,
+                    gender: dto.profile.gender ?? null,
+                    civilStatus: dto.profile.civilStatus ?? null,
+                    nationality: dto.profile.nationality ?? null,
+                    personalEmail: dto.profile.personalEmail ?? null,
+                    mobileNo: dto.profile.mobileNo ?? null,
+                    landlineNo: dto.profile.landlineNo ?? null,
+                    emergencyContactName: dto.profile.emergencyContactName ?? null,
+                    emergencyContactRelationship: dto.profile.emergencyContactRelationship ?? null,
+                    emergencyContactMobileNo: dto.profile.emergencyContactMobileNo ?? null,
+                    notes: dto.profile.notes ?? null,
+                    updatedAt: new Date(),
+                })
+            }
+
+            if (dto.identifiers) {
+                await this.employeesRepository.upsertIdentifiers(tx, id, {
+                    tinNo: dto.identifiers.tinNo ?? null,
+                    sssNo: dto.identifiers.sssNo ?? null,
+                    philHealthNo: dto.identifiers.philHealthNo ?? null,
+                    pagIbigNo: dto.identifiers.pagIbigNo ?? null,
+                    umidNo: dto.identifiers.umidNo ?? null,
+                    passportNo: dto.identifiers.passportNo ?? null,
+                    passportExpiry: dto.identifiers.passportExpiry ?? null,
+                    driversLicenseNo: dto.identifiers.driversLicenseNo ?? null,
+                    driversLicenseExpiry: dto.identifiers.driversLicenseExpiry ?? null,
+                    prcLicenseNo: dto.identifiers.prcLicenseNo ?? null,
+                    prcLicenseExpiry: dto.identifiers.prcLicenseExpiry ?? null,
+                    companyIdNo: dto.identifiers.companyIdNo ?? null,
+                    updatedAt: new Date(),
+                })
+            }
 
             return updated
         })
     }
 
-    async changeStatus(
-        id: string,
-        status: InferSelectModel<typeof employees>['status'],
-    ) {
-        return this.db.db.transaction(async (tx) => {
-            const [employee] = await tx
-                .select()
-                .from(employees)
-                .where(eq(employees.id, id))
-                .limit(1)
+    async changeStatus(id: string, status: EmployeeDbStatus) {
+        return this.db.withTransaction(async (tx) => {
+            const employee = await this.employeesRepository.findEmployee(tx, id)
 
             if (!employee) {
                 throw new NotFoundException('Employee not found')
@@ -430,33 +321,12 @@ export class EmployeesService {
                 throw new BadRequestException('Cannot change status of a deleted employee')
             }
 
-            const currentStatus = employee.status
-
-            if (!this.isAllowedStatusTransition(currentStatus, status)) {
+            if (!this.isAllowedStatusTransition(employee.status, status)) {
                 throw new BadRequestException('Invalid status transition')
             }
 
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-
-            // RESIGNED subordinate-block check
             if (status === 'RESIGNED') {
-                const [subordinate] = await tx
-                    .select()
-                    .from(employees)
-                    .where(
-                        and(
-                            eq(employees.supervisorId, id),
-                            isNull(employees.deletedAt),
-                        ),
-                    )
-                    .limit(1)
-
-                if (
-                    subordinate &&
-                    subordinate.status !== 'TERMINATED' &&
-                    subordinate.status !== 'RESIGNED'
-                ) {
+                if (await this.hasActiveSubordinates(tx, id)) {
                     throw new BadRequestException(
                         'Cannot mark employee as resigned while supervising active subordinates',
                     )
@@ -464,49 +334,21 @@ export class EmployeesService {
             }
 
             // Rehire flow: RESIGNED or TERMINATED → ACTIVE
-            if (
-                status === 'ACTIVE' &&
-                (currentStatus === 'RESIGNED' || currentStatus === 'TERMINATED')
-            ) {
-                // Lock HR settings for new employee number
-                const [settings] = await tx
-                    .select()
-                    .from(hrSettings)
-                    .limit(1)
-                    .for('update')
+            if (status === 'ACTIVE' && (employee.status === 'RESIGNED' || employee.status === 'TERMINATED')) {
+                const today = new Date()
+                today.setHours(0, 0, 0, 0)
 
-                if (!settings) {
-                    throw new NotFoundException('HR settings not initialized')
-                }
+                const newEmployeeNo = await this.generateEmployeeNo(tx)
 
-                const nextValue = settings.employeeNoNext
+                const rehired = await this.employeesRepository.updateEmployee(tx, id, {
+                    employeeNo: newEmployeeNo,
+                    hireDate: today.toISOString().slice(0, 10),
+                    status: 'ACTIVE',
+                    deletedAt: null,
+                    updatedAt: new Date(),
+                })
 
-                await tx
-                    .update(hrSettings)
-                    .set({ employeeNoNext: nextValue + 1 })
-
-                const padding = Number(settings.employeeNoPadding)
-                const padded = String(nextValue).padStart(padding, '0')
-                const newEmployeeNo = `${settings.employeeNoPrefix}${padded}`
-
-                // Reset hire date, employee number, and status
-                const [rehired] = await tx
-                    .update(employees)
-                    .set({
-                        employeeNo: newEmployeeNo,
-                        hireDate: today.toISOString().slice(0, 10),
-                        status: 'ACTIVE',
-                        deletedAt: null,
-                        updatedAt: new Date(),
-                    })
-                    .where(eq(employees.id, id))
-                    .returning()
-
-                // Reactivate user account
-                await tx
-                    .update(users)
-                    .set({ isActive: true })
-                    .where(eq(users.employeeId, id))
+                await this.employeesRepository.setUserActive(tx, id, true)
 
                 // TODO: Reset leave balances (implement once leave module exists)
 
@@ -514,90 +356,43 @@ export class EmployeesService {
             }
 
             if (status === 'TERMINATED') {
-                const [subordinate] = await tx
-                    .select()
-                    .from(employees)
-                    .where(
-                        and(
-                            eq(employees.supervisorId, id),
-                            isNull(employees.deletedAt),
-                        ),
-                    )
-                    .limit(1)
-
-                if (subordinate && subordinate.status !== 'TERMINATED' && subordinate.status !== 'RESIGNED') {
+                if (await this.hasActiveSubordinates(tx, id)) {
                     throw new BadRequestException(
                         'Cannot terminate employee while supervising active subordinates',
                     )
                 }
 
-                // Deactivate associated user on termination
-                await tx
-                    .update(users)
-                    .set({ isActive: false })
-                    .where(eq(users.employeeId, id))
+                await this.employeesRepository.setUserActive(tx, id, false)
             }
 
-            const [updated] = await tx
-                .update(employees)
-                .set({
-                    status: status,
-                    updatedAt: new Date(),
-                })
-                .where(eq(employees.id, id))
-                .returning()
-
-            return updated
+            return this.employeesRepository.updateEmployee(tx, id, {
+                status,
+                updatedAt: new Date(),
+            })
         })
     }
 
     async softDelete(id: string) {
-        return this.db.db.transaction(async (tx) => {
-            const [employee] = await tx
-                .select()
-                .from(employees)
-                .where(eq(employees.id, id))
-                .limit(1)
+        return this.db.withTransaction(async (tx) => {
+            const employee = await this.employeesRepository.findEmployee(tx, id)
 
             if (!employee) {
                 throw new NotFoundException('Employee not found')
             }
 
-            // Block deletion if employee still supervises active subordinates
-            const [subordinate] = await tx
-                .select()
-                .from(employees)
-                .where(
-                    and(
-                        eq(employees.supervisorId, id),
-                        isNull(employees.deletedAt),
-                    ),
-                )
-                .limit(1)
-
-            if (subordinate && subordinate.status !== 'TERMINATED' && subordinate.status !== 'RESIGNED') {
+            if (await this.hasActiveSubordinates(tx, id)) {
                 throw new BadRequestException(
                     'Cannot delete employee while supervising active subordinates',
                 )
             }
 
-            // Deactivate associated user on soft delete
-            await tx
-                .update(users)
-                .set({ isActive: false })
-                .where(eq(users.employeeId, id))
+            await this.employeesRepository.setUserActive(tx, id, false)
 
-            const [deleted] = await tx
-                .update(employees)
-                .set({
-                    deletedAt: new Date(),
-                    status: 'TERMINATED' as InferSelectModel<typeof employees>['status'],
-                    updatedAt: new Date(),
-                })
-                .where(eq(employees.id, id))
-                .returning()
-
-            return deleted
+            return this.employeesRepository.updateEmployee(tx, id, {
+                deletedAt: new Date(),
+                status: 'TERMINATED',
+                updatedAt: new Date(),
+            })
         })
     }
 }

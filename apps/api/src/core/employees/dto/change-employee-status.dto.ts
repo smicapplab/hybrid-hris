@@ -1,7 +1,7 @@
-import { employeeStatusEnum } from "@hybrid-hris/db";
-import { IsEnum } from "class-validator";
+import { IsIn } from 'class-validator'
+import { EmployeeStatus, EMPLOYEE_STATUSES } from '@hybrid-hris/domain'
 
 export class ChangeEmployeeStatusDto {
-    @IsEnum(employeeStatusEnum.enumValues)
-    status!: typeof employeeStatusEnum.enumValues[number]
+    @IsIn(EMPLOYEE_STATUSES)
+    status!: EmployeeStatus
 }

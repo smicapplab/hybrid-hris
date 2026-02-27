@@ -23,7 +23,9 @@
     "paths": {
       "@/*": ["./*"],
       "@hybrid-hris/db": ["../../packages/db/src"],
-      "@hybrid-hris/db/*": ["../../packages/db/src/*"]
+      "@hybrid-hris/db/*": ["../../packages/db/src/*"],
+      "@hybrid-hris/domain": ["../../packages/domain/src"],
+      "@hybrid-hris/domain/*": ["../../packages/domain/src/*"]
     }
   },
   "include": [
