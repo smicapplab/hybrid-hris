@@ -21,15 +21,28 @@ export class OrgUnitsController {
     constructor(private readonly service: OrgUnitsService) { }
 
     @Get()
-    getFlat(@Query('showDeleted') showDeleted?: string): Promise<any> {
+    getFlat(
+        @Query('showDeleted') showDeleted?: string,
+        @Query('leavesOnly') leavesOnly?: string,
+    ): Promise<any> {
         const includeDeleted = showDeleted === 'true';
-        return this.service.getFlat(includeDeleted);
+        const onlyLeaves = leavesOnly === 'true';
+        return this.service.getFlat(includeDeleted, onlyLeaves);
     }
 
     @Get('tree')
     getTree(@Query('showDeleted') showDeleted?: string): Promise<any> {
         const includeDeleted = showDeleted === 'true';
         return this.service.getTree(includeDeleted);
+    }
+
+    @Get('search')
+    searchLeafOrgUnits(
+        @Query('query') query?: string,
+        @Query('limit') limit?: string,
+    ) {
+        const parsedLimit = limit ? parseInt(limit, 10) : 20;
+        return this.service.searchLeafOrgUnits(query, parsedLimit);
     }
 
     @Get(':id')

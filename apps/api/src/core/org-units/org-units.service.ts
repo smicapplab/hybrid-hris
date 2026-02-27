@@ -20,19 +20,32 @@ interface OrgUnitNode extends OrgUnit {
 export class OrgUnitsService {
   constructor(private readonly db: DatabaseService) { }
 
-  async getFlat(showDeleted = false): Promise<OrgUnit[]> {
-    if (!showDeleted) {
-      return this.db.db
+  async getFlat(showDeleted = false, leavesOnly = false): Promise<OrgUnit[]> {
+    const units = showDeleted
+      ? await this.db.db
+        .select()
+        .from(orgUnits)
+        .orderBy(asc(orgUnits.name))
+      : await this.db.db
         .select()
         .from(orgUnits)
         .where(isNull(orgUnits.deletedAt))
         .orderBy(asc(orgUnits.name));
+
+    if (!leavesOnly) {
+      return units;
     }
 
-    return this.db.db
-      .select()
-      .from(orgUnits)
-      .orderBy(asc(orgUnits.name));
+    // determine parent IDs (non-leaf nodes)
+    const parentIds = new Set<string>();
+    for (const u of units) {
+      if (u.parentId) {
+        parentIds.add(u.parentId);
+      }
+    }
+
+    // return only leaf nodes
+    return units.filter(u => !parentIds.has(u.id));
   }
 
   async getTree(showDeleted = false): Promise<OrgUnitNode[]> {
@@ -258,5 +271,64 @@ export class OrgUnitsService {
       );
 
     return { success: true };
+  }
+  async searchLeafOrgUnits(search?: string, limit = 20) {
+    // Step 1: get all active org units
+    const units = await this.db.db
+      .select()
+      .from(orgUnits)
+      .where(isNull(orgUnits.deletedAt));
+
+    // Build an ID -> unit lookup for computing full paths
+    const unitById = new Map<string, OrgUnit>();
+    for (const u of units) {
+      unitById.set(u.id, u);
+    }
+
+    const buildPath = (unit: OrgUnit): string => {
+      const parts: string[] = [];
+      let current: OrgUnit | undefined = unit;
+
+      // Walk up the parent chain to the root
+      while (current) {
+        parts.unshift(current.name);
+        if (!current.parentId) break;
+        current = unitById.get(current.parentId);
+      }
+
+      return parts.join(' / ');
+    };
+
+    // Step 2: determine parent IDs (non-leaf nodes)
+    const parentIds = new Set<string>();
+    for (const u of units) {
+      if (u.parentId) {
+        parentIds.add(u.parentId);
+      }
+    }
+
+    // Step 3: filter leaf nodes
+    let leaves = units.filter((u) => !parentIds.has(u.id));
+
+    // Step 4: optional search filter (case-insensitive on name OR path)
+    if (search && search.trim().length > 0) {
+      const keyword = search.trim().toLowerCase();
+      leaves = leaves.filter((u) => {
+        const name = u.name.toLowerCase();
+        const path = buildPath(u).toLowerCase();
+        return name.includes(keyword) || path.includes(keyword);
+      });
+    }
+
+    // Step 5: limit result size
+    return leaves
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, limit)
+      .map((u) => ({
+        id: u.id,
+        name: u.name,
+        parentId: u.parentId,
+        path: buildPath(u),
+      }));
   }
 }

@@ -1,5 +1,7 @@
 CREATE TYPE "public"."employee_status" AS ENUM('ACTIVE', 'PROBATION', 'RESIGNED', 'TERMINATED', 'SUSPENDED');--> statement-breakpoint
 CREATE TYPE "public"."employment_type" AS ENUM('REGULAR', 'PROBATIONARY', 'CONTRACTUAL', 'CONSULTANT', 'INTERN');--> statement-breakpoint
+CREATE TYPE "public"."civil_status" AS ENUM('SINGLE', 'MARRIED', 'SEPARATED', 'WIDOWED', 'ANNULLED', 'LIVE_IN');--> statement-breakpoint
+CREATE TYPE "public"."gender" AS ENUM('MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY');--> statement-breakpoint
 CREATE TYPE "public"."org_unit_leader_role" AS ENUM('HEAD', 'CO_HEAD', 'ACTING_HEAD');--> statement-breakpoint
 CREATE TYPE "public"."accrual_method" AS ENUM('MONTHLY', 'ANNUAL_GRANT', 'NONE');--> statement-breakpoint
 CREATE TYPE "public"."leave_request_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED');--> statement-breakpoint
@@ -29,6 +31,41 @@ CREATE TABLE "employees" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "employees_supervisor_not_self_check" CHECK (supervisor_id IS NULL OR supervisor_id <> id),
 	CONSTRAINT "employees_hire_date_not_future_check" CHECK (hire_date <= CURRENT_DATE)
+);
+--> statement-breakpoint
+CREATE TABLE "employee_identifiers" (
+	"employee_id" uuid PRIMARY KEY NOT NULL,
+	"tin_no" varchar(32),
+	"sss_no" varchar(32),
+	"philhealth_no" varchar(32),
+	"pagibig_no" varchar(32),
+	"umid_no" varchar(32),
+	"passport_no" varchar(32),
+	"passport_expiry" date,
+	"drivers_license_no" varchar(32),
+	"drivers_license_expiry" date,
+	"prc_license_no" varchar(32),
+	"prc_license_expiry" date,
+	"company_id_no" varchar(64),
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "employee_profiles" (
+	"employee_id" uuid PRIMARY KEY NOT NULL,
+	"birth_date" date,
+	"gender" "gender",
+	"civil_status" "civil_status",
+	"nationality" varchar(80),
+	"personal_email" varchar(320),
+	"mobile_no" varchar(30),
+	"landline_no" varchar(30),
+	"emergency_contact_name" varchar(160),
+	"emergency_contact_relationship" varchar(60),
+	"emergency_contact_mobile_no" varchar(30),
+	"notes" varchar(500),
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "employee_leave_policies" (
@@ -256,6 +293,8 @@ CREATE TABLE "hr_settings" (
 ALTER TABLE "employees" ADD CONSTRAINT "employees_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_positions_id_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_supervisor_fk" FOREIGN KEY ("supervisor_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_identifiers" ADD CONSTRAINT "employee_identifiers_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_profiles" ADD CONSTRAINT "employee_profiles_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employee_leave_policies" ADD CONSTRAINT "employee_leave_policies_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employee_leave_policies" ADD CONSTRAINT "employee_leave_policies_policy_id_leave_policies_id_fk" FOREIGN KEY ("policy_id") REFERENCES "public"."leave_policies"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -279,12 +318,26 @@ ALTER TABLE "leave_ledger" ADD CONSTRAINT "leave_ledger_leave_type_id_leave_type
 ALTER TABLE "leave_ledger" ADD CONSTRAINT "leave_ledger_reference_leave_request_id_leave_requests_id_fk" FOREIGN KEY ("reference_leave_request_id") REFERENCES "public"."leave_requests"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "employees_employee_no_uq" ON "employees" USING btree ("employee_no");--> statement-breakpoint
 CREATE INDEX "employees_hire_date_idx" ON "employees" USING btree ("hire_date");--> statement-breakpoint
+CREATE INDEX "employees_last_name_idx" ON "employees" USING btree ("last_name");--> statement-breakpoint
 CREATE INDEX "employees_status_idx" ON "employees" USING btree ("employee_status");--> statement-breakpoint
 CREATE INDEX "employees_deleted_at_idx" ON "employees" USING btree ("deleted_at");--> statement-breakpoint
 CREATE INDEX "employees_org_unit_idx" ON "employees" USING btree ("org_unit_id");--> statement-breakpoint
 CREATE INDEX "employees_position_idx" ON "employees" USING btree ("position_id");--> statement-breakpoint
 CREATE INDEX "employees_org_unit_position_idx" ON "employees" USING btree ("org_unit_id","position_id");--> statement-breakpoint
 CREATE INDEX "employees_supervisor_idx" ON "employees" USING btree ("supervisor_id");--> statement-breakpoint
+CREATE INDEX "employee_identifiers_employee_id_idx" ON "employee_identifiers" USING btree ("employee_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_identifiers_tin_uq" ON "employee_identifiers" USING btree ("tin_no");--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_identifiers_sss_no_uq" ON "employee_identifiers" USING btree ("sss_no");--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_identifiers_philhealth_no_uq" ON "employee_identifiers" USING btree ("philhealth_no");--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_identifiers_pagibig_no_uq" ON "employee_identifiers" USING btree ("pagibig_no");--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_identifiers_umid_no_uq" ON "employee_identifiers" USING btree ("umid_no");--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_identifiers_passport_no_uq" ON "employee_identifiers" USING btree ("passport_no");--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_identifiers_drivers_license_no_uq" ON "employee_identifiers" USING btree ("drivers_license_no");--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_identifiers_prc_license_no_uq" ON "employee_identifiers" USING btree ("prc_license_no");--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_identifiers_company_id_no_uq" ON "employee_identifiers" USING btree ("company_id_no");--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_profiles_personal_email_uq" ON "employee_profiles" USING btree ("personal_email");--> statement-breakpoint
+CREATE INDEX "employee_profiles_birth_date_idx" ON "employee_profiles" USING btree ("birth_date");--> statement-breakpoint
+CREATE INDEX "employee_profiles_gender_idx" ON "employee_profiles" USING btree ("gender");--> statement-breakpoint
 CREATE INDEX "employee_leave_policies_employee_idx" ON "employee_leave_policies" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "employee_leave_policies_policy_idx" ON "employee_leave_policies" USING btree ("policy_id");--> statement-breakpoint
 CREATE INDEX "employee_leave_policies_deleted_at_idx" ON "employee_leave_policies" USING btree ("deleted_at");--> statement-breakpoint

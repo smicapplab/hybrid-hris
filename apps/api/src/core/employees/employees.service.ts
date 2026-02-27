@@ -16,8 +16,60 @@ export class EmployeesService {
         private readonly db: DatabaseService,
     ) { }
 
+    private readonly allowedStatusTransitions: Record<InferSelectModel<typeof employees>['status'], readonly InferSelectModel<typeof employees>['status'][]> = {
+        ACTIVE: ['SUSPENDED', 'RESIGNED', 'TERMINATED'],
+        PROBATION: ['ACTIVE', 'RESIGNED', 'TERMINATED'],
+        SUSPENDED: ['ACTIVE', 'TERMINATED'],
+        RESIGNED: ['ACTIVE'],
+        TERMINATED: ['ACTIVE'],
+    } as const
+
+    /**
+     * Returns the allowed next statuses from the current status.
+     * UI can mirror this logic to filter dropdown options.
+     */
+    getAllowedNextStatuses(
+        current: InferSelectModel<typeof employees>['status'],
+    ): readonly InferSelectModel<typeof employees>['status'][] {
+        return this.allowedStatusTransitions[current] ?? []
+    }
+
+    private isAllowedStatusTransition(
+        from: InferSelectModel<typeof employees>['status'],
+        to: InferSelectModel<typeof employees>['status'],
+    ): boolean {
+        const allowed = this.allowedStatusTransitions[from]
+        return Array.isArray(allowed) && allowed.includes(to)
+    }
+
     async findAll(filter: EmployeeFilterDto) {
         return this.employeesRepository.findWithFilters(filter)
+    }
+
+    async findById(id: string) {
+        const [result] = await this.db.db
+            .select({
+                employee: employees,
+                email: users.email,
+            })
+            .from(employees)
+            .leftJoin(users, eq(users.employeeId, employees.id))
+            .where(
+                and(
+                    eq(employees.id, id),
+                    isNull(employees.deletedAt),
+                ),
+            )
+            .limit(1)
+
+        if (!result) {
+            throw new NotFoundException('Employee not found')
+        }
+
+        return {
+            ...result.employee,
+            email: result.email ?? null,
+        }
     }
 
     async create(dto: CreateEmployeeDto) {
@@ -119,11 +171,14 @@ export class EmployeesService {
                 }
             }
 
+            // Normalize login email
+            const normalizedEmail = dto.email.toLowerCase().trim()
+
             // Enforce unique login email
             const [emailConflict] = await tx
                 .select({ id: users.id })
                 .from(users)
-                .where(eq(users.email, dto.email))
+                .where(eq(users.email, normalizedEmail))
                 .limit(1)
 
             if (emailConflict) {
@@ -149,7 +204,7 @@ export class EmployeesService {
 
             // Create user
             const [user] = await this.employeesRepository.insertUser(tx, {
-                email: dto.email,
+                email: normalizedEmail,
                 employeeId: employee.id,
                 isActive: true,
             })
@@ -182,8 +237,20 @@ export class EmployeesService {
             }
 
             // Prevent immutable field updates (defensive check)
-            if ('employeeNo' in dto || 'hireDate' in dto) {
-                throw new BadRequestException('employeeNo and hireDate cannot be modified')
+            if ('employeeNo' in dto) {
+                throw new BadRequestException('employeeNo cannot be modified')
+            }
+
+            if (dto.hireDate !== undefined) {
+                const today = new Date()
+                today.setHours(0, 0, 0, 0)
+
+                const hireDate = new Date(dto.hireDate)
+                hireDate.setHours(0, 0, 0, 0)
+
+                if (hireDate > today) {
+                    throw new BadRequestException('Hire date cannot be in the future')
+                }
             }
 
             // Validate position if provided
@@ -196,6 +263,37 @@ export class EmployeesService {
 
                 if (!position) {
                     throw new BadRequestException('Invalid positionId')
+                }
+            }
+
+            // Handle login email update
+            if (dto.email !== undefined) {
+                const normalizedEmail = dto.email.toLowerCase().trim()
+                const [user] = await tx
+                    .select()
+                    .from(users)
+                    .where(eq(users.employeeId, id))
+                    .limit(1)
+
+                if (!user) {
+                    throw new NotFoundException('Associated user not found')
+                }
+
+                if (normalizedEmail !== user.email) {
+                    const [conflict] = await tx
+                        .select({ id: users.id })
+                        .from(users)
+                        .where(eq(users.email, normalizedEmail))
+                        .limit(1)
+
+                    if (conflict) {
+                        throw new BadRequestException('Login email already in use')
+                    }
+
+                    await tx
+                        .update(users)
+                        .set({ email: normalizedEmail })
+                        .where(eq(users.id, user.id))
                 }
             }
 
@@ -281,6 +379,7 @@ export class EmployeesService {
                 'middleName',
                 'lastName',
                 'alternateEmail',
+                'hireDate',
                 'employmentType',
                 'addressLine1',
                 'addressLine2',
@@ -331,19 +430,9 @@ export class EmployeesService {
                 throw new BadRequestException('Cannot change status of a deleted employee')
             }
 
-            type EmployeeStatus = InferSelectModel<typeof employees>['status']
-
-            const allowedTransitions: Record<EmployeeStatus, EmployeeStatus[]> = {
-                ACTIVE: ['SUSPENDED', 'RESIGNED', 'TERMINATED'],
-                PROBATION: ['ACTIVE', 'RESIGNED', 'TERMINATED'],
-                SUSPENDED: ['ACTIVE', 'TERMINATED'],
-                RESIGNED: ['ACTIVE'],
-                TERMINATED: ['ACTIVE'],
-            }
-
             const currentStatus = employee.status
 
-            if (!allowedTransitions[currentStatus]?.includes(status)) {
+            if (!this.isAllowedStatusTransition(currentStatus, status)) {
                 throw new BadRequestException('Invalid status transition')
             }
 

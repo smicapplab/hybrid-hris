@@ -19,6 +19,24 @@ export class EmployeesController {
         return this.employeesService.findAll(filter)
     }
 
+    @Get(':id/status/options')
+    async getStatusOptions(
+        @Param('id') id: string,
+    ) {
+        const employee = await this.employeesService.findById(id)
+        return {
+            current: employee.status,
+            allowedNext: this.employeesService.getAllowedNextStatuses(employee.status),
+        }
+    }
+
+    @Get(':id')
+    async findById(
+        @Param('id') id: string,
+    ) {
+        return this.employeesService.findById(id)
+    }
+
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     @Post()
     async create(@Body() dto: CreateEmployeeDto) {

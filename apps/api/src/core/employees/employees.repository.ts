@@ -77,7 +77,8 @@ export class EmployeesRepository {
                     SELECT 1
                     FROM ${userRoles} ur
                     JOIN ${roles} r ON r.id = ur.role_id
-                    WHERE ur.user_id = ${users.id}
+                    JOIN ${users} u ON u.id = ur.user_id
+                    WHERE u.employee_id = ${employees.id}
                     AND r.id = ANY(${roleIds})
                 )
             `)

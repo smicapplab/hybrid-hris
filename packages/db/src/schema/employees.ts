@@ -31,6 +31,7 @@ export const employeeStatusEnum = pgEnum('employee_status', [
   'SUSPENDED',
 ]);
 
+
 export const employees = pgTable(
   'employees',
   {
@@ -42,7 +43,9 @@ export const employees = pgTable(
     lastName: varchar('last_name', { length: 120 }).notNull(),
     middleName: varchar('middle_name', { length: 120 }),
 
+
     alternateEmail: varchar('alternate_email', { length: 320 }),
+
 
     hireDate: date('hire_date').notNull(),
 
@@ -79,6 +82,7 @@ export const employees = pgTable(
   (t) => ({
     employeeNoUq: uniqueIndex('employees_employee_no_uq').on(t.employeeNo),
     hireDateIdx: index('employees_hire_date_idx').on(t.hireDate),
+    lastNameIdx: index('employees_last_name_idx').on(t.lastName),
     statusIdx: index('employees_status_idx').on(t.status),
     deletedAtIdx: index('employees_deleted_at_idx').on(t.deletedAt),
     orgUnitIdx: index('employees_org_unit_idx').on(t.orgUnitId),

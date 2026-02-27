@@ -65,6 +65,10 @@ export async function apiFetch<T>(
         const retryHeaders = new Headers(init.headers);
         retryHeaders.set('Authorization', `Bearer ${newToken}`);
 
+        if (init.body && !retryHeaders.has('Content-Type')) {
+            retryHeaders.set('Content-Type', 'application/json');
+        }
+
         const retryRes = await fetch(`${API_URL}${path}`, {
             ...init,
             headers: retryHeaders,
@@ -72,14 +76,48 @@ export async function apiFetch<T>(
         });
 
         if (!retryRes.ok) {
-            throw new Error(`Request failed: ${retryRes.status}`);
+            let message = `Request failed: ${retryRes.status}`;
+            try {
+                const errorData = await retryRes.json();
+                if (errorData?.message) {
+                    message = errorData.message;
+                }
+            } catch { }
+
+            try {
+                const raw = await retryRes.clone().text();
+                console.error('API retry error:', retryRes.status, raw);
+            } catch {}
+
+            throw new Error(message);
+        }
+
+        if (retryRes.status === 204) {
+            return undefined as T;
         }
 
         return retryRes.json() as Promise<T>;
     }
 
     if (!res.ok) {
-        throw new Error(`Request failed: ${res.status}`);
+        let message = `Request failed: ${res.status}`;
+        try {
+            const errorData = await res.json();
+            if (errorData?.message) {
+                message = errorData.message;
+            }
+        } catch { }
+
+        try {
+            const raw = await res.clone().text();
+            console.error('API error:', res.status, raw);
+        } catch {}
+
+        throw new Error(message);
+    }
+
+    if (res.status === 204) {
+        return undefined as T;
     }
 
     return res.json() as Promise<T>;

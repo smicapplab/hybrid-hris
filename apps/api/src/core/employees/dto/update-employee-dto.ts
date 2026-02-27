@@ -1,55 +1,116 @@
-import { IsOptional, IsString, IsEmail, IsUUID, Length } from 'class-validator'
+import {
+    IsOptional,
+    IsString,
+    IsEmail,
+    IsUUID,
+    IsDateString,
+    IsIn,
+    MaxLength,
+    Matches,
+    ValidateIf,
+} from 'class-validator'
+
+const EMPLOYMENT_TYPES = [
+    'REGULAR',
+    'PROBATIONARY',
+    'CONTRACTUAL',
+    'CONSULTANT',
+    'INTERN',
+] as const
+
+export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number]
+
+const NON_EMPTY = /\S/
+const COUNTRY_CODE = /^[A-Z]{2,3}$/
 
 export class UpdateEmployeeDto {
+    // Identity
     @IsOptional()
     @IsString()
-    @Length(1, 100)
+    @MaxLength(100)
+    @ValidateIf((_, v) => typeof v === 'string')
+    @Matches(NON_EMPTY, { message: 'firstName cannot be empty' })
     firstName?: string
 
     @IsOptional()
     @IsString()
-    @Length(1, 100)
+    @MaxLength(100)
+    @ValidateIf((_, v) => typeof v === 'string')
+    @Matches(NON_EMPTY, { message: 'middleName cannot be empty' })
     middleName?: string
 
     @IsOptional()
     @IsString()
-    @Length(1, 100)
+    @MaxLength(100)
+    @ValidateIf((_, v) => typeof v === 'string')
+    @Matches(NON_EMPTY, { message: 'lastName cannot be empty' })
     lastName?: string
 
+    // Email
+    // - `email` is the unique login email (stored in `users`) but is editable from the employee screen
+    // - `alternateEmail` is stored on `employees`
     @IsOptional()
     @IsEmail()
     alternateEmail?: string
 
     @IsOptional()
+    @IsEmail()
+    email?: string
+
+    // Employment
+    @IsOptional()
+    @IsDateString()
+    hireDate?: string
+
+    @IsOptional()
+    @IsIn(EMPLOYMENT_TYPES)
+    employmentType?: EmploymentType
+
+    // Address (kept on employees)
+    @IsOptional()
     @IsString()
-    @Length(1, 255)
+    @MaxLength(255)
+    @ValidateIf((_, v) => typeof v === 'string')
+    @Matches(NON_EMPTY, { message: 'addressLine1 cannot be empty' })
     addressLine1?: string
 
     @IsOptional()
     @IsString()
-    @Length(1, 255)
+    @MaxLength(255)
+    @ValidateIf((_, v) => typeof v === 'string')
+    @Matches(NON_EMPTY, { message: 'addressLine2 cannot be empty' })
     addressLine2?: string
 
     @IsOptional()
     @IsString()
-    @Length(1, 100)
+    @MaxLength(100)
+    @ValidateIf((_, v) => typeof v === 'string')
+    @Matches(NON_EMPTY, { message: 'city cannot be empty' })
     city?: string
 
     @IsOptional()
     @IsString()
-    @Length(1, 100)
+    @MaxLength(100)
+    @ValidateIf((_, v) => typeof v === 'string')
+    @Matches(NON_EMPTY, { message: 'province cannot be empty' })
     province?: string
 
     @IsOptional()
     @IsString()
-    @Length(1, 20)
+    @MaxLength(20)
+    @ValidateIf((_, v) => typeof v === 'string')
+    @Matches(NON_EMPTY, { message: 'postalCode cannot be empty' })
     postalCode?: string
 
     @IsOptional()
     @IsString()
-    @Length(2, 2)
+    @MaxLength(10)
+    @ValidateIf((_, v) => typeof v === 'string')
+    @Matches(NON_EMPTY, { message: 'countryCode cannot be empty' })
+    @Matches(COUNTRY_CODE, { message: 'countryCode must be an ISO alpha-2/3 code (e.g., PH)' })
     countryCode?: string
 
+    // Org / Position / Reporting
     @IsOptional()
     @IsUUID()
     orgUnitId?: string
@@ -60,5 +121,5 @@ export class UpdateEmployeeDto {
 
     @IsOptional()
     @IsUUID()
-    supervisorId?: string
+    supervisorId?: string | null
 }

@@ -1,4 +1,6 @@
 export * from './employees';
+export * from './employee-identifiers';
+export * from './employee-profiles';
 export * from './employee-leave-policies';
 export * from './users';
 export * from './roles';

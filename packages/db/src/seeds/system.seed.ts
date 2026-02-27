@@ -13,6 +13,8 @@ import { orgUnitLeaders } from '../schema/org-unit-leaders';
 import { eq } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
 import { hrSettings } from '../schema/hr-settings';
+import { employeeProfiles } from '../schema/employee-profiles';
+import { employeeIdentifiers } from '../schema/employee-identifiers';
 
 
 const pool = new Pool({
@@ -25,6 +27,72 @@ export async function seedSystem() {
     console.log('Seeding system data...');
     const loadTestData = process.env.LOAD_TEST_DATA === 'true';
     console.log('LOAD_TEST_DATA:', process.env.LOAD_TEST_DATA);
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    function digitsOnly(value: string): string {
+        return value.replace(/\D/g, '');
+    }
+
+    function padLeft(value: string, len: number, ch = '0'): string {
+        if (value.length >= len) return value;
+        return ch.repeat(len - value.length) + value;
+    }
+
+    function makeTin(employeeNo: string): string {
+        // PH TIN commonly 9-12 digits; use 12 digits here for consistency
+        const base = padLeft(digitsOnly(employeeNo), 12);
+        return base.slice(0, 12);
+    }
+
+    function makeSss(employeeNo: string): string {
+        // SSS is 10 digits; generate deterministic 10-digit value
+        const base = padLeft(digitsOnly(employeeNo), 10);
+        return base.slice(0, 10);
+    }
+
+    function makePhilHealth(employeeNo: string): string {
+        // PhilHealth PIN is typically 12 digits
+        const base = padLeft(digitsOnly(employeeNo), 12);
+        return base.slice(0, 12);
+    }
+
+    function makePagIbig(employeeNo: string): string {
+        // Pag-IBIG MID is typically 12 digits
+        const base = padLeft(digitsOnly(employeeNo), 12);
+        return base.slice(0, 12);
+    }
+
+    async function ensureEmployeeProfile(employeeId: string, employeeNo: string) {
+        await db.insert(employeeProfiles)
+            .values({
+                employeeId,
+                // Example demographic fields (adjust to your schema if names differ)
+                mobileNo: `09${padLeft(digitsOnly(employeeNo), 9).slice(0, 9)}`,
+                birthDate: '1990-01-01',
+                gender: 'MALE',
+                civilStatus: 'SINGLE',
+                emergencyContactName: 'Emergency Contact',
+                emergencyContactMobileNo: '09171234567',
+            })
+            .onConflictDoNothing();
+    }
+
+    async function ensureEmployeeIdentifiers(employeeId: string, employeeNo: string) {
+        // NOTE: keep these key names aligned with `employeeIdentifiers` schema.
+        // Common naming in the schema is `*No` suffix.
+        const identifiers: typeof employeeIdentifiers.$inferInsert = {
+            employeeId,
+            tinNo: makeTin(employeeNo),
+            sssNo: makeSss(employeeNo),
+            philHealthNo: makePhilHealth(employeeNo),
+            pagIbigNo: makePagIbig(employeeNo),
+        };
+
+        await db.insert(employeeIdentifiers)
+            .values(identifiers)
+            .onConflictDoNothing();
+    }
 
     // ---- Roles ----
     await db.insert(roles).values([
@@ -153,7 +221,7 @@ export async function seedSystem() {
             employeeNo: 'EMP-0001',
             firstName: 'System',
             lastName: 'Administrator',
-            hireDate: new Date().toISOString().slice(0, 10),
+            hireDate: todayIso,
             employmentType: 'REGULAR',
             status: 'ACTIVE',
             orgUnitId: defaultOrg?.id,
@@ -169,6 +237,10 @@ export async function seedSystem() {
             .from(employees)
             .where(eq(employees.employeeNo, 'EMP-0001'));
         adminEmployeeId = existingEmployee[0]?.id;
+    }
+    if (adminEmployeeId) {
+        await ensureEmployeeProfile(adminEmployeeId, 'EMP-0001');
+        await ensureEmployeeIdentifiers(adminEmployeeId, 'EMP-0001');
     }
 
     const passwordHash = await bcrypt.hash('Admin123!', 10);
@@ -217,7 +289,7 @@ export async function seedSystem() {
                 orgUnitId: defaultOrg.id,
                 employeeId: adminEmployeeId,
                 role: 'HEAD',
-                effectiveFrom: new Date().toISOString().slice(0, 10),
+                effectiveFrom: todayIso,
             })
             .onConflictDoNothing();
     }
@@ -436,7 +508,7 @@ export async function seedSystem() {
                 employeeNo: 'EMP-1001',
                 firstName: 'Alice',
                 lastName: 'Santos',
-                hireDate: new Date().toISOString().slice(0, 10),
+                hireDate: todayIso,
                 employmentType: 'REGULAR',
                 status: 'ACTIVE',
                 orgUnitId: hrOrg?.id,
@@ -446,13 +518,18 @@ export async function seedSystem() {
             .onConflictDoNothing()
             .returning();
 
+        if (hrManagerEmployee) {
+            await ensureEmployeeProfile(hrManagerEmployee.id, hrManagerEmployee.employeeNo);
+            await ensureEmployeeIdentifiers(hrManagerEmployee.id, hrManagerEmployee.employeeNo);
+        }
+
         if (hrManagerEmployee && hrOrg) {
             await db.insert(orgUnitLeaders)
                 .values({
                     orgUnitId: hrOrg.id,
                     employeeId: hrManagerEmployee.id,
                     role: 'HEAD',
-                    effectiveFrom: new Date().toISOString().slice(0, 10),
+                    effectiveFrom: todayIso,
                 })
                 .onConflictDoNothing();
         }
@@ -462,7 +539,7 @@ export async function seedSystem() {
                 employeeNo: 'EMP-1002',
                 firstName: 'Mark',
                 lastName: 'Reyes',
-                hireDate: new Date().toISOString().slice(0, 10),
+                hireDate: todayIso,
                 employmentType: 'REGULAR',
                 status: 'ACTIVE',
                 orgUnitId: itOrg?.id,
@@ -472,13 +549,18 @@ export async function seedSystem() {
             .onConflictDoNothing()
             .returning();
 
+        if (itManagerEmployee) {
+            await ensureEmployeeProfile(itManagerEmployee.id, itManagerEmployee.employeeNo);
+            await ensureEmployeeIdentifiers(itManagerEmployee.id, itManagerEmployee.employeeNo);
+        }
+
         if (itManagerEmployee && itOrg) {
             await db.insert(orgUnitLeaders)
                 .values({
                     orgUnitId: itOrg.id,
                     employeeId: itManagerEmployee.id,
                     role: 'HEAD',
-                    effectiveFrom: new Date().toISOString().slice(0, 10),
+                    effectiveFrom: todayIso,
                 })
                 .onConflictDoNothing();
         }
@@ -491,7 +573,7 @@ export async function seedSystem() {
                         employeeNo: 'EMP-1003',
                         firstName: 'John',
                         lastName: 'Dela Cruz',
-                        hireDate: new Date().toISOString().slice(0, 10),
+                        hireDate: todayIso,
                         employmentType: 'REGULAR',
                         status: 'ACTIVE',
                         orgUnitId: itEngineering?.id,
@@ -502,7 +584,7 @@ export async function seedSystem() {
                         employeeNo: 'EMP-1004',
                         firstName: 'Jane',
                         lastName: 'Lopez',
-                        hireDate: new Date().toISOString().slice(0, 10),
+                        hireDate: todayIso,
                         employmentType: 'REGULAR',
                         status: 'ACTIVE',
                         orgUnitId: itEngineering?.id,
@@ -511,6 +593,17 @@ export async function seedSystem() {
                     },
                 ])
                 .onConflictDoNothing();
+
+            const insertedDevs = await db.select()
+                .from(employees)
+                .where(eq(employees.orgUnitId, itEngineering!.id));
+
+            for (const dev of insertedDevs) {
+                if (!dev?.id) continue;
+                if (dev.employeeNo !== 'EMP-1003' && dev.employeeNo !== 'EMP-1004') continue;
+                await ensureEmployeeProfile(dev.id, dev.employeeNo);
+                await ensureEmployeeIdentifiers(dev.id, dev.employeeNo);
+            }
         }
 
         // ---- Create Users for Sample Employees ----
@@ -571,7 +664,7 @@ export async function seedSystem() {
                         orgUnitId: emp.orgUnitId,
                         employeeId: emp.id,
                         role: 'HEAD',
-                        effectiveFrom: new Date().toISOString().slice(0, 10),
+                        effectiveFrom: todayIso,
                     })
                     .onConflictDoNothing();
             }
