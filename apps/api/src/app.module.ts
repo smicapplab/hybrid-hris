@@ -7,6 +7,7 @@ import { DatabaseModule } from './database/database.module';
 import { RolesModule } from './identity/roles/roles.module';
 import { IdentityModule } from './identity/identity.module';
 import { CoreModule } from './core/core.module';
+import { AttendanceModule } from './attendance/attendance.module';
 
 @Module({
   imports: [
@@ -15,7 +16,8 @@ import { CoreModule } from './core/core.module';
     DatabaseModule,
     RolesModule,
     IdentityModule,
-    CoreModule
+    CoreModule,
+    AttendanceModule
   ],
   controllers: [AppController],
   providers: [AppService],

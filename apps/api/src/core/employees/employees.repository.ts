@@ -281,9 +281,9 @@ export class EmployeesRepository {
         return row
     }
 
-    async getHrConfig(db: DbOrTx): Promise<Pick<InferSelectModel<typeof hrSettings>, 'emailDomain'> | null> {
+    async getHrConfig(db: DbOrTx): Promise<Pick<InferSelectModel<typeof hrSettings>, 'emailDomain' | 'timezone'> | null> {
         const [row] = await db
-            .select({ emailDomain: hrSettings.emailDomain })
+            .select({ emailDomain: hrSettings.emailDomain, timezone: hrSettings.timezone })
             .from(hrSettings)
             .limit(1)
 

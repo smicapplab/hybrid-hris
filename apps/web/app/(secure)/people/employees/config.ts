@@ -47,6 +47,49 @@ export const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
     CONSULTANT: 'Consultant', INTERN: 'Intern',
 }
 
+export const TIMEZONE_OPTIONS = [
+    { value: 'UTC',                  label: 'UTC' },
+    // Asia Pacific
+    { value: 'Asia/Manila',          label: 'Asia/Manila — PHT (UTC+8)' },
+    { value: 'Asia/Singapore',       label: 'Asia/Singapore — SGT (UTC+8)' },
+    { value: 'Asia/Hong_Kong',       label: 'Asia/Hong_Kong — HKT (UTC+8)' },
+    { value: 'Asia/Taipei',          label: 'Asia/Taipei — CST (UTC+8)' },
+    { value: 'Asia/Tokyo',           label: 'Asia/Tokyo — JST (UTC+9)' },
+    { value: 'Asia/Seoul',           label: 'Asia/Seoul — KST (UTC+9)' },
+    { value: 'Asia/Shanghai',        label: 'Asia/Shanghai — CST (UTC+8)' },
+    { value: 'Asia/Bangkok',         label: 'Asia/Bangkok — ICT (UTC+7)' },
+    { value: 'Asia/Jakarta',         label: 'Asia/Jakarta — WIB (UTC+7)' },
+    { value: 'Asia/Kuala_Lumpur',    label: 'Asia/Kuala_Lumpur — MYT (UTC+8)' },
+    { value: 'Asia/Ho_Chi_Minh',     label: 'Asia/Ho_Chi_Minh — ICT (UTC+7)' },
+    { value: 'Asia/Kolkata',         label: 'Asia/Kolkata — IST (UTC+5:30)' },
+    { value: 'Asia/Dhaka',           label: 'Asia/Dhaka — BST (UTC+6)' },
+    { value: 'Asia/Dubai',           label: 'Asia/Dubai — GST (UTC+4)' },
+    { value: 'Asia/Riyadh',          label: 'Asia/Riyadh — AST (UTC+3)' },
+    // Europe
+    { value: 'Europe/London',        label: 'Europe/London — GMT/BST' },
+    { value: 'Europe/Paris',         label: 'Europe/Paris — CET (UTC+1)' },
+    { value: 'Europe/Berlin',        label: 'Europe/Berlin — CET (UTC+1)' },
+    { value: 'Europe/Amsterdam',     label: 'Europe/Amsterdam — CET (UTC+1)' },
+    { value: 'Europe/Rome',          label: 'Europe/Rome — CET (UTC+1)' },
+    { value: 'Europe/Madrid',        label: 'Europe/Madrid — CET (UTC+1)' },
+    { value: 'Europe/Helsinki',      label: 'Europe/Helsinki — EET (UTC+2)' },
+    { value: 'Europe/Moscow',        label: 'Europe/Moscow — MSK (UTC+3)' },
+    // Americas
+    { value: 'America/New_York',     label: 'America/New_York — EST/EDT' },
+    { value: 'America/Chicago',      label: 'America/Chicago — CST/CDT' },
+    { value: 'America/Denver',       label: 'America/Denver — MST/MDT' },
+    { value: 'America/Los_Angeles',  label: 'America/Los_Angeles — PST/PDT' },
+    { value: 'America/Toronto',      label: 'America/Toronto — EST/EDT' },
+    { value: 'America/Vancouver',    label: 'America/Vancouver — PST/PDT' },
+    { value: 'America/Sao_Paulo',    label: 'America/Sao_Paulo — BRT (UTC-3)' },
+    { value: 'America/Mexico_City',  label: 'America/Mexico_City — CST/CDT' },
+    // Oceania
+    { value: 'Australia/Sydney',     label: 'Australia/Sydney — AEST/AEDT' },
+    { value: 'Australia/Perth',      label: 'Australia/Perth — AWST (UTC+8)' },
+    { value: 'Pacific/Auckland',     label: 'Pacific/Auckland — NZST/NZDT' },
+    { value: 'Pacific/Honolulu',     label: 'Pacific/Honolulu — HST (UTC-10)' },
+] as const
+
 export const COUNTRY_OPTIONS = [
     // Southeast Asia
     { code: 'PH', label: 'Philippines' },

@@ -14,23 +14,10 @@ import { sql } from 'drizzle-orm';
 
 import { orgUnits } from './org-units';
 import { positions } from './positions';
+import { EMPLOYEE_STATUSES, EMPLOYMENT_TYPES } from '@hybrid-hris/domain';
 
-export const employmentTypeEnum = pgEnum('employment_type', [
-  'REGULAR',
-  'PROBATIONARY',
-  'CONTRACTUAL',
-  'CONSULTANT',
-  'INTERN',
-]);
-
-export const employeeStatusEnum = pgEnum('employee_status', [
-  'ACTIVE',
-  'PROBATION',
-  'RESIGNED',
-  'TERMINATED',
-  'SUSPENDED',
-]);
-
+export const employmentTypeEnum = pgEnum('employment_type', EMPLOYMENT_TYPES);
+export const employeeStatusEnum = pgEnum('employee_status', EMPLOYEE_STATUSES);
 
 export const employees = pgTable(
   'employees',
@@ -63,6 +50,9 @@ export const employees = pgTable(
     province: varchar('province', { length: 120 }),
     postalCode: varchar('postal_code', { length: 20 }),
     countryCode: varchar('country_code', { length: 10 }).default('PH').notNull(),
+
+    // IANA timezone override for this employee. Null = inherit from hr_settings.timezone.
+    timezone: varchar('timezone', { length: 50 }),
 
     orgUnitId: uuid('org_unit_id')
       .notNull()

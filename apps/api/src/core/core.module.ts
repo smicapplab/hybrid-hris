@@ -5,7 +5,7 @@ import { EmployeesModule } from './employees/employees.module';
 
 @Module({
     imports: [OrgUnitsModule, PositionsModule, EmployeesModule],
-    exports: [OrgUnitsModule],
+    exports: [OrgUnitsModule, PositionsModule, EmployeesModule],
 })
 
 export class CoreModule { }

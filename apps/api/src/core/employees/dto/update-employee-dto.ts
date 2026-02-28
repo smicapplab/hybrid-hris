@@ -11,7 +11,7 @@ import {
     ValidateNested,
 } from 'class-validator'
 import { Type } from 'class-transformer'
-import { EmploymentType, EMPLOYMENT_TYPES } from '@hybrid-hris/domain'
+import { EmploymentType, EMPLOYMENT_TYPES, TIMEZONES } from '@hybrid-hris/domain'
 import { UpdateEmployeeProfileDto } from './update-employee-profile.dto'
 import { UpdateEmployeeIdentifiersDto } from './update-employee-identifiers.dto'
 
@@ -104,6 +104,10 @@ export class UpdateEmployeeDto {
     @Matches(NON_EMPTY, { message: 'countryCode cannot be empty' })
     @Matches(COUNTRY_CODE, { message: 'countryCode must be an ISO alpha-2/3 code (e.g., PH)' })
     countryCode?: string
+
+    @IsOptional()
+    @IsIn(TIMEZONES, { message: 'timezone must be a valid IANA timezone' })
+    timezone?: string | null
 
     // Org / Position / Reporting
     @IsOptional()

@@ -1,4 +1,4 @@
-CREATE TYPE "public"."employee_status" AS ENUM('ACTIVE', 'PROBATION', 'RESIGNED', 'TERMINATED', 'SUSPENDED');--> statement-breakpoint
+CREATE TYPE "public"."employee_status" AS ENUM('ACTIVE', 'PROBATION', 'SUSPENDED', 'RESIGNED', 'TERMINATED');--> statement-breakpoint
 CREATE TYPE "public"."employment_type" AS ENUM('REGULAR', 'PROBATIONARY', 'CONTRACTUAL', 'CONSULTANT', 'INTERN');--> statement-breakpoint
 CREATE TYPE "public"."civil_status" AS ENUM('SINGLE', 'MARRIED', 'SEPARATED', 'WIDOWED', 'ANNULLED');--> statement-breakpoint
 CREATE TYPE "public"."gender" AS ENUM('MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY');--> statement-breakpoint
@@ -7,6 +7,8 @@ CREATE TYPE "public"."accrual_method" AS ENUM('MONTHLY', 'ANNUAL_GRANT', 'NONE')
 CREATE TYPE "public"."leave_request_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED');--> statement-breakpoint
 CREATE TYPE "public"."leave_approval_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
 CREATE TYPE "public"."leave_ledger_entry_type" AS ENUM('ACCRUAL', 'CONSUMPTION', 'ADJUSTMENT');--> statement-breakpoint
+CREATE TYPE "public"."attendance_source" AS ENUM('WEB', 'MOBILE', 'KIOSK', 'API');--> statement-breakpoint
+CREATE TYPE "public"."attendance_adjustment_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
 CREATE TABLE "employees" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"employee_no" varchar(50) NOT NULL,
@@ -23,6 +25,7 @@ CREATE TABLE "employees" (
 	"province" varchar(120),
 	"postal_code" varchar(20),
 	"country_code" varchar(10) DEFAULT 'PH' NOT NULL,
+	"timezone" varchar(50),
 	"org_unit_id" uuid NOT NULL,
 	"position_id" uuid NOT NULL,
 	"supervisor_id" uuid,
@@ -85,6 +88,10 @@ CREATE TABLE "users" (
 	"employee_id" uuid,
 	"email" varchar(320) NOT NULL,
 	"password_hash" varchar(255),
+	"attendance_pin_hash" varchar(255),
+	"attendance_pin_set_at" timestamp with time zone,
+	"attendance_pin_attempts" integer DEFAULT 0 NOT NULL,
+	"attendance_pin_locked_until" timestamp with time zone,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"deleted_at" timestamp with time zone,
 	"last_login_at" timestamp with time zone,
@@ -287,6 +294,70 @@ CREATE TABLE "hr_settings" (
 	"employee_no_next" integer DEFAULT 1 NOT NULL,
 	"employee_no_padding" integer DEFAULT 6 NOT NULL,
 	"email_domain" varchar(253),
+	"timezone" varchar(50) DEFAULT 'UTC' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "shift_templates" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"code" varchar(50) NOT NULL,
+	"name" varchar(150) NOT NULL,
+	"start_time" varchar(5) NOT NULL,
+	"end_time" varchar(5) NOT NULL,
+	"break_minutes" integer NOT NULL,
+	"is_flexible" boolean DEFAULT false NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"deleted_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "employee_shift_assignments" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"employee_id" uuid NOT NULL,
+	"shift_template_id" uuid NOT NULL,
+	"start_time" varchar(5) NOT NULL,
+	"end_time" varchar(5) NOT NULL,
+	"break_minutes" integer NOT NULL,
+	"is_flexible" boolean NOT NULL,
+	"effective_from" date NOT NULL,
+	"effective_to" date,
+	"deleted_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "employee_shift_assignments_effective_date_order_check" CHECK ((effective_to IS NULL) OR (effective_to >= effective_from))
+);
+--> statement-breakpoint
+CREATE TABLE "attendance_logs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"employee_id" uuid NOT NULL,
+	"work_date" date NOT NULL,
+	"scheduled_in_at" timestamp with time zone NOT NULL,
+	"scheduled_out_at" timestamp with time zone NOT NULL,
+	"actual_in_at" timestamp with time zone,
+	"actual_out_at" timestamp with time zone,
+	"source_in" "attendance_source",
+	"source_out" "attendance_source",
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "attendance_adjustments" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"employee_id" uuid NOT NULL,
+	"work_date" date NOT NULL,
+	"attendance_log_id" uuid NOT NULL,
+	"requested_actual_in_at" timestamp with time zone,
+	"requested_actual_out_at" timestamp with time zone,
+	"previous_actual_in_at" timestamp with time zone,
+	"previous_actual_out_at" timestamp with time zone,
+	"reason_code" integer,
+	"status" "attendance_adjustment_status" DEFAULT 'PENDING' NOT NULL,
+	"requested_by" uuid NOT NULL,
+	"approved_by" uuid,
+	"approved_at" timestamp with time zone,
+	"deleted_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -317,6 +388,13 @@ ALTER TABLE "leave_request_approvals" ADD CONSTRAINT "leave_request_approvals_ap
 ALTER TABLE "leave_ledger" ADD CONSTRAINT "leave_ledger_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "leave_ledger" ADD CONSTRAINT "leave_ledger_leave_type_id_leave_types_id_fk" FOREIGN KEY ("leave_type_id") REFERENCES "public"."leave_types"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "leave_ledger" ADD CONSTRAINT "leave_ledger_reference_leave_request_id_leave_requests_id_fk" FOREIGN KEY ("reference_leave_request_id") REFERENCES "public"."leave_requests"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_shift_assignments" ADD CONSTRAINT "employee_shift_assignments_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_shift_assignments" ADD CONSTRAINT "employee_shift_assignments_shift_template_id_shift_templates_id_fk" FOREIGN KEY ("shift_template_id") REFERENCES "public"."shift_templates"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "attendance_logs" ADD CONSTRAINT "attendance_logs_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "attendance_adjustments" ADD CONSTRAINT "attendance_adjustments_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "attendance_adjustments" ADD CONSTRAINT "attendance_adjustments_attendance_log_id_attendance_logs_id_fk" FOREIGN KEY ("attendance_log_id") REFERENCES "public"."attendance_logs"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "attendance_adjustments" ADD CONSTRAINT "attendance_adjustments_requested_by_users_id_fk" FOREIGN KEY ("requested_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "attendance_adjustments" ADD CONSTRAINT "attendance_adjustments_approved_by_users_id_fk" FOREIGN KEY ("approved_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "employees_employee_no_uq" ON "employees" USING btree ("employee_no");--> statement-breakpoint
 CREATE INDEX "employees_hire_date_idx" ON "employees" USING btree ("hire_date");--> statement-breakpoint
 CREATE INDEX "employees_last_name_idx" ON "employees" USING btree ("last_name");--> statement-breakpoint
@@ -346,6 +424,8 @@ CREATE UNIQUE INDEX "employee_leave_policies_employee_effective_from_uq" ON "emp
 CREATE UNIQUE INDEX "users_email_lower_uq" ON "users" USING btree (lower(email));--> statement-breakpoint
 CREATE UNIQUE INDEX "users_employee_id_uq" ON "users" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "users_is_active_idx" ON "users" USING btree ("is_active");--> statement-breakpoint
+CREATE INDEX "users_deleted_at_idx" ON "users" USING btree ("deleted_at");--> statement-breakpoint
+CREATE INDEX "users_attendance_pin_locked_until_idx" ON "users" USING btree ("attendance_pin_locked_until");--> statement-breakpoint
 CREATE UNIQUE INDEX "roles_code_uq" ON "roles" USING btree ("code");--> statement-breakpoint
 CREATE INDEX "user_roles_user_idx" ON "user_roles" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "user_roles_role_idx" ON "user_roles" USING btree ("role_id");--> statement-breakpoint
@@ -372,4 +452,20 @@ CREATE INDEX "leave_request_approvals_approver_idx" ON "leave_request_approvals"
 CREATE UNIQUE INDEX "leave_request_approvals_request_level_uq" ON "leave_request_approvals" USING btree ("leave_request_id","level");--> statement-breakpoint
 CREATE INDEX "leave_ledger_employee_idx" ON "leave_ledger" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "leave_ledger_leave_type_idx" ON "leave_ledger" USING btree ("leave_type_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "leave_ledger_accrual_key_uq" ON "leave_ledger" USING btree ("employee_id","leave_type_id","accrual_key");
+CREATE UNIQUE INDEX "leave_ledger_accrual_key_uq" ON "leave_ledger" USING btree ("employee_id","leave_type_id","accrual_key");--> statement-breakpoint
+CREATE UNIQUE INDEX "shift_templates_code_uq" ON "shift_templates" USING btree ("code") WHERE deleted_at IS NULL;--> statement-breakpoint
+CREATE INDEX "shift_templates_is_active_idx" ON "shift_templates" USING btree ("is_active");--> statement-breakpoint
+CREATE INDEX "shift_templates_deleted_at_idx" ON "shift_templates" USING btree ("deleted_at");--> statement-breakpoint
+CREATE INDEX "employee_shift_assignments_employee_idx" ON "employee_shift_assignments" USING btree ("employee_id");--> statement-breakpoint
+CREATE INDEX "employee_shift_assignments_shift_template_idx" ON "employee_shift_assignments" USING btree ("shift_template_id");--> statement-breakpoint
+CREATE INDEX "employee_shift_assignments_deleted_at_idx" ON "employee_shift_assignments" USING btree ("deleted_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_shift_assignments_employee_effective_from_uq" ON "employee_shift_assignments" USING btree ("employee_id","effective_from") WHERE deleted_at IS NULL;--> statement-breakpoint
+CREATE INDEX "attendance_logs_employee_idx" ON "attendance_logs" USING btree ("employee_id");--> statement-breakpoint
+CREATE INDEX "attendance_logs_work_date_idx" ON "attendance_logs" USING btree ("work_date");--> statement-breakpoint
+CREATE UNIQUE INDEX "attendance_logs_employee_work_date_uq" ON "attendance_logs" USING btree ("employee_id","work_date");--> statement-breakpoint
+CREATE INDEX "attendance_adjustments_employee_idx" ON "attendance_adjustments" USING btree ("employee_id");--> statement-breakpoint
+CREATE INDEX "attendance_adjustments_work_date_idx" ON "attendance_adjustments" USING btree ("work_date");--> statement-breakpoint
+CREATE INDEX "attendance_adjustments_status_idx" ON "attendance_adjustments" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "attendance_adjustments_deleted_at_idx" ON "attendance_adjustments" USING btree ("deleted_at");--> statement-breakpoint
+CREATE INDEX "attendance_adjustments_employee_work_date_idx" ON "attendance_adjustments" USING btree ("employee_id","work_date");--> statement-breakpoint
+CREATE INDEX "attendance_adjustments_log_idx" ON "attendance_adjustments" USING btree ("attendance_log_id");

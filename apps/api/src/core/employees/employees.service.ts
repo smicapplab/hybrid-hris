@@ -147,6 +147,8 @@ export class EmployeesService {
 
             const passwordHash = await bcrypt.hash(dto.password, 10)
 
+            const hrConfig = await this.employeesRepository.getHrConfig(tx)
+
             const [employee] = await this.employeesRepository.insertEmployee(tx, {
                 employeeNo,
                 firstName: dto.firstName,
@@ -157,6 +159,7 @@ export class EmployeesService {
                 positionId: dto.positionId,
                 supervisorId: dto.supervisorId ?? null,
                 hireDate: dto.hireDate,
+                timezone: hrConfig?.timezone ?? 'UTC',
             })
 
             if (!employee) {
@@ -262,7 +265,7 @@ export class EmployeesService {
             const allowedFields: (keyof InferSelectModel<typeof employees>)[] = [
                 'firstName', 'middleName', 'lastName', 'alternateEmail',
                 'hireDate', 'employmentType', 'addressLine1', 'addressLine2',
-                'city', 'province', 'postalCode', 'countryCode',
+                'city', 'province', 'postalCode', 'countryCode', 'timezone',
                 'orgUnitId', 'positionId', 'supervisorId',
             ]
 

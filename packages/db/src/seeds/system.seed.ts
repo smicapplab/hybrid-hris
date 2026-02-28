@@ -15,6 +15,8 @@ import * as bcrypt from 'bcryptjs';
 import { hrSettings } from '../schema/hr-settings';
 import { employeeProfiles } from '../schema/employee-profiles';
 import { employeeIdentifiers } from '../schema/employee-identifiers';
+import { shiftTemplates } from '../schema/shift-templates';
+import { employeeShiftAssignments } from '../schema/employee-shift-assignments';
 
 
 const pool = new Pool({
@@ -213,6 +215,41 @@ export async function seedSystem() {
         )[0];
     }
 
+    // ---- Default Shift Templates ----
+    const [dayShift] = await db.insert(shiftTemplates)
+        .values({
+            code: 'DAY_SHIFT',
+            name: 'Day Shift (9AM-6PM)',
+            startTime: '09:00',
+            endTime: '18:00',
+            breakMinutes: 60,
+            isFlexible: false,
+            isActive: true,
+        })
+        .onConflictDoNothing()
+        .returning();
+
+    const [nightShift] = await db.insert(shiftTemplates)
+        .values({
+            code: 'NIGHT_SHIFT',
+            name: 'Night Shift (10PM-6AM)',
+            startTime: '22:00',
+            endTime: '06:00',
+            breakMinutes: 60,
+            isFlexible: false,
+            isActive: true,
+        })
+        .onConflictDoNothing()
+        .returning();
+
+    const resolvedDayShift = dayShift ?? (
+        await db.select().from(shiftTemplates).where(eq(shiftTemplates.code, 'DAY_SHIFT'))
+    )[0];
+
+    const resolvedNightShift = nightShift ?? (
+        await db.select().from(shiftTemplates).where(eq(shiftTemplates.code, 'NIGHT_SHIFT'))
+    )[0];
+
     // ---- Initial Admin Employee ----
     let adminEmployeeId: string | undefined;
 
@@ -241,6 +278,21 @@ export async function seedSystem() {
     if (adminEmployeeId) {
         await ensureEmployeeProfile(adminEmployeeId, 'EMP-0001');
         await ensureEmployeeIdentifiers(adminEmployeeId, 'EMP-0001');
+    }
+
+    // ---- Assign Day Shift to Admin Employee ----
+    if (adminEmployeeId && resolvedDayShift) {
+        await db.insert(employeeShiftAssignments)
+            .values({
+                employeeId: adminEmployeeId,
+                shiftTemplateId: resolvedDayShift.id,
+                startTime: resolvedDayShift.startTime,
+                endTime: resolvedDayShift.endTime,
+                breakMinutes: resolvedDayShift.breakMinutes,
+                isFlexible: resolvedDayShift.isFlexible,
+                effectiveFrom: todayIso,
+            })
+            .onConflictDoNothing();
     }
 
     const passwordHash = await bcrypt.hash('Admin123!', 10);
@@ -523,6 +575,21 @@ export async function seedSystem() {
             await ensureEmployeeIdentifiers(hrManagerEmployee.id, hrManagerEmployee.employeeNo);
         }
 
+        // Assign Day Shift to HR Manager
+        if (resolvedDayShift) {
+            await db.insert(employeeShiftAssignments)
+                .values({
+                    employeeId: hrManagerEmployee.id,
+                    shiftTemplateId: resolvedDayShift.id,
+                    startTime: resolvedDayShift.startTime,
+                    endTime: resolvedDayShift.endTime,
+                    breakMinutes: resolvedDayShift.breakMinutes,
+                    isFlexible: resolvedDayShift.isFlexible,
+                    effectiveFrom: todayIso,
+                })
+                .onConflictDoNothing();
+        }
+
         if (hrManagerEmployee && hrOrg) {
             await db.insert(orgUnitLeaders)
                 .values({
@@ -552,6 +619,21 @@ export async function seedSystem() {
         if (itManagerEmployee) {
             await ensureEmployeeProfile(itManagerEmployee.id, itManagerEmployee.employeeNo);
             await ensureEmployeeIdentifiers(itManagerEmployee.id, itManagerEmployee.employeeNo);
+        }
+
+        // Assign Day Shift to IT Manager
+        if (resolvedDayShift) {
+            await db.insert(employeeShiftAssignments)
+                .values({
+                    employeeId: itManagerEmployee.id,
+                    shiftTemplateId: resolvedDayShift.id,
+                    startTime: resolvedDayShift.startTime,
+                    endTime: resolvedDayShift.endTime,
+                    breakMinutes: resolvedDayShift.breakMinutes,
+                    isFlexible: resolvedDayShift.isFlexible,
+                    effectiveFrom: todayIso,
+                })
+                .onConflictDoNothing();
         }
 
         if (itManagerEmployee && itOrg) {
@@ -603,6 +685,20 @@ export async function seedSystem() {
                 if (dev.employeeNo !== 'EMP-1003' && dev.employeeNo !== 'EMP-1004') continue;
                 await ensureEmployeeProfile(dev.id, dev.employeeNo);
                 await ensureEmployeeIdentifiers(dev.id, dev.employeeNo);
+                // Assign Day Shift to Developers
+                if (resolvedDayShift) {
+                    await db.insert(employeeShiftAssignments)
+                        .values({
+                            employeeId: dev.id,
+                            shiftTemplateId: resolvedDayShift.id,
+                            startTime: resolvedDayShift.startTime,
+                            endTime: resolvedDayShift.endTime,
+                            breakMinutes: resolvedDayShift.breakMinutes,
+                            isFlexible: resolvedDayShift.isFlexible,
+                            effectiveFrom: todayIso,
+                        })
+                        .onConflictDoNothing();
+                }
             }
         }
 

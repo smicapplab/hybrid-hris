@@ -26,7 +26,7 @@ import {
     isGender,
     isCivilStatus,
 } from '@hybrid-hris/domain'
-import { COUNTRY_OPTIONS, DEFAULT_IDENTIFIERS, DEFAULT_PROFILE, EMPLOYMENT_TYPE_LABELS, STATUS_CONFIG } from '../config'
+import { COUNTRY_OPTIONS, DEFAULT_IDENTIFIERS, DEFAULT_PROFILE, EMPLOYMENT_TYPE_LABELS, STATUS_CONFIG, TIMEZONE_OPTIONS } from '../config'
 import { SectionHeading, stripSystemFields } from '../helpers'
 import { getBackgroundColor } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -368,6 +368,16 @@ export default function EmployeeDetailPage() {
                                 <SelectItem value="CONTRACTUAL">Contractual</SelectItem>
                                 <SelectItem value="CONSULTANT">Consultant</SelectItem>
                                 <SelectItem value="INTERN">Intern</SelectItem>
+                            </RequiredSelect>
+
+                            <RequiredSelect
+                                label="Timezone"
+                                value={employee.timezone ?? 'UTC'}
+                                onChangeAction={(v) => setEmployee({ ...employee, timezone: v })}
+                            >
+                                {TIMEZONE_OPTIONS.map((tz) => (
+                                    <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                                ))}
                             </RequiredSelect>
 
                             <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">

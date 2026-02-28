@@ -33,6 +33,10 @@ export const hrSettings = pgTable(
         // When set, login email is composed as {username}@{emailDomain}.
         emailDomain: varchar('email_domain', { length: 253 }),
 
+        // Default IANA timezone for the organisation (e.g., "Asia/Manila").
+        // Used as fallback when employee.timezone is not set.
+        timezone: varchar('timezone', { length: 50 }).notNull().default('UTC'),
+
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
             .notNull(),

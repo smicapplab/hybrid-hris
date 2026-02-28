@@ -10,15 +10,10 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { employees } from './employees';
+import { CIVIL_STATUSES, GENDERS } from '@hybrid-hris/domain';
 
-export const genderEnum = pgEnum('gender', ['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY']);
-export const civilStatusEnum = pgEnum('civil_status', [
-    'SINGLE',
-    'MARRIED',
-    'SEPARATED',
-    'WIDOWED',
-    'ANNULLED'
-]);
+export const genderEnum = pgEnum('gender', GENDERS);
+export const civilStatusEnum = pgEnum('civil_status', CIVIL_STATUSES);
 
 export const employeeProfiles = pgTable(
     'employee_profiles',
