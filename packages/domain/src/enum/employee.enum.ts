@@ -44,8 +44,7 @@ export const CIVIL_STATUSES = [
     'MARRIED',
     'SEPARATED',
     'WIDOWED',
-    'ANNULLED',
-    'LIVE_IN',
+    'ANNULLED'
 ] as const
 
 export type CivilStatus = (typeof CIVIL_STATUSES)[number]

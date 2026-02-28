@@ -1,5 +1,5 @@
 {
-  "id": "bf347d12-7220-4cb6-a637-440da8240ab9",
+  "id": "8d72149f-178c-497b-9be0-ddaa77df8531",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2811,6 +2811,12 @@
           "notNull": true,
           "default": 6
         },
+        "email_domain": {
+          "name": "email_domain",
+          "type": "varchar(253)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -2866,8 +2872,7 @@
         "MARRIED",
         "SEPARATED",
         "WIDOWED",
-        "ANNULLED",
-        "LIVE_IN"
+        "ANNULLED"
       ]
     },
     "public.gender": {

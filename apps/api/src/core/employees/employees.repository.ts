@@ -281,6 +281,15 @@ export class EmployeesRepository {
         return row
     }
 
+    async getHrConfig(db: DbOrTx): Promise<Pick<InferSelectModel<typeof hrSettings>, 'emailDomain'> | null> {
+        const [row] = await db
+            .select({ emailDomain: hrSettings.emailDomain })
+            .from(hrSettings)
+            .limit(1)
+
+        return row ?? null
+    }
+
     async lockAndIncrementHrSettings(tx: Tx): Promise<InferSelectModel<typeof hrSettings> | undefined> {
         const [settings] = await tx
             .select()

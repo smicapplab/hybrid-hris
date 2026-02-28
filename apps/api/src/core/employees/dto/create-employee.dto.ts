@@ -26,8 +26,20 @@ export class CreateEmployeeDto {
     @MinLength(1)
     lastName!: string
 
+    // Login email — the username used to sign in
     @IsEmail()
     email!: string
+
+    // Where credentials will be sent (personal or alternate work email)
+    @IsOptional()
+    @IsEmail()
+    alternateEmail?: string
+
+    // Plain-text password — always required; generation happens client-side
+    // so the HR admin can view and copy it before sending credentials.
+    @IsString()
+    @MinLength(8)
+    password!: string
 
     @IsUUID()
     orgUnitId!: string

@@ -1,14 +1,14 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL as string;
+const API_URL = process.env.NEXT_PUBLIC_API_URL as string
 
-let accessToken: string | null = null;
-let refreshing: Promise<string | null> | null = null;
+let accessToken: string | null = null
+let refreshing: Promise<string | null> | null = null
 
 export function setAccessToken(token: string | null) {
-    accessToken = token;
+    accessToken = token
 }
 
 export function getAccessToken() {
-    return accessToken;
+    return accessToken
 }
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -17,108 +17,83 @@ async function refreshAccessToken(): Promise<string | null> {
             const res = await fetch(`${API_URL}/auth/refresh`, {
                 method: 'POST',
                 credentials: 'include',
-            });
+            })
 
             if (!res.ok) {
-                setAccessToken(null);
-                return null;
+                setAccessToken(null)
+                return null
             }
 
-            const data = (await res.json()) as { accessToken: string };
-            setAccessToken(data.accessToken);
-            return data.accessToken;
+            const data = (await res.json()) as { accessToken: string }
+            setAccessToken(data.accessToken)
+            return data.accessToken
         })().finally(() => {
-            refreshing = null;
-        });
+            refreshing = null
+        })
     }
 
-    return refreshing;
+    return refreshing
+}
+
+// Reads the response body once as text, then tries to extract a message from JSON.
+// Avoids double-read bugs from calling .json() then .clone().text().
+async function parseError(res: Response): Promise<string> {
+    let body = ''
+    try {
+        body = await res.text()
+    } catch {
+        return `Request failed: ${res.status}`
+    }
+
+    if (body) {
+        console.error('API error:', res.status, body)
+        try {
+            const json = JSON.parse(body) as { message?: string }
+            if (json?.message) return json.message
+        } catch { }
+    }
+
+    return `Request failed: ${res.status}`
+}
+
+function buildHeaders(base?: HeadersInit, token?: string | null, hasBody?: boolean): Headers {
+    const headers = new Headers(base)
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    if (hasBody && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+    return headers
 }
 
 export async function apiFetch<T>(
     path: string,
     init: RequestInit & { retry?: boolean } = {},
 ): Promise<T> {
-    const headers = new Headers(init.headers);
-
-    if (accessToken) {
-        headers.set('Authorization', `Bearer ${accessToken}`);
-    }
-
-    if (init.body && !headers.has('Content-Type')) {
-        headers.set('Content-Type', 'application/json');
-    }
+    const headers = buildHeaders(init.headers, accessToken, !!init.body)
 
     const res = await fetch(`${API_URL}${path}`, {
         ...init,
         headers,
         credentials: 'include',
-    });
+    })
 
-    // If unauthorized, attempt refresh once
+    // Unauthorized — attempt token refresh once then retry
     if (res.status === 401 && init.retry !== false) {
-        const newToken = await refreshAccessToken();
-        if (!newToken) {
-            throw new Error('Unauthorized');
-        }
+        const newToken = await refreshAccessToken()
+        if (!newToken) throw new Error('Unauthorized')
 
-        const retryHeaders = new Headers(init.headers);
-        retryHeaders.set('Authorization', `Bearer ${newToken}`);
-
-        if (init.body && !retryHeaders.has('Content-Type')) {
-            retryHeaders.set('Content-Type', 'application/json');
-        }
+        const retryHeaders = buildHeaders(init.headers, newToken, !!init.body)
 
         const retryRes = await fetch(`${API_URL}${path}`, {
             ...init,
             headers: retryHeaders,
             credentials: 'include',
-        });
+        })
 
-        if (!retryRes.ok) {
-            let message = `Request failed: ${retryRes.status}`;
-            try {
-                const errorData = await retryRes.json();
-                if (errorData?.message) {
-                    message = errorData.message;
-                }
-            } catch { }
-
-            try {
-                const raw = await retryRes.clone().text();
-                console.error('API retry error:', retryRes.status, raw);
-            } catch {}
-
-            throw new Error(message);
-        }
-
-        if (retryRes.status === 204) {
-            return undefined as T;
-        }
-
-        return retryRes.json() as Promise<T>;
+        if (!retryRes.ok) throw new Error(await parseError(retryRes))
+        if (retryRes.status === 204) return undefined as T
+        return retryRes.json() as Promise<T>
     }
 
-    if (!res.ok) {
-        let message = `Request failed: ${res.status}`;
-        try {
-            const errorData = await res.json();
-            if (errorData?.message) {
-                message = errorData.message;
-            }
-        } catch { }
-
-        try {
-            const raw = await res.clone().text();
-            console.error('API error:', res.status, raw);
-        } catch {}
-
-        throw new Error(message);
-    }
-
-    if (res.status === 204) {
-        return undefined as T;
-    }
-
-    return res.json() as Promise<T>;
+    if (!res.ok) throw new Error(await parseError(res))
+    if (res.status === 204) return undefined as T
+    return res.json() as Promise<T>
 }

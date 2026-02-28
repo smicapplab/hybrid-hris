@@ -19,6 +19,11 @@ export class EmployeesController {
         return this.employeesService.findAll(filter)
     }
 
+    @Get('config')
+    async getConfig() {
+        return this.employeesService.getHrConfig()
+    }
+
     @Get(':id/status/options')
     async getStatusOptions(
         @Param('id') id: string,

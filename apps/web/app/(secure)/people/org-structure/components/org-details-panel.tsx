@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { OrgUnitNode } from "@/types/org-unit.type"
 import { OrgPositionsTable } from "./org-positions-table"
+import { format } from "date-fns"
 
 interface OrgDetailsPanelProps {
     org: OrgUnitNode | null
@@ -86,18 +87,13 @@ export function OrgDetailsPanel({
             {/* Meta Info */}
             <div className="text-sm space-y-2">
                 <div>
-                    <span className="font-medium">Parent ID:</span>{" "}
-                    {org.parentId ?? "—"}
-                </div>
-
-                <div>
-                    <span className="font-medium">Created:</span>{" "}
-                    {new Date(org.createdAt).toLocaleString()}
+                    <span className="font-medium">Created:</span>
+                    {format(new Date(org.createdAt), 'PP')}
                 </div>
 
                 <div>
                     <span className="font-medium">Updated:</span>{" "}
-                    {new Date(org.updatedAt).toLocaleString()}
+                    {format(new Date(org.updatedAt), 'PP')}
                 </div>
 
                 <div>

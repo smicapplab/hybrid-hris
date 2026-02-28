@@ -29,6 +29,10 @@ export const hrSettings = pgTable(
             .notNull()
             .default(6),
 
+        // Optional company email domain (e.g., "acme.com").
+        // When set, login email is composed as {username}@{emailDomain}.
+        emailDomain: varchar('email_domain', { length: 253 }),
+
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
             .notNull(),

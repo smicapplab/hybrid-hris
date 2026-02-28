@@ -1,6 +1,6 @@
 CREATE TYPE "public"."employee_status" AS ENUM('ACTIVE', 'PROBATION', 'RESIGNED', 'TERMINATED', 'SUSPENDED');--> statement-breakpoint
 CREATE TYPE "public"."employment_type" AS ENUM('REGULAR', 'PROBATIONARY', 'CONTRACTUAL', 'CONSULTANT', 'INTERN');--> statement-breakpoint
-CREATE TYPE "public"."civil_status" AS ENUM('SINGLE', 'MARRIED', 'SEPARATED', 'WIDOWED', 'ANNULLED', 'LIVE_IN');--> statement-breakpoint
+CREATE TYPE "public"."civil_status" AS ENUM('SINGLE', 'MARRIED', 'SEPARATED', 'WIDOWED', 'ANNULLED');--> statement-breakpoint
 CREATE TYPE "public"."gender" AS ENUM('MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY');--> statement-breakpoint
 CREATE TYPE "public"."org_unit_leader_role" AS ENUM('HEAD', 'CO_HEAD', 'ACTING_HEAD');--> statement-breakpoint
 CREATE TYPE "public"."accrual_method" AS ENUM('MONTHLY', 'ANNUAL_GRANT', 'NONE');--> statement-breakpoint
@@ -286,6 +286,7 @@ CREATE TABLE "hr_settings" (
 	"employee_no_prefix" varchar(10) DEFAULT 'EMP-' NOT NULL,
 	"employee_no_next" integer DEFAULT 1 NOT NULL,
 	"employee_no_padding" integer DEFAULT 6 NOT NULL,
+	"email_domain" varchar(253),
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );

@@ -17,8 +17,7 @@ export const civilStatusEnum = pgEnum('civil_status', [
     'MARRIED',
     'SEPARATED',
     'WIDOWED',
-    'ANNULLED',
-    'LIVE_IN',
+    'ANNULLED'
 ]);
 
 export const employeeProfiles = pgTable(

@@ -2,14 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { RequiredInput } from '@/components/ui/required-input'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
-import { format } from 'date-fns'
-import { CalendarIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { DatePickerField } from '@/components/ui/date-picker-field'
+import { BirthdayPickerField } from '@/components/ui/birthday-picker-field'
 import { RequiredSelect } from '@/components/ui/required-select'
 import { Separator } from '@/components/ui/separator'
 import { apiFetch } from '@/lib/api'
@@ -18,8 +15,6 @@ import { SelectItem } from '@/components/ui/select'
 import { removeUndefined, normalizeEmail } from '@/lib/helpers'
 import type {
     Employee,
-    EmployeeProfile,
-    EmployeeIdentifiers,
     StatusOptionsResponse,
     SupervisorOption,
 } from '@/types/employee.type'
@@ -31,54 +26,10 @@ import {
     isGender,
     isCivilStatus,
 } from '@hybrid-hris/domain'
-
-const DEFAULT_PROFILE: EmployeeProfile = {
-    employeeId: '',
-    birthDate: null,
-    gender: null,
-    civilStatus: null,
-    nationality: null,
-    personalEmail: null,
-    mobileNo: null,
-    landlineNo: null,
-    emergencyContactName: null,
-    emergencyContactRelationship: null,
-    emergencyContactMobileNo: null,
-    notes: null,
-}
-
-const DEFAULT_IDENTIFIERS: EmployeeIdentifiers = {
-    employeeId: '',
-    tinNo: null,
-    sssNo: null,
-    philHealthNo: null,
-    pagIbigNo: null,
-    umidNo: null,
-    passportNo: null,
-    passportExpiry: null,
-    driversLicenseNo: null,
-    driversLicenseExpiry: null,
-    prcLicenseNo: null,
-    prcLicenseExpiry: null,
-    companyIdNo: null,
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function stripSystemFields<T extends object>(
-    obj: T | null | undefined,
-): Omit<T, 'employeeId' | 'createdAt' | 'updatedAt'> | null {
-    if (!obj) return null
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { employeeId: _eid, createdAt: _ca, updatedAt: _ua, ...rest } = obj as T & {
-        employeeId?: unknown
-        createdAt?: unknown
-        updatedAt?: unknown
-    }
-    return rest
-}
-
-// ── Component ─────────────────────────────────────────────────────────────────
+import { COUNTRY_OPTIONS, DEFAULT_IDENTIFIERS, DEFAULT_PROFILE, EMPLOYMENT_TYPE_LABELS, STATUS_CONFIG } from '../config'
+import { SectionHeading, stripSystemFields } from '../helpers'
+import { getBackgroundColor } from '@/lib/utils'
+import { format } from 'date-fns'
 
 export default function EmployeeDetailPage() {
     const { id } = useParams<{ id: string }>()
@@ -242,312 +193,403 @@ export default function EmployeeDetailPage() {
             : new Set([employee.status, ...allowedNextStatuses]).has(s.value),
     )
 
-    if (loading) return <div className="p-6">Loading...</div>
-    if (!employee) return <div className="p-6">Employee not found</div>
+    if (loading) return <div className="p-6 text-sm text-muted-foreground">Loading...</div>
+    if (!employee) return <div className="p-6 text-sm text-muted-foreground">Employee not found.</div>
+
+    const statusCfg = STATUS_CONFIG[employee.status] ?? { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400', label: employee.status }
+    const avatarColor = getBackgroundColor(employee.firstName)
+    const initials = `${employee.firstName[0] ?? ''}${employee.lastName[0] ?? ''}`.toUpperCase()
+    const positionTitle = positions.find((p) => p.id === employee.positionId)?.title
 
     return (
         <div className="p-6 space-y-6">
-            {formError && <div className="text-sm text-red-600">{formError}</div>}
 
-            {/* Employment Status */}
+            {formError && (
+                <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+                    {formError}
+                </div>
+            )}
+
             <Card>
-                <CardHeader>
-                    <CardTitle>Employment Status</CardTitle>
-                </CardHeader>
-                <CardContent className="max-w-md space-y-2">
-                    <RequiredSelect
-                        label="Status"
-                        value={employee.status}
-                        required
-                        disabled={statusSaving}
-                        touched={!!fieldErrors.status}
-                        errorMessage={fieldErrors.status}
-                        onChangeAction={handleStatusChange}
-                    >
-                        {filteredStatuses.map((s) => (
-                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                        ))}
-                    </RequiredSelect>
+                <CardContent className="pt-6 pb-5">
+                    <div className="flex items-start gap-5">
+
+                        {/* Avatar */}
+                        <div
+                            className={`hidden sm:flex w-16 h-16 rounded-full items-center justify-center text-white text-xl font-bold select-none`}
+                            style={{ backgroundColor: avatarColor }}
+                        >
+                            {initials}
+                        </div>
+
+                        <div className="flex-1 min-w-0 space-y-4">
+
+                            {/* Name row */}
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-1 min-w-0">
+                                    <h1 className="text-2xl font-bold leading-tight">
+                                        {employee.firstName}{employee.middleName ? ` ${employee.middleName}` : ''} {employee.lastName}
+                                    </h1>
+                                    <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-sm text-muted-foreground">
+                                        <span className="font-mono text-xs bg-muted text-foreground px-1.5 py-0.5 rounded">
+                                            {employee.employeeNo}
+                                        </span>
+                                        {positionTitle && <span>{positionTitle}</span>}
+                                        {currentOrgUnit && (
+                                            <>
+                                                <span>·</span>
+                                                <span>{currentOrgUnit.name}</span>
+                                            </>
+                                        )}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                        {EMPLOYMENT_TYPE_LABELS[employee.employmentType] ?? employee.employmentType}
+                                        {employee.hireDate && (
+                                            <> · Hired {format(new Date(employee.hireDate), 'PP')}</>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Status badge + save */}
+                                <div className="flex items-center gap-2">
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusCfg.bg} ${statusCfg.text}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+                                        {statusCfg.label}
+                                    </span>
+                                    <Button size="sm" onClick={handleSave} disabled={saving}>
+                                        {saving ? 'Saving...' : 'Save Changes'}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Status change strip */}
+                            <div className="flex items-end gap-3 pt-3 border-t">
+                                <div className="w-44">
+                                    <RequiredSelect
+                                        label="Change Status"
+                                        value={employee.status}
+                                        disabled={statusSaving}
+                                        onChangeAction={handleStatusChange}
+                                    >
+                                        {filteredStatuses.map((s) => (
+                                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                                        ))}
+                                    </RequiredSelect>
+                                </div>
+                                {statusSaving && (
+                                    <p className="text-xs text-muted-foreground pb-2 italic">Updating…</p>
+                                )}
+                            </div>
+
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 
-            {/* Employee Profile */}
             <Card>
-                <CardHeader>
-                    <CardTitle>Edit Employee</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <RequiredInput label="Employee No" value={employee.employeeNo} onChangeAction={() => { }} disabled />
-                        <RequiredInput
-                            label="Login Email"
-                            value={employee.email ?? ''}
-                            required
-                            touched={!!fieldErrors.email}
-                            errorMessage={fieldErrors.email}
-                            onChangeAction={(v) => setEmployee({ ...employee, email: v })}
-                        />
-                        <RequiredInput
-                            label="First Name"
-                            value={employee.firstName}
-                            required
-                            touched={!!fieldErrors.firstName}
-                            errorMessage={fieldErrors.firstName}
-                            onChangeAction={(v) => setEmployee({ ...employee, firstName: v })}
-                        />
-                        <RequiredInput
-                            label="Last Name"
-                            value={employee.lastName}
-                            required
-                            touched={!!fieldErrors.lastName}
-                            errorMessage={fieldErrors.lastName}
-                            onChangeAction={(v) => setEmployee({ ...employee, lastName: v })}
-                        />
-                        <RequiredInput
-                            label="Middle Name"
-                            value={employee.middleName ?? ''}
-                            onChangeAction={(v) => setEmployee({ ...employee, middleName: v })}
-                        />
-                        <RequiredInput
-                            label="Alternate Email"
-                            value={employee.alternateEmail ?? ''}
-                            onChangeAction={(v) => setEmployee({ ...employee, alternateEmail: v })}
-                        />
-                    </div>
+                <CardContent className="pt-6 space-y-8">
 
-                    <Separator />
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className={cn('w-full justify-start text-left font-normal', !employee.hireDate && 'text-muted-foreground')}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {employee.hireDate ? format(new Date(employee.hireDate), 'yyyy-MM-dd') : 'Pick a date'}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={employee.hireDate ? new Date(employee.hireDate) : undefined}
-                                    onSelect={(date) => {
-                                        if (!date) return
-                                        setEmployee({ ...employee, hireDate: format(date, 'yyyy-MM-dd') })
-                                    }}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-
-                        <RequiredSelect
-                            label="Employment Type"
-                            value={employee.employmentType}
-                            required
-                            touched={!!fieldErrors.employmentType}
-                            errorMessage={fieldErrors.employmentType}
-                            onChangeAction={(v) => {
-                                if (!isEmploymentType(v)) return
-                                setEmployee({ ...employee, employmentType: v })
-                            }}
-                        >
-                            <SelectItem value="REGULAR">Regular</SelectItem>
-                            <SelectItem value="PROBATIONARY">Probationary</SelectItem>
-                            <SelectItem value="CONTRACTUAL">Contractual</SelectItem>
-                            <SelectItem value="CONSULTANT">Consultant</SelectItem>
-                            <SelectItem value="INTERN">Intern</SelectItem>
-                        </RequiredSelect>
-
-                        <AsyncSearchSelect
-                            label="Org Unit"
-                            value={employee.orgUnitId}
-                            onChange={async (value) => {
-                                if (!value) return
-                                setEmployee((prev) => prev ? { ...prev, orgUnitId: value } : prev)
-                                try {
-                                    setCurrentOrgUnit(await apiFetch<OrgUnitOption>(`/org-units/${value}`))
-                                } catch {
-                                    setCurrentOrgUnit(null)
-                                }
-                                const positionsData = await apiFetch<PositionOption[]>(`/org-units/${value}/positions`)
-                                setPositions(positionsData)
-                                setEmployee((prev) => prev ? { ...prev, positionId: positionsData[0]?.id ?? '' } : prev)
-                            }}
-                            fetchOptions={async (search) => {
-                                const list = await apiFetch<OrgUnitOption[]>(
-                                    `/org-units/search?leavesOnly=true&showDeleted=false&limit=20&query=${encodeURIComponent(search)}`,
-                                )
-                                if (currentOrgUnit && !list.some((ou) => ou.id === currentOrgUnit.id)) {
-                                    return [currentOrgUnit, ...list]
-                                }
-                                return list
-                            }}
-                            getOptionValue={(o) => o.id}
-                            getOptionLabel={(o) => {
-                                const base = o.path?.trim() ? o.path : o.name
-                                return o.code?.trim() ? `${base} (${o.code})` : base
-                            }}
-                            placeholder="Search org unit..."
-                        />
-
-                        <RequiredSelect
-                            label="Position"
-                            value={employee.positionId || ''}
-                            required
-                            touched={!!fieldErrors.positionId}
-                            errorMessage={fieldErrors.positionId}
-                            onChangeAction={(v) => setEmployee({ ...employee, positionId: v })}
-                        >
-                            {positions.map((pos) => (
-                                <SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>
-                            ))}
-                        </RequiredSelect>
-
-                        <AsyncSearchSelect
-                            label="Supervisor"
-                            value={employee.supervisorId}
-                            onChange={(v) => setEmployee({ ...employee, supervisorId: v })}
-                            fetchOptions={async (search) => {
-                                const res = await apiFetch<{ data: SupervisorOption[] }>(
-                                    `/employees?status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`,
-                                )
-                                return res.data
-                            }}
-                            getOptionValue={(o) => o.id}
-                            getOptionLabel={(o) => `${o.firstName} ${o.lastName}`}
-                            excludeIds={[employee.id]}
-                            placeholder="Search supervisor..."
-                        />
-                    </div>
-
-                    <Separator />
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {(['addressLine1', 'addressLine2', 'city', 'province', 'postalCode', 'countryCode'] as const).map((field) => (
+                    {/* Basic Information */}
+                    <div className="space-y-4">
+                        <SectionHeading>Basic Information</SectionHeading>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <RequiredInput
-                                key={field}
-                                label={field.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
-                                value={employee[field] ?? ''}
-                                onChangeAction={(v) => setEmployee({ ...employee, [field]: v })}
+                                label="Employee No"
+                                value={employee.employeeNo}
+                                onChangeAction={() => { }}
+                                disabled
                             />
-                        ))}
+                            <RequiredInput
+                                label="Login Email"
+                                value={employee.email ?? ''}
+                                required
+                                touched={!!fieldErrors.email}
+                                errorMessage={fieldErrors.email}
+                                onChangeAction={(v) => setEmployee({ ...employee, email: v })}
+                            />
+                            <RequiredInput
+                                label="Alternate Email"
+                                value={employee.alternateEmail ?? ''}
+                                onChangeAction={(v) => setEmployee({ ...employee, alternateEmail: v })}
+                            />
+
+                            <RequiredInput
+                                label="First Name"
+                                value={employee.firstName}
+                                required
+                                touched={!!fieldErrors.firstName}
+                                errorMessage={fieldErrors.firstName}
+                                onChangeAction={(v) => setEmployee({ ...employee, firstName: v })}
+                            />
+                            <RequiredInput
+                                label="Last Name"
+                                value={employee.lastName}
+                                required
+                                touched={!!fieldErrors.lastName}
+                                errorMessage={fieldErrors.lastName}
+                                onChangeAction={(v) => setEmployee({ ...employee, lastName: v })}
+                            />
+                            <RequiredInput
+                                label="Middle Name"
+                                value={employee.middleName ?? ''}
+                                onChangeAction={(v) => setEmployee({ ...employee, middleName: v })}
+                            />
+
+                        </div>
                     </div>
 
                     <Separator />
 
-                    {/* Profile Information */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className={cn('w-full justify-start text-left font-normal', !employee.profile?.birthDate && 'text-muted-foreground')}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {employee.profile?.birthDate
-                                        ? format(new Date(employee.profile.birthDate), 'yyyy-MM-dd')
-                                        : 'Pick a date'}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={employee.profile?.birthDate ? new Date(employee.profile.birthDate) : undefined}
-                                    onSelect={(date) => {
-                                        if (!date) return
+                    {/* Employment Details */}
+                    <div className="space-y-4">
+                        <SectionHeading>Employment Details</SectionHeading>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <DatePickerField
+                                label="Hire Date"
+                                value={employee.hireDate}
+                                onChangeAction={(v) => setEmployee({ ...employee, hireDate: v })}
+                                required
+                                error={fieldErrors.hireDate}
+                            />
+
+                            <RequiredSelect
+                                label="Employment Type"
+                                value={employee.employmentType}
+                                required
+                                touched={!!fieldErrors.employmentType}
+                                errorMessage={fieldErrors.employmentType}
+                                onChangeAction={(v) => {
+                                    if (!isEmploymentType(v)) return
+                                    setEmployee({ ...employee, employmentType: v })
+                                }}
+                            >
+                                <SelectItem value="REGULAR">Regular</SelectItem>
+                                <SelectItem value="PROBATIONARY">Probationary</SelectItem>
+                                <SelectItem value="CONTRACTUAL">Contractual</SelectItem>
+                                <SelectItem value="CONSULTANT">Consultant</SelectItem>
+                                <SelectItem value="INTERN">Intern</SelectItem>
+                            </RequiredSelect>
+
+                            <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                                <div className="md:col-span-2">
+                                    <AsyncSearchSelect
+                                        label="Org Unit"
+                                        value={employee.orgUnitId}
+                                        onChange={async (value) => {
+                                            if (!value) return
+                                            setEmployee((prev) => prev ? { ...prev, orgUnitId: value } : prev)
+                                            try {
+                                                setCurrentOrgUnit(await apiFetch<OrgUnitOption>(`/org-units/${value}`))
+                                            } catch {
+                                                setCurrentOrgUnit(null)
+                                            }
+                                            const positionsData = await apiFetch<PositionOption[]>(`/org-units/${value}/positions`)
+                                            setPositions(positionsData)
+                                            setEmployee((prev) => prev ? { ...prev, positionId: positionsData[0]?.id ?? '' } : prev)
+                                        }}
+                                        fetchOptions={async (search) => {
+                                            const list = await apiFetch<OrgUnitOption[]>(
+                                                `/org-units/search?leavesOnly=true&showDeleted=false&limit=20&query=${encodeURIComponent(search)}`,
+                                            )
+                                            if (currentOrgUnit && !list.some((ou) => ou.id === currentOrgUnit.id)) {
+                                                return [currentOrgUnit, ...list]
+                                            }
+                                            return list
+                                        }}
+                                        getOptionValue={(o) => o.id}
+                                        getOptionLabel={(o) => {
+                                            const base = o.path?.trim() ? o.path : o.name
+                                            return o.code?.trim() ? `${base} (${o.code})` : base
+                                        }}
+                                        placeholder="Search org unit..."
+                                    />
+                                </div>
+
+                                <div className="md:col-span-1 self-end">
+                                    <RequiredSelect
+                                        label="Position"
+                                        value={employee.positionId || ''}
+                                        required
+                                        touched={!!fieldErrors.positionId}
+                                        errorMessage={fieldErrors.positionId}
+                                        onChangeAction={(v) => setEmployee({ ...employee, positionId: v })}
+                                    >
+                                        {positions.map((pos) => (
+                                            <SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>
+                                        ))}
+                                    </RequiredSelect>
+                                </div>
+                            </div>
+
+                            <AsyncSearchSelect
+                                label="Supervisor"
+                                value={employee.supervisorId}
+                                onChange={(v) => setEmployee({ ...employee, supervisorId: v })}
+                                fetchOptions={async (search) => {
+                                    const res = await apiFetch<{ data: SupervisorOption[] }>(
+                                        `/employees?status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`,
+                                    )
+                                    return res.data
+                                }}
+                                getOptionValue={(o) => o.id}
+                                getOptionLabel={(o) => `${o.firstName} ${o.lastName}`}
+                                excludeIds={[employee.id]}
+                                placeholder="Search supervisor..."
+                            />
+                        </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Address */}
+                    <div className="space-y-4">
+                        <SectionHeading>Address</SectionHeading>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <RequiredInput
+                                label="Address Line 1"
+                                value={employee.addressLine1 ?? ''}
+                                onChangeAction={(v) => setEmployee({ ...employee, addressLine1: v })}
+                            />
+                            <RequiredInput
+                                label="Address Line 2"
+                                value={employee.addressLine2 ?? ''}
+                                onChangeAction={(v) => setEmployee({ ...employee, addressLine2: v })}
+                            />
+                            <RequiredInput
+                                label="City"
+                                value={employee.city ?? ''}
+                                onChangeAction={(v) => setEmployee({ ...employee, city: v })}
+                            />
+                            <RequiredInput
+                                label="Province"
+                                value={employee.province ?? ''}
+                                onChangeAction={(v) => setEmployee({ ...employee, province: v })}
+                            />
+                            <RequiredInput
+                                label="Postal Code"
+                                value={employee.postalCode ?? ''}
+                                onChangeAction={(v) => setEmployee({ ...employee, postalCode: v })}
+                            />
+                            <RequiredSelect
+                                label="Country Code"
+                                value={employee.countryCode ?? 'PH'}
+                                onChangeAction={(v) => setEmployee({ ...employee, countryCode: v })}
+                            >
+                                {COUNTRY_OPTIONS.map((c) => (
+                                    <SelectItem key={c.code} value={c.code}>
+                                        {c.label} ({c.code})
+                                    </SelectItem>
+                                ))}
+                            </RequiredSelect>
+                        </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Personal Profile */}
+                    <div className="space-y-4">
+                        <SectionHeading>Personal Information</SectionHeading>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <BirthdayPickerField
+                                value={employee.profile?.birthDate}
+                                onChangeAction={(v) =>
+                                    setEmployee((prev) => prev ? {
+                                        ...prev,
+                                        profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), birthDate: v },
+                                    } : prev)
+                                }
+                            />
+
+                            <RequiredSelect
+                                label="Gender"
+                                value={employee.profile?.gender ?? ''}
+                                onChangeAction={(v) => {
+                                    if (!isGender(v)) return
+                                    setEmployee((prev) => prev ? {
+                                        ...prev,
+                                        profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), gender: v },
+                                    } : prev)
+                                }}
+                            >
+                                <SelectItem value="MALE">Male</SelectItem>
+                                <SelectItem value="FEMALE">Female</SelectItem>
+                            </RequiredSelect>
+
+                            <RequiredSelect
+                                label="Civil Status"
+                                value={employee.profile?.civilStatus ?? ''}
+                                onChangeAction={(v) => {
+                                    if (!isCivilStatus(v)) return
+                                    setEmployee((prev) => prev ? {
+                                        ...prev,
+                                        profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), civilStatus: v },
+                                    } : prev)
+                                }}
+                            >
+                                <SelectItem value="SINGLE">Single</SelectItem>
+                                <SelectItem value="MARRIED">Married</SelectItem>
+                                <SelectItem value="SEPARATED">Separated</SelectItem>
+                                <SelectItem value="WIDOWED">Widowed</SelectItem>
+                                <SelectItem value="ANNULLED">Annulled</SelectItem>
+                            </RequiredSelect>
+
+                            {(
+                                [
+                                    ['mobileNo', 'Mobile No'],
+                                    ['emergencyContactName', 'Emergency Contact Name'],
+                                    ['emergencyContactMobileNo', 'Emergency Contact Mobile No'],
+                                ] as const
+                            ).map(([field, label]) => (
+                                <RequiredInput
+                                    key={field}
+                                    label={label}
+                                    value={employee.profile?.[field] ?? ''}
+                                    onChangeAction={(v) =>
                                         setEmployee((prev) => prev ? {
                                             ...prev,
-                                            profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), birthDate: format(date, 'yyyy-MM-dd') },
+                                            profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), [field]: v },
                                         } : prev)
-                                    }}
-                                    initialFocus
+                                    }
                                 />
-                            </PopoverContent>
-                        </Popover>
-
-                        <RequiredSelect
-                            label="Gender"
-                            value={employee.profile?.gender ?? ''}
-                            onChangeAction={(v) => {
-                                if (!isGender(v)) return
-                                setEmployee((prev) => prev ? {
-                                    ...prev,
-                                    profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), gender: v },
-                                } : prev)
-                            }}
-                        >
-                            <SelectItem value="MALE">Male</SelectItem>
-                            <SelectItem value="FEMALE">Female</SelectItem>
-                            <SelectItem value="NON_BINARY">Non-binary</SelectItem>
-                            <SelectItem value="PREFER_NOT_TO_SAY">Prefer not to say</SelectItem>
-                        </RequiredSelect>
-
-                        <RequiredSelect
-                            label="Civil Status"
-                            value={employee.profile?.civilStatus ?? ''}
-                            onChangeAction={(v) => {
-                                if (!isCivilStatus(v)) return
-                                setEmployee((prev) => prev ? {
-                                    ...prev,
-                                    profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), civilStatus: v },
-                                } : prev)
-                            }}
-                        >
-                            <SelectItem value="SINGLE">Single</SelectItem>
-                            <SelectItem value="MARRIED">Married</SelectItem>
-                            <SelectItem value="SEPARATED">Separated</SelectItem>
-                            <SelectItem value="WIDOWED">Widowed</SelectItem>
-                            <SelectItem value="ANNULLED">Annulled</SelectItem>
-                            <SelectItem value="LIVE_IN">Live-in</SelectItem>
-                        </RequiredSelect>
-
-                        {(['mobileNo', 'emergencyContactName', 'emergencyContactMobileNo'] as const).map((field) => (
-                            <RequiredInput
-                                key={field}
-                                label={field.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
-                                value={employee.profile?.[field] ?? ''}
-                                onChangeAction={(v) =>
-                                    setEmployee((prev) => prev ? {
-                                        ...prev,
-                                        profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), [field]: v },
-                                    } : prev)
-                                }
-                            />
-                        ))}
+                            ))}
+                        </div>
                     </div>
 
                     <Separator />
 
-                    {/* Government Identifiers */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {(
-                            [
-                                ['tinNo', 'TIN No'],
-                                ['sssNo', 'SSS No'],
-                                ['philHealthNo', 'PhilHealth No'],
-                                ['pagIbigNo', 'Pag-IBIG No'],
-                            ] as const
-                        ).map(([field, label]) => (
-                            <RequiredInput
-                                key={field}
-                                label={label}
-                                value={employee.identifiers?.[field] ?? ''}
-                                onChangeAction={(v) =>
-                                    setEmployee((prev) => prev ? {
-                                        ...prev,
-                                        identifiers: { ...(prev.identifiers ?? { ...DEFAULT_IDENTIFIERS, employeeId: prev.id }), [field]: v },
-                                    } : prev)
-                                }
-                            />
-                        ))}
+                    {/* Government IDs */}
+                    <div className="space-y-4">
+                        <SectionHeading>Government IDs</SectionHeading>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {(
+                                [
+                                    ['tinNo', 'TIN No'],
+                                    ['sssNo', 'SSS No'],
+                                    ['philHealthNo', 'PhilHealth No'],
+                                    ['pagIbigNo', 'Pag-IBIG No'],
+                                ] as const
+                            ).map(([field, label]) => (
+                                <RequiredInput
+                                    key={field}
+                                    label={label}
+                                    value={employee.identifiers?.[field] ?? ''}
+                                    onChangeAction={(v) =>
+                                        setEmployee((prev) => prev ? {
+                                            ...prev,
+                                            identifiers: { ...(prev.identifiers ?? { ...DEFAULT_IDENTIFIERS, employeeId: prev.id }), [field]: v },
+                                        } : prev)
+                                    }
+                                />
+                            ))}
+                        </div>
                     </div>
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-end pt-2">
                         <Button onClick={handleSave} disabled={saving}>
                             {saving ? 'Saving...' : 'Save Changes'}
                         </Button>
                     </div>
+
                 </CardContent>
             </Card>
         </div>

@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import type { Position } from '@/types/position.types'
+import { format } from 'date-fns'
 
 type Props = {
     position: Position
@@ -84,12 +85,12 @@ export function PositionDetailPanel({
 
                 <div>
                     <p className="text-muted-foreground">Created</p>
-                    <p>{new Date(position.createdAt).toLocaleString()}</p>
+                    <p>{format(new Date(position.createdAt), 'PP')}</p>
                 </div>
 
                 <div>
                     <p className="text-muted-foreground">Last Updated</p>
-                    <p>{new Date(position.updatedAt).toLocaleString()}</p>
+                    <p>{format(new Date(position.updatedAt), 'PP')}</p>
                 </div>
             </div>
         </div>

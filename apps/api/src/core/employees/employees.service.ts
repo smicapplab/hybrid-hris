@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common'
+import * as bcrypt from 'bcrypt'
 import { EmployeesRepository } from './employees.repository'
 import { EmployeeFilterDto } from './dto/employee-filter.dto'
 import { CreateEmployeeDto } from './dto/create-employee.dto'
@@ -81,6 +82,10 @@ export class EmployeesService {
         return this.employeesRepository.findWithFilters(this.db.db, filter)
     }
 
+    async getHrConfig() {
+        return this.employeesRepository.getHrConfig(this.db.db)
+    }
+
     async findById(id: string) {
         const result = await this.employeesRepository.findByIdWithDetails(this.db.db, id)
 
@@ -140,11 +145,14 @@ export class EmployeesService {
                 throw new BadRequestException('Login email already in use')
             }
 
+            const passwordHash = await bcrypt.hash(dto.password, 10)
+
             const [employee] = await this.employeesRepository.insertEmployee(tx, {
                 employeeNo,
                 firstName: dto.firstName,
                 middleName: dto.middleName,
                 lastName: dto.lastName,
+                alternateEmail: dto.alternateEmail ?? null,
                 orgUnitId: dto.orgUnitId,
                 positionId: dto.positionId,
                 supervisorId: dto.supervisorId ?? null,
@@ -159,6 +167,7 @@ export class EmployeesService {
                 email: normalizedEmail,
                 employeeId: employee.id,
                 isActive: true,
+                passwordHash,
             })
 
             await this.employeesRepository.assignEmployeeRoles(tx, {
