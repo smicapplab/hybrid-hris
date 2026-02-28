@@ -30,11 +30,12 @@ import { COUNTRY_OPTIONS, DEFAULT_IDENTIFIERS, DEFAULT_PROFILE, EMPLOYMENT_TYPE_
 import { SectionHeading, stripSystemFields } from '../helpers'
 import { getBackgroundColor } from '@/lib/utils'
 import { format } from 'date-fns'
+import { useToast } from "@/hooks/use-toast";
 
 export default function EmployeeDetailPage() {
     const { id } = useParams<{ id: string }>()
     const router = useRouter()
-
+    const { toast } = useToast();
     const [employee, setEmployee] = useState<Employee | null>(null)
     const [originalStatus, setOriginalStatus] = useState<string | null>(null)
     const [allowedNextStatuses, setAllowedNextStatuses] = useState<string[]>([])
@@ -113,6 +114,11 @@ export default function EmployeeDetailPage() {
                 body: JSON.stringify({ status: value }),
             })
             setOriginalStatus(value)
+            toast({
+                title: "Status Updated",
+                description: `Employee status changed to ${value}.`,
+                variant: "success",
+            });
         } catch (err) {
             console.error(err)
             setEmployee((prev) => {
@@ -120,6 +126,11 @@ export default function EmployeeDetailPage() {
                 const revert = originalStatus && isEmployeeStatus(originalStatus) ? originalStatus : prev.status
                 return { ...prev, status: revert }
             })
+            toast({
+                title: "Status Update Failed",
+                description: "Unable to update employee status. Please try again.",
+                variant: "destructive",
+            });
         } finally {
             await refreshStatusOptions()
             setStatusSaving(false)
@@ -172,10 +183,20 @@ export default function EmployeeDetailPage() {
                 })),
             })
 
+            toast({
+                title: "Employee Updated",
+                description: "Employee details have been successfully saved.",
+                variant: "success",
+            });
             router.refresh()
         } catch (err) {
             console.error(err)
             setFormError(err instanceof Error ? err.message : 'Failed to save. Please try again.')
+            toast({
+                title: "Update Failed",
+                description: "Unable to save employee details. Please try again.",
+                variant: "destructive",
+            });
         } finally {
             setSaving(false)
         }

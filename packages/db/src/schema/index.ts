@@ -20,5 +20,6 @@ export * from './leave-ledger';
 export * from './hr-settings';
 export * from './shift-templates';
 export * from './employee-shift-assignments';
+export * from './pending-employee-shift-assignments';
 export * from './attendance-logs';
 export * from './attendance-adjustments';

@@ -31,6 +31,35 @@ class OverrideShiftDto {
     @IsOptional()
     @IsBoolean()
     isFlexible?: boolean
+
+    // Work-day overrides — only provide if you want to deviate from the template defaults
+    @IsOptional()
+    @IsBoolean()
+    isMon?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isTue?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isWed?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isThu?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isFri?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isSat?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isSun?: boolean
 }
 
 export class CreateShiftAssignmentDto {
@@ -40,12 +69,9 @@ export class CreateShiftAssignmentDto {
     @IsUUID()
     shiftTemplateId!: string
 
+    /** The date this assignment takes effect. */
     @IsDateString()
     effectiveFrom!: string
-
-    @IsOptional()
-    @IsDateString()
-    effectiveTo?: string | null
 
     @IsOptional()
     @IsObject()

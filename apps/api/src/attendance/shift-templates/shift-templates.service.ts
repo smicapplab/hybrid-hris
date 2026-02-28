@@ -5,7 +5,7 @@ import {
     NotFoundException,
     BadRequestException,
 } from '@nestjs/common'
-import { eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { shiftTemplates } from '@hybrid-hris/db'
 import { DatabaseService } from 'src/database/database.service'
 import { CreateShiftTemplateDto } from './dto/create-shift-template.dto'
@@ -42,10 +42,12 @@ export class ShiftTemplatesService {
             throw new BadRequestException('Code and name are required')
         }
 
+        // Only check against active (non-deleted) templates — the partial unique index
+        // allows a previously soft-deleted code to be reused.
         const [existing] = await this.db.db
             .select({ id: shiftTemplates.id })
             .from(shiftTemplates)
-            .where(eq(shiftTemplates.code, payload.code))
+            .where(and(eq(shiftTemplates.code, payload.code), isNull(shiftTemplates.deletedAt)))
             .limit(1)
 
         if (existing) {
@@ -81,14 +83,26 @@ export class ShiftTemplatesService {
             throw new NotFoundException('Shift template not found')
         }
 
-        const updatePayload = {
-            ...payload,
-            updatedAt: new Date(),
+        const allowedFields: (keyof UpdateShiftTemplateDto)[] = [
+            'name', 'startTime', 'endTime', 'breakMinutes', 'isFlexible', 'isActive',
+            'isMon', 'isTue', 'isWed', 'isThu', 'isFri', 'isSat', 'isSun',
+        ]
+
+        const patch: Record<string, unknown> = { updatedAt: new Date() }
+        for (const field of allowedFields) {
+            if (payload[field] !== undefined) {
+                patch[field] = payload[field]
+            }
+        }
+
+        if (Object.keys(patch).length === 1) {
+            // only updatedAt — nothing to change
+            throw new BadRequestException('No updatable fields provided')
         }
 
         const [updated] = await this.db.db
             .update(shiftTemplates)
-            .set(updatePayload)
+            .set(patch)
             .where(eq(shiftTemplates.id, id))
             .returning()
 

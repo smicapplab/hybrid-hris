@@ -36,4 +36,32 @@ export class UpdateShiftTemplateDto {
     @IsOptional()
     @IsBoolean()
     isActive?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isMon?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isTue?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isWed?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isThu?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isFri?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isSat?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isSun?: boolean
 }

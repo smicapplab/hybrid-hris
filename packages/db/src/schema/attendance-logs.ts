@@ -3,6 +3,7 @@ import {
     uuid,
     timestamp,
     pgEnum,
+    boolean,
     index,
     uniqueIndex,
     date,
@@ -42,6 +43,9 @@ export const attendanceLogs = pgTable(
         sourceIn: attendanceSourceEnum('source_in'),
         sourceOut: attendanceSourceEnum('source_out'),
 
+        // Set to true after month-end payroll close — prevents further mutations.
+        isLocked: boolean('is_locked').notNull().default(false),
+
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
             .notNull(),
@@ -53,6 +57,8 @@ export const attendanceLogs = pgTable(
     (t) => ({
         employeeIdx: index('attendance_logs_employee_idx').on(t.employeeId),
         workDateIdx: index('attendance_logs_work_date_idx').on(t.workDate),
+        // Supports payroll month-end queries that scan for unlocked logs in a date range
+        isLockedIdx: index('attendance_logs_is_locked_idx').on(t.isLocked),
         // One row per employee per work date — no soft delete so no partial condition needed
         employeeWorkDateUq: uniqueIndex('attendance_logs_employee_work_date_uq')
             .on(t.employeeId, t.workDate),

@@ -33,4 +33,26 @@ export class CreateShiftTemplateDto {
 
     @IsBoolean()
     isActive!: boolean
+
+    // Work-day schedule — which days of the week this shift runs
+    @IsBoolean()
+    isMon!: boolean
+
+    @IsBoolean()
+    isTue!: boolean
+
+    @IsBoolean()
+    isWed!: boolean
+
+    @IsBoolean()
+    isThu!: boolean
+
+    @IsBoolean()
+    isFri!: boolean
+
+    @IsBoolean()
+    isSat!: boolean
+
+    @IsBoolean()
+    isSun!: boolean
 }

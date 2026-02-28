@@ -1,5 +1,5 @@
 {
-  "id": "c3b77223-b7ef-4983-8fc2-b1cf6f889e66",
+  "id": "43368fbe-537a-4fc8-bfbe-cb64c10b89d6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2963,6 +2963,55 @@
           "notNull": true,
           "default": true
         },
+        "is_mon": {
+          "name": "is_mon",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "is_tue": {
+          "name": "is_tue",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "is_wed": {
+          "name": "is_wed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "is_thu": {
+          "name": "is_thu",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "is_fri": {
+          "name": "is_fri",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "is_sat": {
+          "name": "is_sat",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "is_sun": {
+          "name": "is_sun",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "deleted_at": {
           "name": "deleted_at",
           "type": "timestamp with time zone",
@@ -3086,23 +3135,53 @@
           "primaryKey": false,
           "notNull": true
         },
+        "is_mon": {
+          "name": "is_mon",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_tue": {
+          "name": "is_tue",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_wed": {
+          "name": "is_wed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_thu": {
+          "name": "is_thu",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_fri": {
+          "name": "is_fri",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_sat": {
+          "name": "is_sat",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_sun": {
+          "name": "is_sun",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
         "effective_from": {
           "name": "effective_from",
           "type": "date",
           "primaryKey": false,
           "notNull": true
-        },
-        "effective_to": {
-          "name": "effective_to",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "deleted_at": {
-          "name": "deleted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -3120,8 +3199,8 @@
         }
       },
       "indexes": {
-        "employee_shift_assignments_employee_idx": {
-          "name": "employee_shift_assignments_employee_idx",
+        "employee_shift_assignments_employee_uq": {
+          "name": "employee_shift_assignments_employee_uq",
           "columns": [
             {
               "expression": "employee_id",
@@ -3130,7 +3209,7 @@
               "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -3146,43 +3225,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "employee_shift_assignments_deleted_at_idx": {
-          "name": "employee_shift_assignments_deleted_at_idx",
-          "columns": [
-            {
-              "expression": "deleted_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "employee_shift_assignments_employee_effective_from_uq": {
-          "name": "employee_shift_assignments_employee_effective_from_uq",
-          "columns": [
-            {
-              "expression": "employee_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "effective_from",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "deleted_at IS NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -3219,12 +3261,268 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "employee_shift_assignments_effective_date_order_check": {
-          "name": "employee_shift_assignments_effective_date_order_check",
-          "value": "(effective_to IS NULL) OR (effective_to >= effective_from)"
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pending_employee_shift_assignments": {
+      "name": "pending_employee_shift_assignments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "employee_id": {
+          "name": "employee_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shift_template_id": {
+          "name": "shift_template_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "break_minutes": {
+          "name": "break_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_flexible": {
+          "name": "is_flexible",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_mon": {
+          "name": "is_mon",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_tue": {
+          "name": "is_tue",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_wed": {
+          "name": "is_wed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_thu": {
+          "name": "is_thu",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_fri": {
+          "name": "is_fri",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_sat": {
+          "name": "is_sat",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_sun": {
+          "name": "is_sun",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_date": {
+          "name": "effective_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "pending_shift_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PENDING'"
+        },
+        "requested_by": {
+          "name": "requested_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "applied_at": {
+          "name": "applied_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
+      "indexes": {
+        "pending_shift_assignments_employee_idx": {
+          "name": "pending_shift_assignments_employee_idx",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pending_shift_assignments_effective_date_idx": {
+          "name": "pending_shift_assignments_effective_date_idx",
+          "columns": [
+            {
+              "expression": "effective_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pending_shift_assignments_status_idx": {
+          "name": "pending_shift_assignments_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pending_shift_assignments_employee_status_idx": {
+          "name": "pending_shift_assignments_employee_status_idx",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pending_shift_assignments_pending_per_employee_uq": {
+          "name": "pending_shift_assignments_pending_per_employee_uq",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "status = 'PENDING'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pending_employee_shift_assignments_employee_id_employees_id_fk": {
+          "name": "pending_employee_shift_assignments_employee_id_employees_id_fk",
+          "tableFrom": "pending_employee_shift_assignments",
+          "tableTo": "employees",
+          "columnsFrom": [
+            "employee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "pending_employee_shift_assignments_shift_template_id_shift_templates_id_fk": {
+          "name": "pending_employee_shift_assignments_shift_template_id_shift_templates_id_fk",
+          "tableFrom": "pending_employee_shift_assignments",
+          "tableTo": "shift_templates",
+          "columnsFrom": [
+            "shift_template_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "pending_employee_shift_assignments_requested_by_users_id_fk": {
+          "name": "pending_employee_shift_assignments_requested_by_users_id_fk",
+          "tableFrom": "pending_employee_shift_assignments",
+          "tableTo": "users",
+          "columnsFrom": [
+            "requested_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.attendance_logs": {
@@ -3288,6 +3586,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "is_locked": {
+          "name": "is_locked",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -3324,6 +3629,21 @@
           "columns": [
             {
               "expression": "work_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attendance_logs_is_locked_idx": {
+          "name": "attendance_logs_is_locked_idx",
+          "columns": [
+            {
+              "expression": "is_locked",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3391,12 +3711,6 @@
         "employee_id": {
           "name": "employee_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "work_date": {
-          "name": "work_date",
-          "type": "date",
           "primaryKey": false,
           "notNull": true
         },
@@ -3499,21 +3813,6 @@
           "method": "btree",
           "with": {}
         },
-        "attendance_adjustments_work_date_idx": {
-          "name": "attendance_adjustments_work_date_idx",
-          "columns": [
-            {
-              "expression": "work_date",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "attendance_adjustments_status_idx": {
           "name": "attendance_adjustments_status_idx",
           "columns": [
@@ -3544,27 +3843,6 @@
           "method": "btree",
           "with": {}
         },
-        "attendance_adjustments_employee_work_date_idx": {
-          "name": "attendance_adjustments_employee_work_date_idx",
-          "columns": [
-            {
-              "expression": "employee_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "work_date",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "attendance_adjustments_log_idx": {
           "name": "attendance_adjustments_log_idx",
           "columns": [
@@ -3576,6 +3854,22 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attendance_adjustments_pending_per_log_uq": {
+          "name": "attendance_adjustments_pending_per_log_uq",
+          "columns": [
+            {
+              "expression": "attendance_log_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "status = 'PENDING'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -3638,7 +3932,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "attendance_adjustments_approval_consistency_check": {
+          "name": "attendance_adjustments_approval_consistency_check",
+          "value": "status <> 'APPROVED' OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)"
+        }
+      },
       "isRLSEnabled": false
     }
   },
@@ -3732,6 +4031,15 @@
         "ADJUSTMENT"
       ]
     },
+    "public.pending_shift_status": {
+      "name": "pending_shift_status",
+      "schema": "public",
+      "values": [
+        "PENDING",
+        "APPLIED",
+        "CANCELLED"
+      ]
+    },
     "public.attendance_source": {
       "name": "attendance_source",
       "schema": "public",
@@ -3748,7 +4056,8 @@
       "values": [
         "PENDING",
         "APPROVED",
-        "REJECTED"
+        "REJECTED",
+        "CANCELLED"
       ]
     }
   },

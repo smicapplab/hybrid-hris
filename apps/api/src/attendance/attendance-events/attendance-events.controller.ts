@@ -22,11 +22,13 @@ export class AttendanceEventsController {
        READ
        ============================================================ */
 
+    @UseGuards(AuthGuard('jwt'))
     @Get()
     async findAllByEmployee(@Query('employeeId') employeeId: string) {
         return this.attendanceEventsService.findAllByEmployee(employeeId)
     }
 
+    @UseGuards(AuthGuard('jwt'))
     @Get(':id')
     async findById(@Param('id') id: string) {
         return this.attendanceEventsService.findById(id)

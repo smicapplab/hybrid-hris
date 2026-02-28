@@ -102,15 +102,8 @@ export class EmployeesService {
     }
 
     async create(dto: CreateEmployeeDto) {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-
         const hireDate = new Date(dto.hireDate)
         hireDate.setHours(0, 0, 0, 0)
-
-        if (hireDate > today) {
-            throw new BadRequestException('Hire date cannot be in the future')
-        }
 
         return this.db.withTransaction(async (tx) => {
             const employeeNo = dto.employeeNo ?? await this.generateEmployeeNo(tx)
@@ -149,6 +142,8 @@ export class EmployeesService {
 
             const hrConfig = await this.employeesRepository.getHrConfig(tx)
 
+            const employmentType = dto.employmentType ?? 'REGULAR'
+
             const [employee] = await this.employeesRepository.insertEmployee(tx, {
                 employeeNo,
                 firstName: dto.firstName,
@@ -159,6 +154,9 @@ export class EmployeesService {
                 positionId: dto.positionId,
                 supervisorId: dto.supervisorId ?? null,
                 hireDate: dto.hireDate,
+                employmentType,
+                // PROBATIONARY hires start in PROBATION status; everyone else starts ACTIVE
+                status: employmentType === 'PROBATIONARY' ? 'PROBATION' : 'ACTIVE',
                 timezone: hrConfig?.timezone ?? 'UTC',
             })
 
@@ -199,15 +197,8 @@ export class EmployeesService {
             }
 
             if (dto.hireDate !== undefined) {
-                const today = new Date()
-                today.setHours(0, 0, 0, 0)
-
                 const hireDate = new Date(dto.hireDate)
                 hireDate.setHours(0, 0, 0, 0)
-
-                if (hireDate > today) {
-                    throw new BadRequestException('Hire date cannot be in the future')
-                }
             }
 
             if (dto.positionId && !await this.employeesRepository.findPositionById(tx, dto.positionId)) {

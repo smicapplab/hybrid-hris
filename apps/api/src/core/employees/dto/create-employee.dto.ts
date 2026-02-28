@@ -2,11 +2,13 @@ import {
     IsArray,
     IsDateString,
     IsEmail,
+    IsIn,
     IsOptional,
     IsString,
     IsUUID,
     MinLength,
 } from 'class-validator'
+import { EmploymentType, EMPLOYMENT_TYPES } from '@hybrid-hris/domain'
 
 export class CreateEmployeeDto {
     @IsOptional()
@@ -53,6 +55,10 @@ export class CreateEmployeeDto {
 
     @IsDateString()
     hireDate!: string
+
+    @IsOptional()
+    @IsIn(EMPLOYMENT_TYPES)
+    employmentType?: EmploymentType
 
     // Additional roles (EMPLOYEE will always be assigned automatically)
     @IsOptional()

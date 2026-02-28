@@ -5,7 +5,13 @@ import {
 } from '@nestjs/common'
 import { and, eq, isNull, desc, sql } from 'drizzle-orm'
 import * as bcrypt from 'bcrypt'
-import { attendanceLogs, users, employees, hrSettings } from '@hybrid-hris/db'
+import {
+    attendanceLogs,
+    users,
+    employees,
+    hrSettings,
+    EmployeeShiftAssignment,
+} from '@hybrid-hris/db'
 import { DatabaseService } from 'src/database/database.service'
 import {
     ATTENDANCE_SOURCES,
@@ -28,13 +34,8 @@ export class AttendanceEventsService {
         return this.db.db
             .select()
             .from(attendanceLogs)
-            .where(
-                and(
-                    eq(attendanceLogs.employeeId, employeeId),
-                    isNull(attendanceLogs.deletedAt),
-                ),
-            )
-            .orderBy(desc(attendanceLogs.actualInAt))
+            .where(eq(attendanceLogs.employeeId, employeeId))
+            .orderBy(desc(attendanceLogs.workDate))
     }
 
     async findById(id: string) {
@@ -44,7 +45,7 @@ export class AttendanceEventsService {
             .where(eq(attendanceLogs.id, id))
             .limit(1)
 
-        if (!row || row.deletedAt) {
+        if (!row) {
             throw new NotFoundException('Attendance record not found')
         }
 
@@ -91,6 +92,77 @@ export class AttendanceEventsService {
         }).format(date)
     }
 
+    /**
+     * Convert a local "YYYY-MM-DD" + "HH:mm" in the given IANA timezone to a UTC Date.
+     *
+     * Strategy: build a UTC candidate assuming zero offset, then format it back in the
+     * target timezone to measure the actual offset, and correct accordingly.
+     * This is accurate for any IANA zone including DST transitions.
+     */
+    private localTimeToUtc(dateStr: string, timeStr: string, timezone: string): Date {
+        const [year, month, day] = dateStr.split('-').map(Number)
+        const [hours, minutes] = timeStr.split(':').map(Number)
+
+        // Build a UTC candidate as if the timezone offset were zero
+        const candidate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0))
+
+        // Format the candidate back in the target timezone to read the local representation
+        const fmt = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hourCycle: 'h23',
+        })
+        const parts = fmt.formatToParts(candidate)
+        const get = (type: string) =>
+            Number(parts.find((p) => p.type === type)?.value ?? 0)
+
+        const lYear = get('year')
+        const lMonth = get('month')
+        const lDay = get('day')
+        const lHour = get('hour')
+        const lMinute = get('minute')
+
+        // offsetMs = candidate(UTC) - localEquivalent(UTC)
+        const localEquivalentMs = Date.UTC(lYear, lMonth - 1, lDay, lHour, lMinute, 0)
+        const offsetMs = candidate.getTime() - localEquivalentMs
+
+        return new Date(candidate.getTime() + offsetMs)
+    }
+
+    /**
+     * Compute scheduled in/out UTC timestamps from shift snapshot fields and the resolved workDate.
+     *
+     * Overnight detection: if endTime < startTime (e.g., 22:00–06:00), the scheduled
+     * out timestamp falls on the next calendar day relative to workDate.
+     */
+    private computeScheduledTimes(
+        workDate: string,   // YYYY-MM-DD in the employee's local timezone
+        startTime: string,  // HH:mm (24-hour)
+        endTime: string,    // HH:mm (24-hour)
+        timezone: string,
+    ): { scheduledInAt: Date; scheduledOutAt: Date } {
+        const scheduledInAt = this.localTimeToUtc(workDate, startTime, timezone)
+
+        const [sh, sm] = startTime.split(':').map(Number)
+        const [eh, em] = endTime.split(':').map(Number)
+        const isOvernight = eh * 60 + em < sh * 60 + sm
+
+        let outDateStr = workDate
+        if (isOvernight) {
+            // Advance workDate by one calendar day (pure date arithmetic, no timezone needed)
+            const [y, mo, d] = workDate.split('-').map(Number)
+            const nextDay = new Date(Date.UTC(y, mo - 1, d + 1))
+            outDateStr = nextDay.toISOString().slice(0, 10)
+        }
+
+        const scheduledOutAt = this.localTimeToUtc(outDateStr, endTime, timezone)
+        return { scheduledInAt, scheduledOutAt }
+    }
+
     /** Resolve the effective timezone for an employee: employee override → hr_settings default → UTC. */
     private async getEmployeeTimezone(employeeId: string): Promise<string> {
         const [row] = await this.db.db
@@ -106,7 +178,17 @@ export class AttendanceEventsService {
         return row?.empTimezone ?? row?.orgTimezone ?? 'UTC'
     }
 
-    private async resolveWorkDateForNow(employeeId: string, now: Date, timezone: string): Promise<string> {
+    /**
+     * Find the work date and active shift for "now".
+     * Checks today first, then yesterday to support overnight shifts.
+     * Returns both the resolved workDate string and the shift row (to avoid a second query
+     * when the caller needs shift snapshot fields for scheduledInAt/scheduledOutAt).
+     */
+    private async resolveWorkDateForNow(
+        employeeId: string,
+        now: Date,
+        timezone: string,
+    ): Promise<{ workDate: string; shift: EmployeeShiftAssignment }> {
         const today = this.toLocalDateString(now, timezone)
         const yesterday = this.toLocalDateString(
             new Date(now.getTime() - 24 * 60 * 60 * 1000),
@@ -114,10 +196,10 @@ export class AttendanceEventsService {
         )
 
         const shiftToday = await this.shiftAssignmentsService.findActiveForDate(employeeId, today)
-        if (shiftToday) return today
+        if (shiftToday) return { workDate: today, shift: shiftToday }
 
         const shiftYesterday = await this.shiftAssignmentsService.findActiveForDate(employeeId, yesterday)
-        if (shiftYesterday) return yesterday
+        if (shiftYesterday) return { workDate: yesterday, shift: shiftYesterday }
 
         throw new BadRequestException('No active shift assignment')
     }
@@ -129,7 +211,15 @@ export class AttendanceEventsService {
 
         const now = new Date()
         const timezone = await this.getEmployeeTimezone(employeeId)
-        const workDate = await this.resolveWorkDateForNow(employeeId, now, timezone)
+        const { workDate, shift } = await this.resolveWorkDateForNow(employeeId, now, timezone)
+
+        // Compute scheduled timestamps from the shift snapshot
+        const { scheduledInAt, scheduledOutAt } = this.computeScheduledTimes(
+            workDate,
+            shift.startTime,
+            shift.endTime,
+            timezone,
+        )
 
         // Check if the latest entry is still open — rules guarantee at most one open entry exists,
         // so checking the latest row is sufficient (avoids a full-table filter on actualOutAt)
@@ -141,12 +231,7 @@ export class AttendanceEventsService {
                 actualOutAt: attendanceLogs.actualOutAt,
             })
             .from(attendanceLogs)
-            .where(
-                and(
-                    eq(attendanceLogs.employeeId, employeeId),
-                    isNull(attendanceLogs.deletedAt),
-                ),
-            )
+            .where(eq(attendanceLogs.employeeId, employeeId))
             .orderBy(desc(attendanceLogs.createdAt))
             .limit(1)
 
@@ -166,18 +251,18 @@ export class AttendanceEventsService {
                 and(
                     eq(attendanceLogs.employeeId, employeeId),
                     eq(attendanceLogs.workDate, workDate),
-                    isNull(attendanceLogs.deletedAt),
                 ),
             )
             .limit(1)
 
         return this.db.withTransaction(async (tx) => {
             if (existing) {
+                // Row was pre-created (e.g., by a scheduler); stamp actual in and source
                 const [updated] = await tx
                     .update(attendanceLogs)
                     .set({
                         actualInAt: now,
-                        source,
+                        sourceIn: source,
                         updatedAt: now,
                     })
                     .where(eq(attendanceLogs.id, existing.id))
@@ -191,8 +276,10 @@ export class AttendanceEventsService {
                 .values({
                     employeeId,
                     workDate,
+                    scheduledInAt,
+                    scheduledOutAt,
                     actualInAt: now,
-                    source,
+                    sourceIn: source,
                 })
                 .returning()
 
@@ -214,7 +301,6 @@ export class AttendanceEventsService {
             .where(
                 and(
                     eq(attendanceLogs.employeeId, employeeId),
-                    isNull(attendanceLogs.deletedAt),
                     isNull(attendanceLogs.actualOutAt),
                 ),
             )
@@ -229,7 +315,7 @@ export class AttendanceEventsService {
             .update(attendanceLogs)
             .set({
                 actualOutAt: now,
-                source,
+                sourceOut: source,
                 updatedAt: now,
             })
             .where(eq(attendanceLogs.id, openRow.id))
@@ -265,6 +351,12 @@ export class AttendanceEventsService {
             employee.status !== 'ACTIVE'
         ) {
             throw new BadRequestException('Invalid credentials')
+        }
+
+        // Check early: if this is a system user without a linked employee, fail fast
+        // before spending cycles on bcrypt
+        if (!user.employeeId) {
+            throw new BadRequestException('Employee not linked')
         }
 
         if (user.attendancePinLockedUntil && user.attendancePinLockedUntil > new Date()) {
@@ -304,10 +396,6 @@ export class AttendanceEventsService {
                     updatedAt: new Date(),
                 })
                 .where(eq(users.id, user.id))
-        }
-
-        if (!user.employeeId) {
-            throw new BadRequestException('Employee not linked')
         }
 
         return user.employeeId

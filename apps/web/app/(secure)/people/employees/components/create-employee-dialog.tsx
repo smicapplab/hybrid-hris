@@ -21,6 +21,7 @@ import { apiFetch } from '@/lib/api'
 import type { OrgUnitOption } from '@/types/org-unit.type'
 import type { PositionOption } from '@/types/position.types'
 import type { SupervisorOption } from '@/types/employee.type'
+import { useToast } from "@/hooks/use-toast";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -184,7 +185,7 @@ function validate(form: Form, emailDomain: string | null): FieldErrors {
 
 export function CreateEmployeeDialog({ open, onOpenChangeAction }: Props) {
     const router = useRouter()
-
+    const { toast } = useToast();
     const [form, setForm] = useState<Form>(EMPTY_FORM)
     const [hrConfig, setHrConfig] = useState<HrConfig | null>(null)
     const [usernameAutoSet, setUsernameAutoSet] = useState(true)
@@ -314,9 +315,19 @@ export function CreateEmployeeDialog({ open, onOpenChangeAction }: Props) {
             })
 
             onOpenChangeAction(false)
+            toast({
+                title: 'Employee Created',
+                description: 'The employee account has been successfully created.',
+                variant: 'success',
+            })
             router.push(`/people/employees/${employee.id}`)
         } catch (err) {
             setFormError(err instanceof Error ? err.message : 'Failed to create employee.')
+            toast({
+                title: 'Creation Failed',
+                description: 'Unable to create employee. Please review the details and try again.',
+                variant: 'destructive',
+            })
         } finally {
             setSaving(false)
         }
@@ -553,51 +564,45 @@ export function CreateEmployeeDialog({ open, onOpenChangeAction }: Props) {
                             onChangeAction={(v) => set('hireDate', v)}
                         />
 
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="col-span-2">
-                                <AsyncSearchSelect
-                                    label="Org Unit"
-                                    value={form.orgUnitId}
-                                    onChange={handleOrgUnitChange}
-                                    fetchOptions={async (search) => {
-                                        const list = await apiFetch<OrgUnitOption[]>(
-                                            `/org-units/search?leavesOnly=true&showDeleted=false&limit=20&query=${encodeURIComponent(search)}`,
-                                        )
-                                        if (currentOrgUnit && !list.some((o) => o.id === currentOrgUnit.id)) {
-                                            return [currentOrgUnit, ...list]
-                                        }
-                                        return list
-                                    }}
-                                    getOptionValue={(o) => o.id}
-                                    getOptionLabel={(o) => {
-                                        const base = o.path?.trim() ? o.path : o.name
-                                        return o.code?.trim() ? `${base} (${o.code})` : base
-                                    }}
-                                    placeholder="Search org unit..."
-                                />
-                                {fieldErrors.orgUnitId && (
-                                    <p className="text-xs text-red-500 mt-1">{fieldErrors.orgUnitId}</p>
-                                )}
-                            </div>
+                        <AsyncSearchSelect
+                            label="Org Unit"
+                            value={form.orgUnitId}
+                            onChange={handleOrgUnitChange}
+                            fetchOptions={async (search) => {
+                                const list = await apiFetch<OrgUnitOption[]>(
+                                    `/org-units/search?leavesOnly=true&showDeleted=false&limit=20&query=${encodeURIComponent(search)}`,
+                                )
+                                if (currentOrgUnit && !list.some((o) => o.id === currentOrgUnit.id)) {
+                                    return [currentOrgUnit, ...list]
+                                }
+                                return list
+                            }}
+                            getOptionValue={(o) => o.id}
+                            getOptionLabel={(o) => {
+                                const base = o.path?.trim() ? o.path : o.name
+                                return o.code?.trim() ? `${base} (${o.code})` : base
+                            }}
+                            placeholder="Search org unit..."
+                        />
+                        {fieldErrors.orgUnitId && (
+                            <p className="text-xs text-red-500 mt-1">{fieldErrors.orgUnitId}</p>
+                        )}
 
-                            <div className="col-span-1">
-                                <RequiredSelect
-                                    label="Position"
-                                    value={form.positionId}
-                                    required
-                                    touched={!!fieldErrors.positionId}
-                                    errorMessage={fieldErrors.positionId}
-                                    onChangeAction={(v) => set('positionId', v)}
-                                >
-                                    {positions.length === 0
-                                        ? <SelectItem value="_none" disabled>Select an org unit first</SelectItem>
-                                        : positions.map((p) => (
-                                            <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                                        ))
-                                    }
-                                </RequiredSelect>
-                            </div>
-                        </div>
+                        <RequiredSelect
+                            label="Position"
+                            value={form.positionId}
+                            required
+                            touched={!!fieldErrors.positionId}
+                            errorMessage={fieldErrors.positionId}
+                            onChangeAction={(v) => set('positionId', v)}
+                        >
+                            {positions.length === 0
+                                ? <SelectItem value="_none" disabled>Select an org unit first</SelectItem>
+                                : positions.map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                                ))
+                            }
+                        </RequiredSelect>
 
                         <AsyncSearchSelect
                             label="Supervisor (optional)"

@@ -1,26 +1,25 @@
-
-
 import {
     pgTable,
     uuid,
-    date,
     varchar,
     boolean,
     integer,
     timestamp,
-    index,
     uniqueIndex,
-    check,
+    index,
+    date,
 } from 'drizzle-orm/pg-core'
-import { sql } from 'drizzle-orm'
 
 import { employees } from './employees'
 import { shiftTemplates } from './shift-templates'
 
 /**
- * Effective-dated employee shift assignments.
- * Snapshots shift timing fields at assignment time
- * to protect historical attendance integrity.
+ * One row per employee — the employee's current active shift assignment.
+ * Updated in-place when the schedule changes immediately.
+ * Future/pending schedule changes are queued in pending_employee_shift_assignments.
+ *
+ * Snapshot fields are copied from shift_templates at assignment time so that
+ * historical attendance records are unaffected when the template is later edited.
  */
 export const employeeShiftAssignments = pgTable(
     'employee_shift_assignments',
@@ -35,16 +34,23 @@ export const employeeShiftAssignments = pgTable(
             .notNull()
             .references(() => shiftTemplates.id, { onDelete: 'restrict' }),
 
-        // Snapshot fields (copied from shift_templates at assignment time)
+        // Timing snapshot
         startTime: varchar('start_time', { length: 5 }).notNull(),
         endTime: varchar('end_time', { length: 5 }).notNull(),
         breakMinutes: integer('break_minutes').notNull(),
         isFlexible: boolean('is_flexible').notNull(),
 
-        effectiveFrom: date('effective_from').notNull(),
-        effectiveTo: date('effective_to'),
+        // Work-day snapshot — which days of the week this employee works
+        isMon: boolean('is_mon').notNull(),
+        isTue: boolean('is_tue').notNull(),
+        isWed: boolean('is_wed').notNull(),
+        isThu: boolean('is_thu').notNull(),
+        isFri: boolean('is_fri').notNull(),
+        isSat: boolean('is_sat').notNull(),
+        isSun: boolean('is_sun').notNull(),
 
-        deletedAt: timestamp('deleted_at', { withTimezone: true }),
+        // The date from which this assignment is in effect (audit trail)
+        effectiveFrom: date('effective_from').notNull(),
 
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
@@ -55,41 +61,11 @@ export const employeeShiftAssignments = pgTable(
             .notNull(),
     },
     (t) => ({
-        employeeIdx: index('employee_shift_assignments_employee_idx').on(
-            t.employeeId,
-        ),
-        shiftTemplateIdx: index(
-            'employee_shift_assignments_shift_template_idx',
-        ).on(t.shiftTemplateId),
-        deletedAtIdx: index('employee_shift_assignments_deleted_at_idx').on(
-            t.deletedAt,
-        ),
-
-        // Partial: excludes soft-deleted rows so a deleted assignment doesn't block re-assignment from the same date
-        employeeEffectiveFromUq: uniqueIndex(
-            'employee_shift_assignments_employee_effective_from_uq',
-        ).on(t.employeeId, t.effectiveFrom).where(sql`deleted_at IS NULL`),
-
-        effectiveDateOrderCheck: check(
-            'employee_shift_assignments_effective_date_order_check',
-            sql`(effective_to IS NULL) OR (effective_to >= effective_from)`,
-        ),
-
-        noOverlapPerEmployee: sql`
-      CONSTRAINT employee_shift_assignments_no_overlap
-      EXCLUDE USING gist (
-        employee_id WITH =,
-        daterange(
-          effective_from,
-          COALESCE(effective_to, 'infinity'::date)
-        ) WITH &&
-      )
-    `,
+        // 1:1 — exactly one active assignment per employee at any time
+        employeeUq: uniqueIndex('employee_shift_assignments_employee_uq').on(t.employeeId),
+        shiftTemplateIdx: index('employee_shift_assignments_shift_template_idx').on(t.shiftTemplateId),
     }),
 )
 
-export type EmployeeShiftAssignment =
-    typeof employeeShiftAssignments.$inferSelect
-
-export type NewEmployeeShiftAssignment =
-    typeof employeeShiftAssignments.$inferInsert
+export type EmployeeShiftAssignment = typeof employeeShiftAssignments.$inferSelect
+export type NewEmployeeShiftAssignment = typeof employeeShiftAssignments.$inferInsert

@@ -33,6 +33,16 @@ export const shiftTemplates = pgTable(
         isFlexible: boolean('is_flexible').default(false).notNull(),
         isActive: boolean('is_active').default(true).notNull(),
 
+        // Work-day schedule — which days of the week this shift runs.
+        // Defaults to a standard Mon–Fri workweek.
+        isMon: boolean('is_mon').default(true).notNull(),
+        isTue: boolean('is_tue').default(true).notNull(),
+        isWed: boolean('is_wed').default(true).notNull(),
+        isThu: boolean('is_thu').default(true).notNull(),
+        isFri: boolean('is_fri').default(true).notNull(),
+        isSat: boolean('is_sat').default(false).notNull(),
+        isSun: boolean('is_sun').default(false).notNull(),
+
         deletedAt: timestamp('deleted_at', { withTimezone: true }),
 
         createdAt: timestamp('created_at', { withTimezone: true })

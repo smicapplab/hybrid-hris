@@ -290,6 +290,13 @@ export async function seedSystem() {
                 endTime: resolvedDayShift.endTime,
                 breakMinutes: resolvedDayShift.breakMinutes,
                 isFlexible: resolvedDayShift.isFlexible,
+                isMon: resolvedDayShift.isMon,
+                isTue: resolvedDayShift.isTue,
+                isWed: resolvedDayShift.isWed,
+                isThu: resolvedDayShift.isThu,
+                isFri: resolvedDayShift.isFri,
+                isSat: resolvedDayShift.isSat,
+                isSun: resolvedDayShift.isSun,
                 effectiveFrom: todayIso,
             })
             .onConflictDoNothing();
@@ -585,6 +592,13 @@ export async function seedSystem() {
                     endTime: resolvedDayShift.endTime,
                     breakMinutes: resolvedDayShift.breakMinutes,
                     isFlexible: resolvedDayShift.isFlexible,
+                    isMon: resolvedDayShift.isMon,
+                    isTue: resolvedDayShift.isTue,
+                    isWed: resolvedDayShift.isWed,
+                    isThu: resolvedDayShift.isThu,
+                    isFri: resolvedDayShift.isFri,
+                    isSat: resolvedDayShift.isSat,
+                    isSun: resolvedDayShift.isSun,
                     effectiveFrom: todayIso,
                 })
                 .onConflictDoNothing();
@@ -631,6 +645,13 @@ export async function seedSystem() {
                     endTime: resolvedDayShift.endTime,
                     breakMinutes: resolvedDayShift.breakMinutes,
                     isFlexible: resolvedDayShift.isFlexible,
+                    isMon: resolvedDayShift.isMon,
+                    isTue: resolvedDayShift.isTue,
+                    isWed: resolvedDayShift.isWed,
+                    isThu: resolvedDayShift.isThu,
+                    isFri: resolvedDayShift.isFri,
+                    isSat: resolvedDayShift.isSat,
+                    isSun: resolvedDayShift.isSun,
                     effectiveFrom: todayIso,
                 })
                 .onConflictDoNothing();
@@ -695,6 +716,13 @@ export async function seedSystem() {
                             endTime: resolvedDayShift.endTime,
                             breakMinutes: resolvedDayShift.breakMinutes,
                             isFlexible: resolvedDayShift.isFlexible,
+                            isMon: resolvedDayShift.isMon,
+                            isTue: resolvedDayShift.isTue,
+                            isWed: resolvedDayShift.isWed,
+                            isThu: resolvedDayShift.isThu,
+                            isFri: resolvedDayShift.isFri,
+                            isSat: resolvedDayShift.isSat,
+                            isSun: resolvedDayShift.isSun,
                             effectiveFrom: todayIso,
                         })
                         .onConflictDoNothing();

@@ -6,7 +6,8 @@ import { DatabaseModule } from 'src/database/database.module';
 @Module({
   imports: [DatabaseModule],
   controllers: [ShiftTemplatesController],
-  providers: [ShiftTemplatesService]
+  providers: [ShiftTemplatesService],
+  exports: [ShiftTemplatesService],
 })
 
 export class ShiftTemplatesModule { }

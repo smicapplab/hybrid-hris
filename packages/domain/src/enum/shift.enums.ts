@@ -54,6 +54,7 @@ export const ATTENDANCE_ADJUSTMENT_STATUSES = [
     'PENDING',
     'APPROVED',
     'REJECTED',
+    'CANCELLED',
 ] as const
 
 export type AttendanceAdjustmentStatus =
@@ -65,6 +66,22 @@ export function isAttendanceAdjustmentStatus(
     return ATTENDANCE_ADJUSTMENT_STATUSES.includes(
         v as AttendanceAdjustmentStatus,
     )
+}
+
+/* ============================================================
+   PENDING SHIFT ASSIGNMENT STATUSES
+   ============================================================ */
+
+export const PENDING_SHIFT_STATUSES = [
+    'PENDING',
+    'APPLIED',
+    'CANCELLED',
+] as const
+
+export type PendingShiftStatus = (typeof PENDING_SHIFT_STATUSES)[number]
+
+export function isPendingShiftStatus(v: string): v is PendingShiftStatus {
+    return PENDING_SHIFT_STATUSES.includes(v as PendingShiftStatus)
 }
 
 /* ============================================================
