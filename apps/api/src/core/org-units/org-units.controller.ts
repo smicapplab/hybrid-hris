@@ -111,4 +111,36 @@ export class OrgUnitsController {
     ) {
         return this.service.removePositionFromOrg(id, positionId);
     }
+
+    /* ── Leaders ─────────────────────────────────────────────────────────────── */
+
+    @Get(':id/leaders')
+    getLeaders(@Param('id') id: string) {
+        return this.service.getLeaders(id);
+    }
+
+    @Post(':id/leaders')
+    @UseGuards(RolesGuard)
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+    addLeader(
+        @Param('id') id: string,
+        @Body() body: {
+            employeeId: string;
+            role: 'HEAD' | 'CO_HEAD' | 'ACTING_HEAD';
+            isPrimary?: boolean;
+            effectiveFrom?: string;
+        },
+    ) {
+        return this.service.addLeader(id, body);
+    }
+
+    @Delete(':id/leaders/:leaderId')
+    @UseGuards(RolesGuard)
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+    removeLeader(
+        @Param('id') id: string,
+        @Param('leaderId') leaderId: string,
+    ) {
+        return this.service.removeLeader(id, leaderId);
+    }
 }

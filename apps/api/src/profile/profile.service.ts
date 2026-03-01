@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
-import { eq } from 'drizzle-orm'
-import { employees, employeeProfiles } from '@hybrid-hris/db'
+import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common'
+import { and, asc, eq, isNull } from 'drizzle-orm'
+import * as bcrypt from 'bcrypt'
+import { employees, employeeProfiles, users, positions, orgUnits, orgUnitLeaders } from '@hybrid-hris/db'
 import { DatabaseService } from 'src/database/database.service'
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto'
+import { ChangePasswordDto } from './dto/change-password.dto'
 
 @Injectable()
 export class ProfileService {
@@ -108,5 +110,168 @@ export class ProfileService {
         })
 
         return this.getMyProfile(employeeId, userEmail)
+    }
+
+    async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+        const [user] = await this.db.db
+            .select({ id: users.id, passwordHash: users.passwordHash })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1)
+
+        if (!user) {
+            throw new NotFoundException('User not found')
+        }
+
+        if (!user.passwordHash) {
+            throw new BadRequestException('No password set on this account')
+        }
+
+        const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash)
+        if (!valid) {
+            throw new UnauthorizedException('Current password is incorrect')
+        }
+
+        const COMMON_PASSWORDS = new Set([
+            'password', '123456', '12345678', 'qwerty', 'abc123', 'password1',
+            'iloveyou', 'admin', 'letmein', 'monkey', '1234567', 'sunshine',
+            'princess', 'master', 'shadow', 'dragon', '123456789', '1234567890',
+            'baseball', 'football', 'soccer', 'charlie', 'donald', 'batman',
+            'trustno1', 'hello', 'welcome', 'michael', 'superman', 'jessica',
+            '654321', '000000', 'qwerty123', 'pass', 'login', '111111', '12345',
+            '1234', 'pass123', 'passw0rd', 'password12', 'changeme', 'secret',
+            'matrix', 'computer', 'internet', 'mustang', 'access', 'ninja',
+            'ranger', 'maverick', 'buster', 'tigger', 'smokey', 'golfer',
+            'summer', 'winter', 'spring', 'flower', 'cookie', 'maggie', 'hockey',
+            'dallas', 'harley', 'hunter', 'joshua', 'thomas', 'andrew', 'robert',
+            'george', 'jordan', 'snoopy', 'garfield', 'pepper', 'ginger', 'coffee',
+            'chocolate', 'pokemon', 'naruto', 'cheese', 'test123', 'admin123',
+            'user123', 'abcdef', '1q2w3e4r', 'zxcvbnm', 'qwertyuiop', 'asdfghjkl',
+            'password2', 'password3', 'spiderman', 'starwars', 'hello123', '123123',
+            'p@ssword', 'pa$$word', 'p@ssw0rd', 'monkey1', 'love1234', 'test',
+        ])
+        
+        if (COMMON_PASSWORDS.has(dto.newPassword.toLowerCase())) {
+            throw new BadRequestException('New password is too common')
+        }
+
+        const newHash = await bcrypt.hash(dto.newPassword, 12)
+
+        await this.db.db
+            .update(users)
+            .set({ passwordHash: newHash, updatedAt: new Date() })
+            .where(eq(users.id, userId))
+    }
+
+    async getMyOrgContext(employeeId: string) {
+        const [empRow] = await this.db.db
+            .select({
+                id: employees.id,
+                firstName: employees.firstName,
+                lastName: employees.lastName,
+                employeeNo: employees.employeeNo,
+                hireDate: employees.hireDate,
+                status: employees.status,
+                employmentType: employees.employmentType,
+                orgUnitId: employees.orgUnitId,
+                positionId: employees.positionId,
+                supervisorId: employees.supervisorId,
+            })
+            .from(employees)
+            .where(and(eq(employees.id, employeeId), isNull(employees.deletedAt)))
+            .limit(1)
+
+        if (!empRow) throw new NotFoundException('Employee not found')
+
+        const [pos] = await this.db.db
+            .select({ id: positions.id, title: positions.title, code: positions.code })
+            .from(positions)
+            .where(eq(positions.id, empRow.positionId))
+            .limit(1)
+
+        const allOrgs = await this.db.db.select().from(orgUnits)
+        const orgById = new Map(allOrgs.map(o => [o.id, o]))
+
+        const buildPath = (orgUnitId: string): string[] => {
+            const parts: string[] = []
+            let current = orgById.get(orgUnitId)
+            while (current) {
+                parts.unshift(current.name)
+                if (!current.parentId) break
+                current = orgById.get(current.parentId)
+            }
+            return parts
+        }
+
+        const org = orgById.get(empRow.orgUnitId)
+
+        let supervisor: { id: string; firstName: string; lastName: string; positionTitle: string } | null = null
+        if (empRow.supervisorId) {
+            const [supRow] = await this.db.db
+                .select({
+                    id: employees.id,
+                    firstName: employees.firstName,
+                    lastName: employees.lastName,
+                    positionTitle: positions.title,
+                })
+                .from(employees)
+                .innerJoin(positions, eq(employees.positionId, positions.id))
+                .where(and(eq(employees.id, empRow.supervisorId), isNull(employees.deletedAt)))
+                .limit(1)
+            if (supRow) supervisor = supRow
+        }
+
+        const directReports = await this.db.db
+            .select({
+                id: employees.id,
+                firstName: employees.firstName,
+                lastName: employees.lastName,
+                positionTitle: positions.title,
+            })
+            .from(employees)
+            .innerJoin(positions, eq(employees.positionId, positions.id))
+            .where(and(eq(employees.supervisorId, employeeId), isNull(employees.deletedAt)))
+            .orderBy(asc(employees.lastName))
+
+        const leaders = await this.db.db
+            .select({
+                id: orgUnitLeaders.id,
+                employeeId: orgUnitLeaders.employeeId,
+                firstName: employees.firstName,
+                lastName: employees.lastName,
+                role: orgUnitLeaders.role,
+                isPrimary: orgUnitLeaders.isPrimary,
+            })
+            .from(orgUnitLeaders)
+            .innerJoin(employees, eq(orgUnitLeaders.employeeId, employees.id))
+            .where(
+                and(
+                    eq(orgUnitLeaders.orgUnitId, empRow.orgUnitId),
+                    isNull(orgUnitLeaders.deletedAt),
+                    isNull(employees.deletedAt),
+                )
+            )
+
+        return {
+            employee: {
+                id: empRow.id,
+                firstName: empRow.firstName,
+                lastName: empRow.lastName,
+                employeeNo: empRow.employeeNo,
+                hireDate: empRow.hireDate,
+                status: empRow.status,
+                employmentType: empRow.employmentType,
+            },
+            position: pos ? { id: pos.id, title: pos.title, code: pos.code } : null,
+            orgUnit: org ? {
+                id: org.id,
+                name: org.name,
+                code: org.code,
+                path: buildPath(empRow.orgUnitId),
+            } : null,
+            supervisor,
+            directReports,
+            leaders,
+        }
     }
 }

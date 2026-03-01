@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/resizable';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import type { OrgUnitNode } from '@/types/org-unit.type';
 import { OrgUnitDialog } from './components/org-unit-dialog';
 
@@ -111,43 +110,62 @@ export default function OrgStructurePage() {
     if (!user) return null;
 
     if (loading) {
-        return <div className="p-8">Loading organization...</div>;
+        return (
+            <div className="p-6 flex items-center justify-center h-64 text-sm text-muted-foreground">
+                Loading organization…
+            </div>
+        );
     }
 
     return (
-        <div className="p-8 h-full space-y-4">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center space-x-2">
+        <div className="p-6 h-full flex flex-col gap-4">
+            {/* Page header */}
+            <div className="flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h1 className="text-xl font-bold">Organization Structure</h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                        Manage org units, leadership, and assigned positions.
+                    </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                         <Switch
                             checked={showDeleted}
                             onCheckedChange={setShowDeleted}
                         />
-                        <Label>Show Deleted</Label>
+                        <Label className="text-sm">Show Deleted</Label>
                     </div>
                 </div>
             </div>
 
-            <ResizablePanelGroup orientation="horizontal" className="h-[75vh]">
-                <ResizablePanel defaultSize={30} minSize={20}>
-                    {orgTree.length === 0 ? (
-                        <div className="text-muted-foreground">
-                            No organization units found.
-                        </div>
-                    ) : (
-                        <OrgTree
-                            data={orgTree}
-                            selectedId={selectedOrg?.id}
-                            openNodes={openNodes}
-                            setOpenNodes={setOpenNodes}
-                            onSelectAction={(node) => setSelectedOrg(node)}
-                        />
-                    )}
+            <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0 rounded-xl border bg-card overflow-hidden">
+                <ResizablePanel defaultSize={28} minSize={18} className="flex flex-col">
+                    {/* Tree panel header */}
+                    <div className="px-3 py-2.5 border-b bg-muted/30 flex-shrink-0">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Units
+                        </p>
+                    </div>
+                    <div className="flex-1 overflow-y-auto py-2">
+                        {orgTree.length === 0 ? (
+                            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                                No organization units found.
+                            </div>
+                        ) : (
+                            <OrgTree
+                                data={orgTree}
+                                selectedId={selectedOrg?.id}
+                                openNodes={openNodes}
+                                setOpenNodes={setOpenNodes}
+                                onSelectAction={(node) => setSelectedOrg(node)}
+                            />
+                        )}
+                    </div>
                 </ResizablePanel>
 
                 <ResizableHandle withHandle />
 
-                <ResizablePanel defaultSize={70} className="p-4">
+                <ResizablePanel defaultSize={72} className="overflow-y-auto p-5">
                     <OrgDetailsPanel
                         org={selectedOrg}
                         onEditAction={handleEdit}

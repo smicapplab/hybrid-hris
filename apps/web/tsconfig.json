@@ -2,7 +2,11 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -21,11 +25,21 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@hybrid-hris/db": ["../../packages/db/src"],
-      "@hybrid-hris/db/*": ["../../packages/db/src/*"],
-      "@hybrid-hris/domain": ["../../packages/domain/src"],
-      "@hybrid-hris/domain/*": ["../../packages/domain/src/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@hybrid-hris/db": [
+        "../../packages/db/src"
+      ],
+      "@hybrid-hris/db/*": [
+        "../../packages/db/src/*"
+      ],
+      "@hybrid-hris/domain": [
+        "../../packages/domain/src"
+      ],
+      "@hybrid-hris/domain/*": [
+        "../../packages/domain/src/*"
+      ]
     }
   },
   "include": [
@@ -34,7 +48,9 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { DatabaseService } from 'src/database/database.service'
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import type { InferSelectModel } from 'drizzle-orm'
-import { orgUnits, employees, positions, orgUnitPositions } from '@hybrid-hris/db/schema'
+import { orgUnits, employees, positions, orgUnitPositions, orgUnitLeaders } from '@hybrid-hris/db/schema'
 
 type OrgUnit = InferSelectModel<typeof orgUnits>
 
@@ -290,5 +290,100 @@ export class OrgUnitsService {
         parentId: u.parentId,
         path: buildPath(u),
       }))
+  }
+
+  /* ── Leaders ─────────────────────────────────────────────────────────────── */
+
+  async getLeaders(orgUnitId: string) {
+    const [org] = await this.db.db
+      .select({ id: orgUnits.id })
+      .from(orgUnits)
+      .where(eq(orgUnits.id, orgUnitId))
+      .limit(1)
+
+    if (!org) throw new NotFoundException('Org unit not found')
+
+    return this.db.db
+      .select({
+        id: orgUnitLeaders.id,
+        employeeId: orgUnitLeaders.employeeId,
+        firstName: employees.firstName,
+        lastName: employees.lastName,
+        role: orgUnitLeaders.role,
+        isPrimary: orgUnitLeaders.isPrimary,
+        effectiveFrom: orgUnitLeaders.effectiveFrom,
+        effectiveTo: orgUnitLeaders.effectiveTo,
+      })
+      .from(orgUnitLeaders)
+      .innerJoin(employees, eq(orgUnitLeaders.employeeId, employees.id))
+      .where(
+        and(
+          eq(orgUnitLeaders.orgUnitId, orgUnitId),
+          isNull(orgUnitLeaders.deletedAt),
+          isNull(employees.deletedAt),
+        ),
+      )
+      .orderBy(asc(orgUnitLeaders.effectiveFrom))
+  }
+
+  async addLeader(
+    orgUnitId: string,
+    data: {
+      employeeId: string
+      role: 'HEAD' | 'CO_HEAD' | 'ACTING_HEAD'
+      isPrimary?: boolean
+      effectiveFrom?: string
+    },
+  ): Promise<{ success: true }> {
+    const [org] = await this.db.db
+      .select({ id: orgUnits.id })
+      .from(orgUnits)
+      .where(eq(orgUnits.id, orgUnitId))
+      .limit(1)
+
+    if (!org) throw new NotFoundException('Org unit not found')
+
+    const [emp] = await this.db.db
+      .select({ id: employees.id })
+      .from(employees)
+      .where(and(eq(employees.id, data.employeeId), isNull(employees.deletedAt)))
+      .limit(1)
+
+    if (!emp) throw new NotFoundException('Employee not found')
+
+    const today = new Date().toISOString().split('T')[0]
+
+    await this.db.db.insert(orgUnitLeaders).values({
+      orgUnitId,
+      employeeId: data.employeeId,
+      role: data.role,
+      isPrimary: data.isPrimary ?? false,
+      effectiveFrom: data.effectiveFrom ?? today,
+    })
+
+    return { success: true }
+  }
+
+  async removeLeader(orgUnitId: string, leaderId: string): Promise<{ success: true }> {
+    const [existing] = await this.db.db
+      .select({ id: orgUnitLeaders.id })
+      .from(orgUnitLeaders)
+      .where(
+        and(
+          eq(orgUnitLeaders.id, leaderId),
+          eq(orgUnitLeaders.orgUnitId, orgUnitId),
+          isNull(orgUnitLeaders.deletedAt),
+        ),
+      )
+      .limit(1)
+
+    if (!existing) throw new NotFoundException('Leader assignment not found')
+
+    await this.db.db
+      .update(orgUnitLeaders)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(orgUnitLeaders.id, leaderId))
+
+    return { success: true }
   }
 }

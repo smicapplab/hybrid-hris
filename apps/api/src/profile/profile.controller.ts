@@ -11,6 +11,7 @@ import { AuthGuard } from '@nestjs/passport'
 import { Request } from 'express'
 import { ProfileService } from './profile.service'
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto'
+import { ChangePasswordDto } from './dto/change-password.dto'
 
 type AuthRequest = Request & {
     user: { id: string; email: string; employeeId: string | null }
@@ -38,5 +39,22 @@ export class ProfileController {
             throw new UnprocessableEntityException('No employee record linked to this account')
         }
         return this.profileService.updateMyProfile(req.user.employeeId, req.user.email, body)
+    }
+
+    @Patch('me/password')
+    async changePassword(
+        @Req() req: AuthRequest,
+        @Body() body: ChangePasswordDto,
+    ) {
+        await this.profileService.changePassword(req.user.id, body)
+        return { ok: true }
+    }
+
+    @Get('me/organization')
+    async getMyOrganization(@Req() req: AuthRequest) {
+        if (!req.user.employeeId) {
+            throw new UnprocessableEntityException('No employee record linked to this account')
+        }
+        return this.profileService.getMyOrgContext(req.user.employeeId)
     }
 }

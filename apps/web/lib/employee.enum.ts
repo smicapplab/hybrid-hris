@@ -135,3 +135,32 @@ export const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
     REGULAR: 'Regular', PROBATIONARY: 'Probationary', CONTRACTUAL: 'Contractual',
     CONSULTANT: 'Consultant', INTERN: 'Intern',
 }
+
+/** Combined Tailwind classes for inline status badge components (bg + text + border) */
+export const EMPLOYEE_STATUS_BADGE: Record<string, string> = {
+    ACTIVE:     'bg-emerald-50 text-emerald-700 border-emerald-200',
+    PROBATION:  'bg-amber-50 text-amber-700 border-amber-200',
+    SUSPENDED:  'bg-orange-50 text-orange-700 border-orange-200',
+    INACTIVE:   'bg-zinc-100 text-zinc-600 border-zinc-200',
+    RESIGNED:   'bg-zinc-100 text-zinc-600 border-zinc-200',
+    TERMINATED: 'bg-red-50 text-red-700 border-red-200',
+}
+
+export const COMMON_PASSWORDS = new Set([
+    'password', '123456', '12345678', 'qwerty', 'abc123', 'password1',
+    'iloveyou', 'admin', 'letmein', 'monkey', '1234567', 'sunshine',
+    'princess', 'master', 'shadow', 'dragon', '123456789', '1234567890',
+    'baseball', 'football', 'soccer', 'charlie', 'donald', 'batman',
+    'trustno1', 'hello', 'welcome', 'michael', 'superman', 'jessica',
+    '654321', '000000', 'qwerty123', 'pass', 'login', '111111', '12345',
+    '1234', 'pass123', 'passw0rd', 'password12', 'changeme', 'secret',
+    'matrix', 'computer', 'internet', 'mustang', 'access', 'ninja',
+    'ranger', 'maverick', 'buster', 'tigger', 'smokey', 'golfer',
+    'summer', 'winter', 'spring', 'flower', 'cookie', 'maggie', 'hockey',
+    'dallas', 'harley', 'hunter', 'joshua', 'thomas', 'andrew', 'robert',
+    'george', 'jordan', 'snoopy', 'garfield', 'pepper', 'ginger', 'coffee',
+    'chocolate', 'pokemon', 'naruto', 'cheese', 'test123', 'admin123',
+    'user123', 'abcdef', '1q2w3e4r', 'zxcvbnm', 'qwertyuiop', 'asdfghjkl',
+    'password2', 'password3', 'spiderman', 'starwars', 'hello123', '123123',
+    'p@ssword', 'pa$$word', 'p@ssw0rd', 'monkey1', 'love1234', 'test',
+])
