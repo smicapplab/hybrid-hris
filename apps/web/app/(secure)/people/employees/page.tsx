@@ -17,9 +17,9 @@ import {
 } from '@/components/ui/table'
 import { ChevronUpIcon, ChevronDownIcon, ChevronsUpDownIcon, PlusIcon } from 'lucide-react'
 import { CreateEmployeeDialog } from './components/create-employee-dialog'
-import { STATUS_CONFIG } from '@/app/(secure)/people/employees/config'
 import { Employee } from '@/types/employee.type'
 import { format } from 'date-fns'
+import { STATUS_CONFIG } from '@/lib/employee.enum'
 
 type SortBy = 'firstName' | 'lastName' | 'hireDate' | 'status'
 type SortOrder = 'asc' | 'desc'

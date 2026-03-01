@@ -17,6 +17,7 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt') {
   async validate(payload: {
     sub: string;
     email: string;
+    employeeId?: string | null;
     roles: string[];
     firstName?: string | null;
     lastName?: string | null;
@@ -30,6 +31,9 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt') {
     return {
       id: user.id,
       email: user.email,
+      // Re-fetch employeeId from the DB rather than trusting the token — ensures
+      // the value is current if the employee link changed since the token was issued.
+      employeeId: user.employeeId ?? null,
       firstName: payload.firstName ?? null,
       lastName: payload.lastName ?? null,
       roles: payload.roles,

@@ -1,5 +1,5 @@
 {
-  "id": "43368fbe-537a-4fc8-bfbe-cb64c10b89d6",
+  "id": "213832de-9029-49aa-90c6-7e8ba86aade1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -3552,13 +3552,13 @@
           "name": "scheduled_in_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "scheduled_out_at": {
           "name": "scheduled_out_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "actual_in_at": {
           "name": "actual_in_at",
@@ -3776,12 +3776,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "deleted_at": {
-          "name": "deleted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -3818,21 +3812,6 @@
           "columns": [
             {
               "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "attendance_adjustments_deleted_at_idx": {
-          "name": "attendance_adjustments_deleted_at_idx",
-          "columns": [
-            {
-              "expression": "deleted_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

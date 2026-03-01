@@ -4,6 +4,7 @@ import {
     Injectable,
     NotFoundException,
     BadRequestException,
+    ConflictException,
 } from '@nestjs/common'
 import { and, eq, isNull } from 'drizzle-orm'
 import { shiftTemplates } from '@hybrid-hris/db'
@@ -59,12 +60,16 @@ export class ShiftTemplatesService {
                 .insert(shiftTemplates)
                 .values({ ...payload })
                 .returning()
-
+                
             return created
         } catch (err: any) {
-            if (err?.code === '23505') {
-                throw new BadRequestException('Shift template code already exists')
+            const pgError = err as { code?: string }
+            if (pgError?.code === '23505') {
+                throw new ConflictException(
+                    'Shift template code already exists',
+                )
             }
+
             throw err
         }
     }

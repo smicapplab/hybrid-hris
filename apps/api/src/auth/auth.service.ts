@@ -43,6 +43,7 @@ export class AuthService {
         const payload = {
             sub: user.id,
             email: user.email,
+            employeeId: user.employeeId ?? null,
             firstName: user.firstName ?? null,
             lastName: user.lastName ?? null,
             roles,
@@ -110,5 +111,27 @@ export class AuthService {
             .update(userRefreshTokens)
             .set({ revokedAt: new Date() })
             .where(eq(userRefreshTokens.userId, userId))
+    }
+
+    /**
+     * Decode a token (no signature verification) and return the `sub` claim.
+     * Used by the controller to extract the user ID from the refresh token cookie
+     * before passing it to methods that perform their own secure verification.
+     */
+    extractSubFromToken(token: string): string | null {
+        const decoded = this.jwtService.decode(token)
+        if (
+            typeof decoded !== 'object' ||
+            decoded === null ||
+            !('sub' in decoded) ||
+            typeof (decoded as { sub?: unknown }).sub !== 'string'
+        ) {
+            return null
+        }
+        return (decoded as { sub: string }).sub
+    }
+
+    updateAttendancePin(userId: string, pin: string): Promise<void> {
+        return this.usersService.updateAttendancePin(userId, pin)
     }
 }

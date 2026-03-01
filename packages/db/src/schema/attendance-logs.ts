@@ -33,8 +33,9 @@ export const attendanceLogs = pgTable(
         workDate: date('work_date').notNull(),
 
         // Populated at time-in from the employee's active shift assignment snapshot.
-        scheduledInAt: timestamp('scheduled_in_at', { withTimezone: true }).notNull(),
-        scheduledOutAt: timestamp('scheduled_out_at', { withTimezone: true }).notNull(),
+        // Nullable: null when the employee has no active shift (unscheduled/overtime punch).
+        scheduledInAt: timestamp('scheduled_in_at', { withTimezone: true }),
+        scheduledOutAt: timestamp('scheduled_out_at', { withTimezone: true }),
 
         actualInAt: timestamp('actual_in_at', { withTimezone: true }),
         actualOutAt: timestamp('actual_out_at', { withTimezone: true }),

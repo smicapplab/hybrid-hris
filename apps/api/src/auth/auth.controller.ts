@@ -2,6 +2,7 @@ import {
     Body,
     Controller,
     Get,
+    Patch,
     Post,
     Req,
     Res,
@@ -12,6 +13,7 @@ import type { Request, Response } from 'express';
 
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { UpdatePinDto } from './dto/update-pin.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -66,19 +68,10 @@ export class AuthController {
         }
         const token = raw;
 
-        // decode user id from refresh token
-        const decoded = this.auth['jwtService'].decode(token);
-
-        if (
-            typeof decoded !== 'object' ||
-            decoded === null ||
-            !('sub' in decoded) ||
-            typeof (decoded as { sub?: unknown }).sub !== 'string'
-        ) {
+        const userId = this.auth.extractSubFromToken(token);
+        if (!userId) {
             throw new UnauthorizedException();
         }
-
-        const userId = (decoded as { sub: string }).sub;
 
         const { accessToken, refreshToken } = await this.auth.refresh(
             userId,
@@ -95,16 +88,8 @@ export class AuthController {
         const raw = req.cookies?.[this.refreshCookieName()];
 
         if (typeof raw === 'string') {
-            const token = raw;
-            const decoded = this.auth['jwtService'].decode(token);
-
-            if (
-                typeof decoded === 'object' &&
-                decoded !== null &&
-                'sub' in decoded &&
-                typeof (decoded as { sub?: unknown }).sub === 'string'
-            ) {
-                const userId = (decoded as { sub: string }).sub;
+            const userId = this.auth.extractSubFromToken(raw);
+            if (userId) {
                 await this.auth.logout(userId);
             }
         }
@@ -122,6 +107,7 @@ export class AuthController {
             user: {
                 id: string;
                 email: string;
+                employeeId: string | null;
                 firstName: string | null;
                 lastName: string | null;
                 roles: string[];
@@ -129,5 +115,15 @@ export class AuthController {
         },
     ) {
         return req.user;
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch('pin')
+    async updatePin(
+        @Req() req: Request & { user: { id: string } },
+        @Body() body: UpdatePinDto,
+    ) {
+        await this.auth.updateAttendancePin(req.user.id, body.pin)
+        return { ok: true }
     }
 }

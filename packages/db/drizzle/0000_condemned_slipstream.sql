@@ -368,8 +368,8 @@ CREATE TABLE "attendance_logs" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"employee_id" uuid NOT NULL,
 	"work_date" date NOT NULL,
-	"scheduled_in_at" timestamp with time zone NOT NULL,
-	"scheduled_out_at" timestamp with time zone NOT NULL,
+	"scheduled_in_at" timestamp with time zone,
+	"scheduled_out_at" timestamp with time zone,
 	"actual_in_at" timestamp with time zone,
 	"actual_out_at" timestamp with time zone,
 	"source_in" "attendance_source",
@@ -392,7 +392,6 @@ CREATE TABLE "attendance_adjustments" (
 	"requested_by" uuid NOT NULL,
 	"approved_by" uuid,
 	"approved_at" timestamp with time zone,
-	"deleted_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "attendance_adjustments_approval_consistency_check" CHECK (status <> 'APPROVED' OR (approved_by IS NOT NULL AND approved_at IS NOT NULL))
@@ -508,6 +507,5 @@ CREATE INDEX "attendance_logs_is_locked_idx" ON "attendance_logs" USING btree ("
 CREATE UNIQUE INDEX "attendance_logs_employee_work_date_uq" ON "attendance_logs" USING btree ("employee_id","work_date");--> statement-breakpoint
 CREATE INDEX "attendance_adjustments_employee_idx" ON "attendance_adjustments" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "attendance_adjustments_status_idx" ON "attendance_adjustments" USING btree ("status");--> statement-breakpoint
-CREATE INDEX "attendance_adjustments_deleted_at_idx" ON "attendance_adjustments" USING btree ("deleted_at");--> statement-breakpoint
 CREATE INDEX "attendance_adjustments_log_idx" ON "attendance_adjustments" USING btree ("attendance_log_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "attendance_adjustments_pending_per_log_uq" ON "attendance_adjustments" USING btree ("attendance_log_id") WHERE status = 'PENDING';

@@ -54,15 +54,6 @@ export function NavUser() {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => router.push("/profile/messages")}
-              >
-                <MessageSquare />
-                Messages
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
             <DropdownMenuItem
               className="cursor-pointer"
               onClick={() => logout()}>

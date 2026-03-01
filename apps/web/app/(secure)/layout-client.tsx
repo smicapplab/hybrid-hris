@@ -16,6 +16,9 @@ export default function LayoutClient({
 
     function deriveTitle(): string {
         if (!pathname) return "";
+        if (pathname === "/profile/my-profile") {
+            return "My Profile";
+        }
 
         for (const category of navigation) {
             for (const item of category.elements) {

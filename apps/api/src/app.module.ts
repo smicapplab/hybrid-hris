@@ -8,6 +8,7 @@ import { RolesModule } from './identity/roles/roles.module';
 import { IdentityModule } from './identity/identity.module';
 import { CoreModule } from './core/core.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { AttendanceModule } from './attendance/attendance.module';
     RolesModule,
     IdentityModule,
     CoreModule,
-    AttendanceModule
+    AttendanceModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [AppService],

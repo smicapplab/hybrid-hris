@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { and, eq, isNull, sql, getTableColumns } from 'drizzle-orm'
+import * as bcrypt from 'bcrypt'
 
 import { DatabaseService } from 'src/database/database.service'
 import { roles, userRoles, users, employees } from '@hybrid-hris/db/schema'
@@ -63,5 +64,34 @@ export class UsersService {
             .limit(1)
 
         return row ?? null
+    }
+
+    /**
+     * Hash and store a new 6-digit attendance PIN for the given user.
+     * Also clears any existing lockout state so a freshly set PIN works immediately.
+     */
+    async updateAttendancePin(userId: string, pin: string): Promise<void> {
+        const [existing] = await this.db.db
+            .select({ id: users.id })
+            .from(users)
+            .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+            .limit(1)
+
+        if (!existing) {
+            throw new NotFoundException('User not found')
+        }
+
+        const pinHash = await bcrypt.hash(pin, 10)
+
+        await this.db.db
+            .update(users)
+            .set({
+                attendancePinHash: pinHash,
+                attendancePinSetAt: new Date(),
+                attendancePinAttempts: 0,
+                attendancePinLockedUntil: null,
+                updatedAt: new Date(),
+            })
+            .where(eq(users.id, userId))
     }
 }

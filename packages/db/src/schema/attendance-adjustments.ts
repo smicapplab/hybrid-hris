@@ -60,8 +60,6 @@ export const attendanceAdjustments = pgTable(
 
         approvedAt: timestamp('approved_at', { withTimezone: true }),
 
-        deletedAt: timestamp('deleted_at', { withTimezone: true }),
-
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
             .notNull(),
@@ -73,7 +71,6 @@ export const attendanceAdjustments = pgTable(
     (t) => ({
         employeeIdx: index('attendance_adjustments_employee_idx').on(t.employeeId),
         statusIdx: index('attendance_adjustments_status_idx').on(t.status),
-        deletedAtIdx: index('attendance_adjustments_deleted_at_idx').on(t.deletedAt),
         attendanceLogIdx: index('attendance_adjustments_log_idx').on(t.attendanceLogId),
 
         // At most one PENDING adjustment per log — prevents duplicate open correction requests.

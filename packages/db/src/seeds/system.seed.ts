@@ -145,14 +145,18 @@ export async function seedSystem() {
     ]).onConflictDoNothing();
 
     // ---- HR Settings (Singleton) ----
+    // onConflictDoUpdate: patches employeeNoPadding on existing installations
     await db.insert(hrSettings)
         .values({
             singleton: true,
             employeeNoPrefix: 'EMP-',
             employeeNoNext: 1005,
-            employeeNoPadding: 4,
+            employeeNoPadding: 6,
         })
-        .onConflictDoNothing();
+        .onConflictDoUpdate({
+            target: hrSettings.singleton,
+            set: { employeeNoPadding: 6, updatedAt: new Date() },
+        });
 
     // ---- Ensure Root Org ----
     let rootOrg = (
@@ -255,7 +259,7 @@ export async function seedSystem() {
 
     const insertedEmployees = await db.insert(employees)
         .values({
-            employeeNo: 'EMP-0001',
+            employeeNo: 'EMP-000001',
             firstName: 'System',
             lastName: 'Administrator',
             hireDate: todayIso,
@@ -272,15 +276,17 @@ export async function seedSystem() {
     } else {
         const existingEmployee = await db.select()
             .from(employees)
-            .where(eq(employees.employeeNo, 'EMP-0001'));
+            .where(eq(employees.employeeNo, 'EMP-000001'));
         adminEmployeeId = existingEmployee[0]?.id;
     }
     if (adminEmployeeId) {
-        await ensureEmployeeProfile(adminEmployeeId, 'EMP-0001');
-        await ensureEmployeeIdentifiers(adminEmployeeId, 'EMP-0001');
+        await ensureEmployeeProfile(adminEmployeeId, 'EMP-000001');
+        await ensureEmployeeIdentifiers(adminEmployeeId, 'EMP-000001');
     }
 
     // ---- Assign Day Shift to Admin Employee ----
+    // isSat/isSun forced true so the seed works for testing on any day of the week.
+    // onConflictDoUpdate patches existing rows so re-running the seed fixes old data.
     if (adminEmployeeId && resolvedDayShift) {
         await db.insert(employeeShiftAssignments)
             .values({
@@ -290,19 +296,32 @@ export async function seedSystem() {
                 endTime: resolvedDayShift.endTime,
                 breakMinutes: resolvedDayShift.breakMinutes,
                 isFlexible: resolvedDayShift.isFlexible,
-                isMon: resolvedDayShift.isMon,
-                isTue: resolvedDayShift.isTue,
-                isWed: resolvedDayShift.isWed,
-                isThu: resolvedDayShift.isThu,
-                isFri: resolvedDayShift.isFri,
-                isSat: resolvedDayShift.isSat,
-                isSun: resolvedDayShift.isSun,
+                isMon: true,
+                isTue: true,
+                isWed: true,
+                isThu: true,
+                isFri: true,
+                isSat: true,
+                isSun: true,
                 effectiveFrom: todayIso,
             })
-            .onConflictDoNothing();
+            .onConflictDoUpdate({
+                target: employeeShiftAssignments.employeeId,
+                set: {
+                    isMon: true,
+                    isTue: true,
+                    isWed: true,
+                    isThu: true,
+                    isFri: true,
+                    isSat: true,
+                    isSun: true,
+                    updatedAt: new Date(),
+                },
+            });
     }
 
     const passwordHash = await bcrypt.hash('Admin123!', 10);
+    const pinHash = await bcrypt.hash('123456', 10);
 
     // Fetch HR_ADMIN role
     const [adminRole] = await db.select()
@@ -317,6 +336,7 @@ export async function seedSystem() {
             employeeId: adminEmployeeId,
             email: 'admin@hybrid-hris.local',
             passwordHash,
+            attendancePinHash: pinHash,
             isActive: true,
         })
         .onConflictDoNothing()
@@ -564,7 +584,7 @@ export async function seedSystem() {
         // ---- Sample Employees ----
         const [hrManagerEmployee] = await db.insert(employees)
             .values({
-                employeeNo: 'EMP-1001',
+                employeeNo: 'EMP-001001',
                 firstName: 'Alice',
                 lastName: 'Santos',
                 hireDate: todayIso,
@@ -592,16 +612,19 @@ export async function seedSystem() {
                     endTime: resolvedDayShift.endTime,
                     breakMinutes: resolvedDayShift.breakMinutes,
                     isFlexible: resolvedDayShift.isFlexible,
-                    isMon: resolvedDayShift.isMon,
-                    isTue: resolvedDayShift.isTue,
-                    isWed: resolvedDayShift.isWed,
-                    isThu: resolvedDayShift.isThu,
-                    isFri: resolvedDayShift.isFri,
-                    isSat: resolvedDayShift.isSat,
-                    isSun: resolvedDayShift.isSun,
+                    isMon: true,
+                    isTue: true,
+                    isWed: true,
+                    isThu: true,
+                    isFri: true,
+                    isSat: true,
+                    isSun: true,
                     effectiveFrom: todayIso,
                 })
-                .onConflictDoNothing();
+                .onConflictDoUpdate({
+                    target: employeeShiftAssignments.employeeId,
+                    set: { isMon: true, isTue: true, isWed: true, isThu: true, isFri: true, isSat: true, isSun: true, updatedAt: new Date() },
+                });
         }
 
         if (hrManagerEmployee && hrOrg) {
@@ -617,7 +640,7 @@ export async function seedSystem() {
 
         const [itManagerEmployee] = await db.insert(employees)
             .values({
-                employeeNo: 'EMP-1002',
+                employeeNo: 'EMP-001002',
                 firstName: 'Mark',
                 lastName: 'Reyes',
                 hireDate: todayIso,
@@ -645,16 +668,19 @@ export async function seedSystem() {
                     endTime: resolvedDayShift.endTime,
                     breakMinutes: resolvedDayShift.breakMinutes,
                     isFlexible: resolvedDayShift.isFlexible,
-                    isMon: resolvedDayShift.isMon,
-                    isTue: resolvedDayShift.isTue,
-                    isWed: resolvedDayShift.isWed,
-                    isThu: resolvedDayShift.isThu,
-                    isFri: resolvedDayShift.isFri,
-                    isSat: resolvedDayShift.isSat,
-                    isSun: resolvedDayShift.isSun,
+                    isMon: true,
+                    isTue: true,
+                    isWed: true,
+                    isThu: true,
+                    isFri: true,
+                    isSat: true,
+                    isSun: true,
                     effectiveFrom: todayIso,
                 })
-                .onConflictDoNothing();
+                .onConflictDoUpdate({
+                    target: employeeShiftAssignments.employeeId,
+                    set: { isMon: true, isTue: true, isWed: true, isThu: true, isFri: true, isSat: true, isSun: true, updatedAt: new Date() },
+                });
         }
 
         if (itManagerEmployee && itOrg) {
@@ -673,7 +699,7 @@ export async function seedSystem() {
             await db.insert(employees)
                 .values([
                     {
-                        employeeNo: 'EMP-1003',
+                        employeeNo: 'EMP-001003',
                         firstName: 'John',
                         lastName: 'Dela Cruz',
                         hireDate: todayIso,
@@ -684,7 +710,7 @@ export async function seedSystem() {
                         supervisorId: itManagerEmployee.id,
                     },
                     {
-                        employeeNo: 'EMP-1004',
+                        employeeNo: 'EMP-001004',
                         firstName: 'Jane',
                         lastName: 'Lopez',
                         hireDate: todayIso,
@@ -703,7 +729,7 @@ export async function seedSystem() {
 
             for (const dev of insertedDevs) {
                 if (!dev?.id) continue;
-                if (dev.employeeNo !== 'EMP-1003' && dev.employeeNo !== 'EMP-1004') continue;
+                if (dev.employeeNo !== 'EMP-001003' && dev.employeeNo !== 'EMP-001004') continue;
                 await ensureEmployeeProfile(dev.id, dev.employeeNo);
                 await ensureEmployeeIdentifiers(dev.id, dev.employeeNo);
                 // Assign Day Shift to Developers
@@ -716,16 +742,19 @@ export async function seedSystem() {
                             endTime: resolvedDayShift.endTime,
                             breakMinutes: resolvedDayShift.breakMinutes,
                             isFlexible: resolvedDayShift.isFlexible,
-                            isMon: resolvedDayShift.isMon,
-                            isTue: resolvedDayShift.isTue,
-                            isWed: resolvedDayShift.isWed,
-                            isThu: resolvedDayShift.isThu,
-                            isFri: resolvedDayShift.isFri,
-                            isSat: resolvedDayShift.isSat,
-                            isSun: resolvedDayShift.isSun,
+                            isMon: true,
+                            isTue: true,
+                            isWed: true,
+                            isThu: true,
+                            isFri: true,
+                            isSat: true,
+                            isSun: true,
                             effectiveFrom: todayIso,
                         })
-                        .onConflictDoNothing();
+                        .onConflictDoUpdate({
+                            target: employeeShiftAssignments.employeeId,
+                            set: { isMon: true, isTue: true, isWed: true, isThu: true, isFri: true, isSat: true, isSun: true, updatedAt: new Date() },
+                        });
                 }
             }
         }
@@ -748,13 +777,14 @@ export async function seedSystem() {
             .where(eq(roles.code, 'EMPLOYEE'));
 
         for (const emp of allSampleEmployees) {
-            if (emp.employeeNo === 'EMP-0001') continue; // skip system admin
+            if (emp.employeeNo === 'EMP-000001') continue; // skip system admin
 
             const insertedUser = await db.insert(users)
                 .values({
                     employeeId: emp.id,
                     email: `${emp.employeeNo.toLowerCase()}@hybrid-hris.local`,
                     passwordHash: defaultPassword,
+                    attendancePinHash: pinHash,
                     isActive: true,
                 })
                 .onConflictDoNothing()
@@ -768,7 +798,7 @@ export async function seedSystem() {
 
             if (!userId) continue;
 
-            const isManager = ['EMP-1001', 'EMP-1002'].includes(emp.employeeNo);
+            const isManager = ['EMP-001001', 'EMP-001002'].includes(emp.employeeNo);
 
             const roleToAssign = isManager ? managerRole : employeeRole;
 

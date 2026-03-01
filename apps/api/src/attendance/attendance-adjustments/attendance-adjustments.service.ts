@@ -96,30 +96,32 @@ export class AttendanceAdjustmentsService {
             const [created] = await this.db.db
                 .insert(attendanceAdjustments)
                 .values({
-                    employeeId:           payload.employeeId,
-                    attendanceLogId:      payload.attendanceLogId,
-                    requestedActualInAt:  payload.requestedActualInAt
+                    employeeId: payload.employeeId,
+                    attendanceLogId: payload.attendanceLogId,
+                    requestedActualInAt: payload.requestedActualInAt
                         ? new Date(payload.requestedActualInAt)
                         : null,
                     requestedActualOutAt: payload.requestedActualOutAt
                         ? new Date(payload.requestedActualOutAt)
                         : null,
                     // Snapshot current actual times for audit trail
-                    previousActualInAt:  log.actualInAt  ?? null,
+                    previousActualInAt: log.actualInAt ?? null,
                     previousActualOutAt: log.actualOutAt ?? null,
-                    reason:      payload.reason ?? null,
+                    reason: payload.reason ?? null,
                     requestedBy,
                     status: 'PENDING',
                 })
                 .returning()
 
             return created
-        } catch (err: any) {
-            if (err?.code === '23505') {
+        } catch (err: unknown) {
+            const pgError = err as { code?: string }
+            if (pgError?.code === '23505') {
                 throw new ConflictException(
                     'A pending correction already exists for this attendance log',
                 )
             }
+
             throw err
         }
     }
@@ -166,7 +168,7 @@ export class AttendanceAdjustmentsService {
 
             // Only overwrite fields that were part of the correction request
             const logPatch: Record<string, unknown> = { updatedAt: new Date() }
-            if (adjustment.requestedActualInAt)  logPatch.actualInAt  = adjustment.requestedActualInAt
+            if (adjustment.requestedActualInAt) logPatch.actualInAt = adjustment.requestedActualInAt
             if (adjustment.requestedActualOutAt) logPatch.actualOutAt = adjustment.requestedActualOutAt
 
             await tx
@@ -178,10 +180,10 @@ export class AttendanceAdjustmentsService {
             const [updated] = await tx
                 .update(attendanceAdjustments)
                 .set({
-                    status:     'APPROVED',
+                    status: 'APPROVED',
                     approvedBy: approverId,
                     approvedAt: now,
-                    updatedAt:  now,
+                    updatedAt: now,
                 })
                 .where(eq(attendanceAdjustments.id, id))
                 .returning()
@@ -207,10 +209,10 @@ export class AttendanceAdjustmentsService {
         const [updated] = await this.db.db
             .update(attendanceAdjustments)
             .set({
-                status:     'REJECTED',
+                status: 'REJECTED',
                 approvedBy: approverId,
                 approvedAt: now,
-                updatedAt:  now,
+                updatedAt: now,
             })
             .where(eq(attendanceAdjustments.id, id))
             .returning()
@@ -234,7 +236,7 @@ export class AttendanceAdjustmentsService {
         const [updated] = await this.db.db
             .update(attendanceAdjustments)
             .set({
-                status:    'CANCELLED',
+                status: 'CANCELLED',
                 updatedAt: new Date(),
             })
             .where(eq(attendanceAdjustments.id, id))

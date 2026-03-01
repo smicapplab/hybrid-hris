@@ -30,6 +30,15 @@ export class AttendanceEventsService {
        READ
        ============================================================ */
 
+    async getEmployeePrefix(): Promise<string> {
+        const [row] = await this.db.db
+            .select({ employeeNoPrefix: hrSettings.employeeNoPrefix })
+            .from(hrSettings)
+            .limit(1)
+
+        return row?.employeeNoPrefix ?? ''
+    }
+
     async findAllByEmployee(employeeId: string) {
         return this.db.db
             .select()
@@ -171,11 +180,14 @@ export class AttendanceEventsService {
                 orgTimezone: hrSettings.timezone,
             })
             .from(employees)
-            .leftJoin(hrSettings, sql`true`)   // singleton cross-join
+            .leftJoin(hrSettings, sql`true`)
             .where(eq(employees.id, employeeId))
             .limit(1)
 
-        return row?.empTimezone ?? row?.orgTimezone ?? 'UTC'
+        const empTz = row?.empTimezone as string | null | undefined
+        const orgTz = row?.orgTimezone as string | null | undefined
+
+        return empTz ?? orgTz ?? 'UTC'
     }
 
     /**
@@ -188,7 +200,7 @@ export class AttendanceEventsService {
         employeeId: string,
         now: Date,
         timezone: string,
-    ): Promise<{ workDate: string; shift: EmployeeShiftAssignment }> {
+    ): Promise<{ workDate: string; shift: EmployeeShiftAssignment | null }> {
         const today = this.toLocalDateString(now, timezone)
         const yesterday = this.toLocalDateString(
             new Date(now.getTime() - 24 * 60 * 60 * 1000),
@@ -201,7 +213,9 @@ export class AttendanceEventsService {
         const shiftYesterday = await this.shiftAssignmentsService.findActiveForDate(employeeId, yesterday)
         if (shiftYesterday) return { workDate: yesterday, shift: shiftYesterday }
 
-        throw new BadRequestException('No active shift assignment')
+        // No active shift for today/yesterday — allow as unscheduled/overtime punch.
+        // workDate = today, scheduledInAt/Out will be null on the log row.
+        return { workDate: today, shift: null }
     }
 
     private async timeInRow(employeeId: string, source: AttendanceSource) {
@@ -213,13 +227,12 @@ export class AttendanceEventsService {
         const timezone = await this.getEmployeeTimezone(employeeId)
         const { workDate, shift } = await this.resolveWorkDateForNow(employeeId, now, timezone)
 
-        // Compute scheduled timestamps from the shift snapshot
-        const { scheduledInAt, scheduledOutAt } = this.computeScheduledTimes(
-            workDate,
-            shift.startTime,
-            shift.endTime,
-            timezone,
-        )
+        // Compute scheduled timestamps — null when punching outside any assigned shift (unscheduled/overtime)
+        const scheduled = shift
+            ? this.computeScheduledTimes(workDate, shift.startTime, shift.endTime, timezone)
+            : null
+        const scheduledInAt = scheduled?.scheduledInAt ?? null
+        const scheduledOutAt = scheduled?.scheduledOutAt ?? null
 
         // Check if the latest entry is still open — rules guarantee at most one open entry exists,
         // so checking the latest row is sufficient (avoids a full-table filter on actualOutAt)
@@ -294,7 +307,8 @@ export class AttendanceEventsService {
 
         const now = new Date()
 
-        // Find any open entry across all dates (handles overnight shifts and forgotten timeouts)
+        // Find any open entry across all dates (handles overnight shifts and forgotten timeouts).
+        // Order by createdAt (never null) rather than actualInAt (nullable for pre-created rows).
         const [openRow] = await this.db.db
             .select()
             .from(attendanceLogs)
@@ -304,7 +318,7 @@ export class AttendanceEventsService {
                     isNull(attendanceLogs.actualOutAt),
                 ),
             )
-            .orderBy(desc(attendanceLogs.actualInAt))
+            .orderBy(desc(attendanceLogs.createdAt))
             .limit(1)
 
         if (!openRow || !openRow.actualInAt) {

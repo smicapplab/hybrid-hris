@@ -26,11 +26,12 @@ import {
     isGender,
     isCivilStatus,
 } from '@hybrid-hris/domain'
-import { COUNTRY_OPTIONS, DEFAULT_IDENTIFIERS, DEFAULT_PROFILE, EMPLOYMENT_TYPE_LABELS, STATUS_CONFIG, TIMEZONE_OPTIONS } from '../config'
+import { DEFAULT_IDENTIFIERS, DEFAULT_PROFILE } from '../config'
 import { SectionHeading, stripSystemFields } from '../helpers'
 import { getBackgroundColor } from '@/lib/utils'
 import { format } from 'date-fns'
 import { useToast } from "@/hooks/use-toast";
+import { COUNTRY_OPTIONS, EMPLOYMENT_TYPE_LABELS, STATUS_CONFIG, TIMEZONE_OPTIONS } from '@/lib/employee.enum'
 
 export default function EmployeeDetailPage() {
     const { id } = useParams<{ id: string }>()
@@ -508,7 +509,7 @@ export default function EmployeeDetailPage() {
                             >
                                 {COUNTRY_OPTIONS.map((c) => (
                                     <SelectItem key={c.code} value={c.code}>
-                                        {c.label} ({c.code})
+                                        {c.name} ({c.code})
                                     </SelectItem>
                                 ))}
                             </RequiredSelect>
