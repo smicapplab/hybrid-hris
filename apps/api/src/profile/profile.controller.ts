@@ -57,4 +57,20 @@ export class ProfileController {
         }
         return this.profileService.getMyOrgContext(req.user.employeeId)
     }
+
+    @Get('me/work-schedule')
+    async getMyWorkSchedule(@Req() req: AuthRequest) {
+        if (!req.user.employeeId) {
+            throw new UnprocessableEntityException('No employee record linked to this account')
+        }
+        return this.profileService.getMyWorkSchedule(req.user.employeeId)
+    }
+
+    @Get('me/attendance-history')
+    async getMyAttendanceHistory(@Req() req: AuthRequest) {
+        if (!req.user.employeeId) {
+            throw new UnprocessableEntityException('No employee record linked to this account')
+        }
+        return this.profileService.getMyAttendanceHistory(req.user.employeeId)
+    }
 }

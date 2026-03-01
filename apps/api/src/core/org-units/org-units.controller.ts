@@ -143,4 +143,11 @@ export class OrgUnitsController {
     ) {
         return this.service.removeLeader(id, leaderId);
     }
+
+    /* ── Members ─────────────────────────────────────────────────────────────── */
+
+    @Get(':id/members')
+    getMembers(@Param('id') id: string) {
+        return this.service.getMembers(id);
+    }
 }

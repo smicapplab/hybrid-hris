@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { DatabaseService } from 'src/database/database.service'
-import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { InferSelectModel } from 'drizzle-orm'
 import { orgUnits, employees, positions, orgUnitPositions, orgUnitLeaders } from '@hybrid-hris/db/schema'
 
@@ -385,5 +385,72 @@ export class OrgUnitsService {
       .where(eq(orgUnitLeaders.id, leaderId))
 
     return { success: true }
+  }
+
+  /* ── Members ─────────────────────────────────────────────────────────────── */
+
+  async getMembers(orgUnitId: string) {
+    const [org] = await this.db.db
+      .select({ id: orgUnits.id })
+      .from(orgUnits)
+      .where(eq(orgUnits.id, orgUnitId))
+      .limit(1)
+
+    if (!org) throw new NotFoundException('Org unit not found')
+
+    // Step 1: fetch all active employees in this org unit with their position title
+    const memberRows = await this.db.db
+      .select({
+        id: employees.id,
+        employeeNo: employees.employeeNo,
+        firstName: employees.firstName,
+        lastName: employees.lastName,
+        status: employees.status,
+        positionTitle: positions.title,
+        supervisorId: employees.supervisorId,
+      })
+      .from(employees)
+      .leftJoin(positions, eq(employees.positionId, positions.id))
+      .where(
+        and(
+          eq(employees.orgUnitId, orgUnitId),
+          isNull(employees.deletedAt),
+        ),
+      )
+      .orderBy(asc(employees.lastName), asc(employees.firstName))
+
+    // Step 2: bulk-fetch supervisor names
+    const supervisorIds = [
+      ...new Set(memberRows.map((m) => m.supervisorId).filter(Boolean)),
+    ] as string[]
+
+    const supervisorMap = new Map<string, { firstName: string; lastName: string }>()
+
+    if (supervisorIds.length > 0) {
+      const supRows = await this.db.db
+        .select({
+          id: employees.id,
+          firstName: employees.firstName,
+          lastName: employees.lastName,
+        })
+        .from(employees)
+        .where(inArray(employees.id, supervisorIds))
+
+      for (const s of supRows) {
+        supervisorMap.set(s.id, { firstName: s.firstName, lastName: s.lastName })
+      }
+    }
+
+    return memberRows.map((m) => ({
+      id: m.id,
+      employeeNo: m.employeeNo,
+      firstName: m.firstName,
+      lastName: m.lastName,
+      status: m.status,
+      positionTitle: m.positionTitle ?? null,
+      supervisorId: m.supervisorId ?? null,
+      supervisorFirstName: m.supervisorId ? (supervisorMap.get(m.supervisorId)?.firstName ?? null) : null,
+      supervisorLastName: m.supervisorId ? (supervisorMap.get(m.supervisorId)?.lastName ?? null) : null,
+    }))
   }
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/hooks/use-toast'
 import {
     ResizableHandle,
     ResizablePanel,
@@ -22,9 +23,11 @@ import {
     AlertDialogCancel,
     AlertDialogAction,
 } from "@/components/ui/alert-dialog"
+import { Briefcase } from 'lucide-react'
 
 export default function PositionPage() {
     const { user } = useAuth()
+    const { toast } = useToast()
 
     const [positions, setPositions] = useState<Position[]>([])
     const [loading, setLoading] = useState(false)
@@ -78,8 +81,13 @@ export default function PositionPage() {
             setDeleteId(null)
             setSelectedId(null)
             await loadPositions()
-        } catch {
-            alert('Failed to delete position.')
+            toast({ title: 'Position deleted', variant: 'success' })
+        } catch (err) {
+            toast({
+                title: 'Failed to delete position',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
+            })
         }
     }
 
@@ -91,8 +99,13 @@ export default function PositionPage() {
 
             await loadPositions()
             setSelectedId(id)
-        } catch {
-            alert('Failed to restore position.')
+            toast({ title: 'Position restored', variant: 'success' })
+        } catch (err) {
+            toast({
+                title: 'Failed to restore position',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
+            })
         }
     }
 
@@ -105,8 +118,17 @@ export default function PositionPage() {
     if (!user) return null
 
     return (
-        <div className="p-8 h-full">
-            <ResizablePanelGroup orientation="horizontal" className="h-[80vh]">
+        <div className="p-6 h-full flex flex-col gap-4">
+            {/* ── Page header ── */}
+            <div>
+                <h1 className="text-xl font-bold">Positions</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                    Manage job positions and assign them to org units.
+                </p>
+            </div>
+
+            {/* ── Split panels ── */}
+            <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0 rounded-lg border">
                 <ResizablePanel defaultSize={30} minSize={20}>
                     <PositionListPanel
                         positions={positions}
@@ -125,14 +147,20 @@ export default function PositionPage() {
                 </ResizablePanel>
                 <ResizableHandle withHandle />
                 <ResizablePanel defaultSize={70}>
-                    <div className="h-full">
-                        {!selectedId && (
-                            <div className="p-6 text-muted-foreground text-sm">
-                                Select a position to view details.
+                    <div className="h-full overflow-y-auto p-5">
+                        {!selectedId ? (
+                            <div className="h-full flex flex-col items-center justify-center gap-3 text-center py-16">
+                                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                                    <Briefcase className="w-5 h-5 text-muted-foreground" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium">No position selected</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        Select a position from the list to view its details.
+                                    </p>
+                                </div>
                             </div>
-                        )}
-
-                        {selectedId && (
+                        ) : (
                             <PositionDetailPanel
                                 position={positions.find(p => p.id === selectedId)!}
                                 onEditAction={() => {
@@ -159,14 +187,11 @@ export default function PositionPage() {
             <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            Delete Position
-                        </AlertDialogTitle>
+                        <AlertDialogTitle>Delete Position</AlertDialogTitle>
                         <AlertDialogDescription>
                             Are you sure you want to delete this position? This action cannot be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
@@ -185,8 +210,6 @@ export default function PositionPage() {
                 initialData={editingPosition}
                 onSuccessAction={loadPositions}
             />
-
-            <p className="mt-4 text-gray-600 text-sm">{user.email}</p>
         </div>
     )
 }

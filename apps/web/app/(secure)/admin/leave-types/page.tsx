@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/context/AuthContext';
 
-export default function DashboardPage() {
+export default function LeaveTypesPage() {
     const { user } = useAuth();
 
     if (!user) return null; // layout handles redirect

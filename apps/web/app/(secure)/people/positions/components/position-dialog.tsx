@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { apiFetch } from '@/lib/api'
+import { useToast } from '@/hooks/use-toast'
 import type { Position } from '@hybrid-hris/db/types'
 import { RequiredInput } from '@/components/ui/required-input'
 
@@ -20,6 +21,8 @@ export function PositionDialog({
     initialData,
     onSuccessAction,
 }: Props) {
+    const { toast } = useToast()
+
     const isEdit = !!initialData
 
     const [title, setTitle] = useState('')
@@ -50,25 +53,25 @@ export function PositionDialog({
             if (isEdit) {
                 await apiFetch(`/positions/${initialData!.id}`, {
                     method: 'PATCH',
-                    body: JSON.stringify({
-                        title,
-                        code,
-                        description,
-                    }),
+                    body: JSON.stringify({ title, code, description }),
                 })
+                toast({ title: 'Position updated', variant: 'success' })
             } else {
                 await apiFetch(`/positions`, {
                     method: 'POST',
-                    body: JSON.stringify({
-                        title,
-                        code,
-                        description,
-                    }),
+                    body: JSON.stringify({ title, code, description }),
                 })
+                toast({ title: 'Position created', variant: 'success' })
             }
 
             onOpenChangeAction(false)
             onSuccessAction()
+        } catch (err) {
+            toast({
+                title: isEdit ? 'Failed to update position' : 'Failed to create position',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
+            })
         } finally {
             setLoading(false)
         }

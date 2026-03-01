@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common'
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNull } from 'drizzle-orm'
 import * as bcrypt from 'bcrypt'
-import { employees, employeeProfiles, users, positions, orgUnits, orgUnitLeaders } from '@hybrid-hris/db'
+import { employees, employeeProfiles, users, positions, orgUnits, orgUnitLeaders, employeeShiftAssignments, shiftTemplates, attendanceLogs } from '@hybrid-hris/db'
 import { DatabaseService } from 'src/database/database.service'
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
@@ -273,5 +273,59 @@ export class ProfileService {
             directReports,
             leaders,
         }
+    }
+
+    async getMyWorkSchedule(employeeId: string) {
+        const [row] = await this.db.db
+            .select({
+                id: employeeShiftAssignments.id,
+                startTime: employeeShiftAssignments.startTime,
+                endTime: employeeShiftAssignments.endTime,
+                breakMinutes: employeeShiftAssignments.breakMinutes,
+                isFlexible: employeeShiftAssignments.isFlexible,
+                isMon: employeeShiftAssignments.isMon,
+                isTue: employeeShiftAssignments.isTue,
+                isWed: employeeShiftAssignments.isWed,
+                isThu: employeeShiftAssignments.isThu,
+                isFri: employeeShiftAssignments.isFri,
+                isSat: employeeShiftAssignments.isSat,
+                isSun: employeeShiftAssignments.isSun,
+                effectiveFrom: employeeShiftAssignments.effectiveFrom,
+                templateName: shiftTemplates.name,
+                templateCode: shiftTemplates.code,
+            })
+            .from(employeeShiftAssignments)
+            .innerJoin(shiftTemplates, eq(employeeShiftAssignments.shiftTemplateId, shiftTemplates.id))
+            .where(eq(employeeShiftAssignments.employeeId, employeeId))
+            .limit(1)
+
+        return row ?? null
+    }
+
+    async getMyAttendanceHistory(employeeId: string) {
+        const since = new Date()
+        since.setUTCDate(since.getUTCDate() - 30)
+        const sinceStr = since.toISOString().slice(0, 10)
+
+        return this.db.db
+            .select({
+                id: attendanceLogs.id,
+                workDate: attendanceLogs.workDate,
+                scheduledInAt: attendanceLogs.scheduledInAt,
+                scheduledOutAt: attendanceLogs.scheduledOutAt,
+                actualInAt: attendanceLogs.actualInAt,
+                actualOutAt: attendanceLogs.actualOutAt,
+                sourceIn: attendanceLogs.sourceIn,
+                sourceOut: attendanceLogs.sourceOut,
+                isLocked: attendanceLogs.isLocked,
+            })
+            .from(attendanceLogs)
+            .where(
+                and(
+                    eq(attendanceLogs.employeeId, employeeId),
+                    gte(attendanceLogs.workDate, sinceStr),
+                ),
+            )
+            .orderBy(desc(attendanceLogs.workDate))
     }
 }

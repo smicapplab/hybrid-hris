@@ -1,7 +1,7 @@
 import { Separator } from "@/components/ui/separator"
 import { Metadata } from "next"
-import { SidebarNav } from "./components/sidebar-nav"
-import { SIDEBAR_NAV_ITEMS } from "./config"
+import { ADMIN_SIDEBAR_NAV_ITEMS } from "./config"
+import { SidebarNav } from "../profile/components/sidebar-nav"
 
 export interface SettingsLayoutProps {
     children: React.ReactNode
@@ -24,7 +24,7 @@ export default function ProfileLayout({ children }: SettingsLayoutProps) {
                 <Separator className="my-6" />
                 <div className="flex flex-col space-y-8 lg:flex-row lg:space-x-12 lg:space-y-0">
                     <aside className="-mx-4 lg:w-1/5">
-                        <SidebarNav items={SIDEBAR_NAV_ITEMS} />
+                        <SidebarNav items={ADMIN_SIDEBAR_NAV_ITEMS} />
                     </aside>
                     <div className="flex-1 lg:w-4/5 px-0 lg:px-10">{children}</div>
                 </div>

@@ -8,6 +8,7 @@ import {
     CheckCircle2,
     Shield,
     UserCog,
+    Sailboat,
 } from "lucide-react";
 
 
@@ -66,14 +67,9 @@ export const navigation: NavCategory[] = [
         title: "Administration",
         elements: [
             {
-                title: "Users",
-                url: "/admin/users",
-                icon: UserCog,
-            },
-            {
-                title: "Roles",
-                url: "/admin/roles",
-                icon: Shield,
+                title: "Leave Management",
+                url: "/admin/leave-managment",
+                icon: Sailboat,
             },
         ]
     },

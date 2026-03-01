@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import {
     Table,
@@ -70,6 +71,8 @@ interface Props {
 }
 
 export function OrgLeadersTable({ orgId, onChangeAction }: Props) {
+    const { toast } = useToast()
+
     const [leaders, setLeaders] = useState<Leader[]>([])
     const [loading, setLoading] = useState(true)
     const [removeId, setRemoveId] = useState<string | null>(null)
@@ -118,16 +121,33 @@ export function OrgLeadersTable({ orgId, onChangeAction }: Props) {
             resetForm()
             await load()
             onChangeAction?.()
+            toast({ title: 'Leader assigned', variant: 'success' })
+        } catch (err) {
+            toast({
+                title: 'Failed to assign leader',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
+            })
         } finally {
             setSaving(false)
         }
     }
 
     async function handleRemove(leaderId: string) {
-        await apiFetch(`/org-units/${orgId}/leaders/${leaderId}`, { method: 'DELETE' })
-        setRemoveId(null)
-        await load()
-        onChangeAction?.()
+        try {
+            await apiFetch(`/org-units/${orgId}/leaders/${leaderId}`, { method: 'DELETE' })
+            setRemoveId(null)
+            await load()
+            onChangeAction?.()
+            toast({ title: 'Leader removed', variant: 'success' })
+        } catch (err) {
+            setRemoveId(null)
+            toast({
+                title: 'Failed to remove leader',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
+            })
+        }
     }
 
     if (loading) {

@@ -10,6 +10,7 @@ import {
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { apiFetch } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 import { Separator } from "@/components/ui/separator"
 import { OrgUnit } from "@hybrid-hris/db/types"
 import { RequiredInput } from "@/components/ui/required-input"
@@ -25,31 +26,37 @@ export function OrgUnitDialog({
     onClose: () => void,
     initialData?: OrgUnit | null
 }) {
+    const { toast } = useToast()
+
     const [name, setName] = useState(initialData?.name ?? "")
     const [code, setCode] = useState(initialData?.code ?? "")
     const [touched, setTouched] = useState(false)
 
     const isEdit = !!initialData
 
-
     async function handleSubmit() {
-        if (isEdit && initialData) {
-            await apiFetch(`/org-units/${initialData.id}`, {
-                method: "PATCH",
-                body: JSON.stringify({ name, code }),
-            })
-        } else {
-            await apiFetch("/org-units", {
-                method: "POST",
-                body: JSON.stringify({
-                    name,
-                    code,
-                    parentId,
-                }),
+        try {
+            if (isEdit && initialData) {
+                await apiFetch(`/org-units/${initialData.id}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ name, code }),
+                })
+                toast({ title: 'Unit updated', variant: 'success' })
+            } else {
+                await apiFetch("/org-units", {
+                    method: "POST",
+                    body: JSON.stringify({ name, code, parentId }),
+                })
+                toast({ title: 'Unit created', variant: 'success' })
+            }
+            onClose()
+        } catch (err) {
+            toast({
+                title: isEdit ? 'Failed to update unit' : 'Failed to create unit',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
             })
         }
-
-        onClose()
     }
 
     return (

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 import { OrgTree } from './components/org-tree';
 import { OrgDetailsPanel } from './components/org-details-panel';
 import {
@@ -17,6 +18,7 @@ import { OrgUnitDialog } from './components/org-unit-dialog';
 
 export default function OrgStructurePage() {
     const { user } = useAuth();
+    const { toast } = useToast();
 
     const [orgTree, setOrgTree] = useState<OrgUnitNode[]>([]);
     const [selectedOrg, setSelectedOrg] = useState<OrgUnitNode | null>(null);
@@ -54,42 +56,62 @@ export default function OrgStructurePage() {
     }, [user, refreshTree]);
 
     const handleDelete = async (org: OrgUnitNode) => {
-        await apiFetch(`/org-units/${org.id}`, {
-            method: 'DELETE',
-        });
+        try {
+            await apiFetch(`/org-units/${org.id}`, {
+                method: 'DELETE',
+            });
 
-        await refreshTree();
+            await refreshTree();
 
-        // select first available node after delete
-        setSelectedOrg((prev) => {
-            if (!prev || prev.id !== org.id) return prev;
-            return orgTree.length > 0 ? orgTree[0] : null;
-        });
+            // select first available node after delete
+            setSelectedOrg((prev) => {
+                if (!prev || prev.id !== org.id) return prev;
+                return orgTree.length > 0 ? orgTree[0] : null;
+            });
+
+            toast({ title: 'Unit deleted', variant: 'success' });
+        } catch (err) {
+            toast({
+                title: 'Failed to delete unit',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
+            });
+        }
     };
 
     const handleRestore = async (org: OrgUnitNode) => {
-        await apiFetch(`/org-units/${org.id}/restore`, {
-            method: 'PATCH',
-        });
+        try {
+            await apiFetch(`/org-units/${org.id}/restore`, {
+                method: 'PATCH',
+            });
 
-        const updatedTree = await refreshTree();
+            const updatedTree = await refreshTree();
 
-        if (!updatedTree) return;
+            if (!updatedTree) return;
 
-        const findNode = (nodes: OrgUnitNode[]): OrgUnitNode | null => {
-            for (const node of nodes) {
-                if (node.id === org.id) return node;
-                if (node.children?.length) {
-                    const found = findNode(node.children);
-                    if (found) return found;
+            const findNode = (nodes: OrgUnitNode[]): OrgUnitNode | null => {
+                for (const node of nodes) {
+                    if (node.id === org.id) return node;
+                    if (node.children?.length) {
+                        const found = findNode(node.children);
+                        if (found) return found;
+                    }
                 }
-            }
-            return null;
-        };
+                return null;
+            };
 
-        const restored = findNode(updatedTree);
-        if (restored) {
-            setSelectedOrg(restored);
+            const restored = findNode(updatedTree);
+            if (restored) {
+                setSelectedOrg(restored);
+            }
+
+            toast({ title: 'Unit restored', variant: 'success' });
+        } catch (err) {
+            toast({
+                title: 'Failed to restore unit',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
+            });
         }
     };
 
@@ -120,7 +142,7 @@ export default function OrgStructurePage() {
     return (
         <div className="p-6 h-full flex flex-col gap-4">
             {/* Page header */}
-            <div className="flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center justify-between ">
                 <div>
                     <h1 className="text-xl font-bold">Organization Structure</h1>
                     <p className="text-sm text-muted-foreground mt-0.5">
@@ -141,7 +163,7 @@ export default function OrgStructurePage() {
             <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0 rounded-xl border bg-card overflow-hidden">
                 <ResizablePanel defaultSize={28} minSize={18} className="flex flex-col">
                     {/* Tree panel header */}
-                    <div className="px-3 py-2.5 border-b bg-muted/30 flex-shrink-0">
+                    <div className="px-3 py-2.5 border-b bg-muted/30 ">
                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                             Units
                         </p>

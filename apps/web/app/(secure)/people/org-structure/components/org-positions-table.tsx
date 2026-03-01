@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 import {
     Table,
     TableBody,
@@ -37,6 +38,8 @@ interface OrgPositionsTableProps {
 }
 
 export function OrgPositionsTable({ orgId, onChangeAction }: OrgPositionsTableProps) {
+    const { toast } = useToast()
+
     const [positions, setPositions] = useState<Position[]>([]);
     const [allPositions, setAllPositions] = useState<Position[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -66,26 +69,44 @@ export function OrgPositionsTable({ orgId, onChangeAction }: OrgPositionsTablePr
     }, [orgId]);
 
     async function handleRemove(positionId: string) {
-        await apiFetch(`/org-units/${orgId}/positions/${positionId}`, {
-            method: 'DELETE',
-        });
-
-        setRemoveId(null);
-        await load();
-        onChangeAction?.();
+        try {
+            await apiFetch(`/org-units/${orgId}/positions/${positionId}`, {
+                method: 'DELETE',
+            });
+            setRemoveId(null);
+            await load();
+            onChangeAction?.();
+            toast({ title: 'Position removed', variant: 'success' });
+        } catch (err) {
+            setRemoveId(null);
+            toast({
+                title: 'Failed to remove position',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
+            });
+        }
     }
 
     async function handleAdd() {
-        for (const id of selectedIds) {
-            await apiFetch(`/org-units/${orgId}/positions`, {
-                method: 'POST',
-                body: JSON.stringify({ positionId: id }),
+        try {
+            for (const id of selectedIds) {
+                await apiFetch(`/org-units/${orgId}/positions`, {
+                    method: 'POST',
+                    body: JSON.stringify({ positionId: id }),
+                });
+            }
+            setSelectedIds([]);
+            setOpenAdd(false);
+            await load();
+            onChangeAction?.();
+            toast({ title: 'Position(s) added', variant: 'success' });
+        } catch (err) {
+            toast({
+                title: 'Failed to add position',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
             });
         }
-        setSelectedIds([]);
-        setOpenAdd(false);
-        await load();
-        onChangeAction?.();
     }
 
     const assignedIds = new Set(positions.map(p => p.id));

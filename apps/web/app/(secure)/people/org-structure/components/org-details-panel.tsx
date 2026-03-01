@@ -3,6 +3,7 @@ import { Separator } from "@/components/ui/separator"
 import { OrgUnitNode } from "@/types/org-unit.type"
 import { OrgPositionsTable } from "./org-positions-table"
 import { OrgLeadersTable } from "./org-leaders-table"
+import { OrgMembersTable } from "./org-members-table"
 import { format } from "date-fns"
 import { Building2, Pencil, Plus, Trash2, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -76,7 +77,7 @@ export function OrgDetailsPanel({
                 <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3 min-w-0">
                         <div className={cn(
-                            'mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm',
+                            'mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm',
                             isDeleted ? 'bg-red-100' : 'bg-primary/10',
                         )}>
                             <Building2 className={cn(
@@ -96,7 +97,7 @@ export function OrgDetailsPanel({
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
+                    <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                         {!isDeleted && (
                             <>
                                 <Button
@@ -175,8 +176,18 @@ export function OrgDetailsPanel({
 
             {/* ── Positions section ── */}
             {!isDeleted && (
+                <>
+                    <div className="rounded-xl border bg-card p-5 space-y-3">
+                        <OrgPositionsTable orgId={org.id} />
+                    </div>
+                    <Separator />
+                </>
+            )}
+
+            {/* ── Members section (leaf nodes only) ── */}
+            {!isDeleted && !org.children?.length && (
                 <div className="rounded-xl border bg-card p-5 space-y-3">
-                    <OrgPositionsTable orgId={org.id} />
+                    <OrgMembersTable orgId={org.id} />
                 </div>
             )}
         </div>
