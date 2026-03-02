@@ -1,5 +1,5 @@
 {
-  "id": "213832de-9029-49aa-90c6-7e8ba86aade1",
+  "id": "9d7b0a22-bb05-46d3-b80b-d991666f17ad",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2138,6 +2138,13 @@
           "notNull": true,
           "default": true
         },
+        "is_default": {
+          "name": "is_default",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "effective_from": {
           "name": "effective_from",
           "type": "date",
@@ -2177,6 +2184,22 @@
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leave_policies_default_uq": {
+          "name": "leave_policies_default_uq",
+          "columns": [
+            {
+              "expression": "is_default",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"leave_policies\".\"is_default\" = true",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2686,6 +2709,12 @@
         "amount": {
           "name": "amount",
           "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "balance": {
+          "name": "balance",
+          "type": "numeric(12, 4)",
           "primaryKey": false,
           "notNull": true
         },

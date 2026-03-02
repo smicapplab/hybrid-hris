@@ -65,11 +65,17 @@ export const navigation: NavCategory[] = [
     },
     {
         title: "Administration",
+        roles: ['HR_ADMIN', 'ADMIN'],
         elements: [
             {
                 title: "Leave Management",
                 url: "/admin/leave-managment",
                 icon: Sailboat,
+            },
+            {
+                title: "Leave Types",
+                url: "/admin/leave-types",
+                icon: Shield,
             },
         ]
     },

@@ -4,8 +4,8 @@ import { EmployeesRepository } from './employees.repository'
 import { EmployeeFilterDto } from './dto/employee-filter.dto'
 import { CreateEmployeeDto } from './dto/create-employee.dto'
 import { UpdateEmployeeDto } from './dto/update-employee-dto'
-import { employees } from '@hybrid-hris/db'
-import { InferSelectModel } from 'drizzle-orm'
+import { employees, leavePolicies, employeeLeavePolicies } from '@hybrid-hris/db/schema'
+import { InferSelectModel, eq, and } from 'drizzle-orm'
 import { DatabaseService } from 'src/database/database.service'
 import { Tx } from 'src/database/database.types'
 
@@ -175,6 +175,23 @@ export class EmployeesService {
                 userId: user.id,
                 additionalRoleIds: dto.roleIds ?? [],
             })
+
+            // Auto-assign the default leave policy if one is configured
+            const [defaultPolicy] = await tx
+                .select({ id: leavePolicies.id })
+                .from(leavePolicies)
+                .where(and(eq(leavePolicies.isDefault, true), eq(leavePolicies.isActive, true)))
+                .limit(1)
+
+            if (defaultPolicy) {
+                await tx
+                    .insert(employeeLeavePolicies)
+                    .values({
+                        employeeId: employee.id,
+                        policyId: defaultPolicy.id,
+                        effectiveFrom: dto.hireDate,
+                    })
+            }
 
             return employee
         })

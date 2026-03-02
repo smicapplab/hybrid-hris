@@ -3,6 +3,8 @@ import type { LucideIcon } from "lucide-react";
 export type NavCategory = {
     title?: string;
     elements: Element[];
+    /** If set, category is only visible to users with at least one matching role */
+    roles?: string[];
 }
 
 export type Element = {

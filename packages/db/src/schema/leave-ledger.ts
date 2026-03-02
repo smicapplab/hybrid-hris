@@ -40,6 +40,10 @@ export const leaveLedger = pgTable(
     amount: numeric('amount', { precision: 10, scale: 4 })
       .notNull(),
 
+    // Running balance after this entry (materialized for fast reads)
+    balance: numeric('balance', { precision: 12, scale: 4 })
+      .notNull(),
+
     // Deterministic key for accrual idempotency (used only for ACCRUAL entries)
     accrualKey: varchar('accrual_key', { length: 100 }),
 

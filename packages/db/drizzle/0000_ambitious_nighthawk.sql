@@ -208,6 +208,7 @@ CREATE TABLE "leave_policies" (
 	"name" varchar(150) NOT NULL,
 	"description" varchar(500),
 	"is_active" boolean DEFAULT true NOT NULL,
+	"is_default" boolean DEFAULT false NOT NULL,
 	"effective_from" date NOT NULL,
 	"effective_to" date,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -271,6 +272,7 @@ CREATE TABLE "leave_ledger" (
 	"leave_type_id" uuid NOT NULL,
 	"entry_type" "leave_ledger_entry_type" NOT NULL,
 	"amount" numeric(10, 4) NOT NULL,
+	"balance" numeric(12, 4) NOT NULL,
 	"accrual_key" varchar(100),
 	"period_start" timestamp with time zone,
 	"period_end" timestamp with time zone,
@@ -481,6 +483,7 @@ CREATE UNIQUE INDEX "leave_types_code_uq" ON "leave_types" USING btree ("code");
 CREATE INDEX "leave_types_name_idx" ON "leave_types" USING btree ("name");--> statement-breakpoint
 CREATE INDEX "leave_types_deleted_at_idx" ON "leave_types" USING btree ("deleted_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "leave_policies_code_uq" ON "leave_policies" USING btree ("code");--> statement-breakpoint
+CREATE UNIQUE INDEX "leave_policies_default_uq" ON "leave_policies" USING btree ("is_default") WHERE "leave_policies"."is_default" = true;--> statement-breakpoint
 CREATE UNIQUE INDEX "leave_policy_rules_policy_leave_type_uq" ON "leave_policy_rules" USING btree ("policy_id","leave_type_id");--> statement-breakpoint
 CREATE INDEX "leave_requests_employee_idx" ON "leave_requests" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "leave_requests_leave_type_idx" ON "leave_requests" USING btree ("leave_type_id");--> statement-breakpoint

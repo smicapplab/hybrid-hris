@@ -7,10 +7,18 @@ import Image from "next/image"
 import { Separator } from "../ui/separator"
 import { navigation } from "@/lib/config"
 import { NavUser } from "./nav-user"
+import { useAuth } from "@/context/AuthContext"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar> & {}) {
 
     const { state } = useSidebar();
+    const { user } = useAuth();
+
+    const visibleNav = navigation.filter((nav) => {
+        if (!nav.roles || nav.roles.length === 0) return true;
+        if (!user) return false;
+        return nav.roles.some((role) => user.roles.includes(role));
+    });
 
     return (
         <Sidebar collapsible="icon" {...props}>
@@ -30,7 +38,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar> & 
             </SidebarHeader>
             <Separator />
             <SidebarContent className="bg-white">
-                {navigation.map((nav, i) => (
+                {visibleNav.map((nav, i) => (
                     <NavMain key={i} navItem={nav} />
                 ))}
             </SidebarContent>
