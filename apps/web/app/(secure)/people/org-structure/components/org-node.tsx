@@ -36,9 +36,9 @@ export function OrgNode({
         <Collapsible open={open} onOpenChange={toggle}>
             <div
                 className={cn(
-                    "group flex items-center gap-1.5 py-1.5 px-2 mx-1 rounded-md cursor-pointer transition-all text-sm select-none",
+                    "group flex items-center gap-1.5 py-1.5 px-2 rounded- cursor-pointer transition-all text-sm select-none",
                     isSelected
-                        ? "bg-primary/10 text-primary font-medium border-l-2 border-primary pl-1.5"
+                        ? "bg-primary/10 text-primary font-medium"
                         : "hover:bg-muted/60 border-l-2 border-transparent pl-1.5",
                     isDeleted && "opacity-60",
                 )}
@@ -50,7 +50,7 @@ export function OrgNode({
                     <CollapsibleTrigger asChild>
                         <button
                             type="button"
-                            className="flex items-center flex-shrink-0 rounded hover:bg-muted p-0.5 -ml-0.5"
+                            className="flex items-center rounded hover:bg-muted p-0.5 -ml-0.5"
                             onClick={(e) => e.stopPropagation()}
                         >
                             <ChevronRight
@@ -62,25 +62,29 @@ export function OrgNode({
                         </button>
                     </CollapsibleTrigger>
                 ) : (
-                    <Dot className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/50" />
+                    <Dot className="h-3.5 w-3.5  text-muted-foreground/50" />
                 )}
 
                 {/* Unit icon */}
-                <Building2 className={cn(
-                    "h-3.5 w-3.5 flex-shrink-0",
-                    isSelected ? "text-primary" : "text-muted-foreground",
-                )} />
+                <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0
+                                ${isSelected ? 'bg-primary/15 text-primary' : 'bg-blue-50 text-blue-600'}`}
+                >
+                    <Building2 className={cn(
+                        "h-3.5 w-3.5 ",
+                        isSelected ? "text-primary" : "text-muted-foreground",
+                    )} />
+                </div>
 
                 {/* Unit name + code */}
                 <div className="flex flex-col min-w-0 leading-tight">
                     <span className={cn(
-                        "truncate text-[13px]",
+                        "text-sm font-medium truncate",
                         isDeleted && "line-through text-muted-foreground",
                     )}>
                         {node.name}
                     </span>
                     <span className={cn(
-                        "text-[10px] font-mono truncate",
+                        "text-[11px] text-muted-foreground font-mono truncate",
                         isSelected ? "text-primary/70" : "text-muted-foreground/60",
                     )}>
                         {node.code}
