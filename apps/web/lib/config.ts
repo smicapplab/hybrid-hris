@@ -29,32 +29,32 @@ export const navigation: NavCategory[] = [
         elements: [
             {
                 title: "Personal Information",
-                url: "/profile/my-profile",
+                url: "/me/my-profile",
                 icon: User,
             },
             {
                 title: "My Organization",
-                url: "/profile/organization",
+                url: "/me/organization",
                 icon: Building2,
             },
             {
                 title: "Account Security",
-                url: "/profile/security",
+                url: "/me/security",
                 icon: Shield,
             },
             {
                 title: "Work Schedule",
-                url: "/profile/work-schedule",
+                url: "/me/work-schedule",
                 icon: Clock,
             },
             {
                 title: "Attendance History",
-                url: "/profile/attendance-history",
+                url: "/me/attendance-history",
                 icon: ClipboardList,
             },
             {
                 title: "My Leave Requests",
-                url: "/profile/my-leave-requests",
+                url: "/me/my-leave-requests",
                 icon: CalendarDays,
             },
         ]

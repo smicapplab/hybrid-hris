@@ -1,5 +1,5 @@
 {
-  "id": "9d7b0a22-bb05-46d3-b80b-d991666f17ad",
+  "id": "8b81acf8-5434-4476-a76e-be33ee9efa6f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2383,11 +2383,33 @@
           "primaryKey": false,
           "notNull": true
         },
+        "start_day_type": {
+          "name": "start_day_type",
+          "type": "leave_day_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'FULL'"
+        },
+        "end_day_type": {
+          "name": "end_day_type",
+          "type": "leave_day_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'FULL'"
+        },
         "days": {
           "name": "days",
           "type": "numeric(10, 4)",
           "primaryKey": false,
           "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -4009,6 +4031,14 @@
         "MONTHLY",
         "ANNUAL_GRANT",
         "NONE"
+      ]
+    },
+    "public.leave_day_type": {
+      "name": "leave_day_type",
+      "schema": "public",
+      "values": [
+        "FULL",
+        "HALF"
       ]
     },
     "public.leave_request_status": {

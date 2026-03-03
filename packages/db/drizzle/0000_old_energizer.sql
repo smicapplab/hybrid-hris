@@ -4,6 +4,7 @@ CREATE TYPE "public"."civil_status" AS ENUM('SINGLE', 'MARRIED', 'SEPARATED', 'W
 CREATE TYPE "public"."gender" AS ENUM('MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY');--> statement-breakpoint
 CREATE TYPE "public"."org_unit_leader_role" AS ENUM('HEAD', 'CO_HEAD', 'ACTING_HEAD');--> statement-breakpoint
 CREATE TYPE "public"."accrual_method" AS ENUM('MONTHLY', 'ANNUAL_GRANT', 'NONE');--> statement-breakpoint
+CREATE TYPE "public"."leave_day_type" AS ENUM('FULL', 'HALF');--> statement-breakpoint
 CREATE TYPE "public"."leave_request_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED');--> statement-breakpoint
 CREATE TYPE "public"."leave_approval_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
 CREATE TYPE "public"."leave_ledger_entry_type" AS ENUM('ACCRUAL', 'CONSUMPTION', 'ADJUSTMENT');--> statement-breakpoint
@@ -240,7 +241,10 @@ CREATE TABLE "leave_requests" (
 	"leave_type_id" uuid NOT NULL,
 	"start_date" date NOT NULL,
 	"end_date" date NOT NULL,
+	"start_day_type" "leave_day_type" DEFAULT 'FULL' NOT NULL,
+	"end_day_type" "leave_day_type" DEFAULT 'FULL' NOT NULL,
 	"days" numeric(10, 4) NOT NULL,
+	"notes" text,
 	"status" "leave_request_status" DEFAULT 'PENDING' NOT NULL,
 	"approved_by" uuid,
 	"approved_at" timestamp with time zone,

@@ -7,6 +7,7 @@ import {
   pgEnum,
   index,
   check,
+  text,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { employees } from './employees';
@@ -18,6 +19,11 @@ export const leaveRequestStatusEnum = pgEnum('leave_request_status', [
   'APPROVED',
   'REJECTED',
   'CANCELLED',
+]);
+
+export const leaveDayTypeEnum = pgEnum('leave_day_type', [
+  'FULL',
+  'HALF',
 ]);
 
 export const leaveRequests = pgTable(
@@ -36,8 +42,16 @@ export const leaveRequests = pgTable(
     startDate: date('start_date').notNull(),
     endDate: date('end_date').notNull(),
 
+    /** FULL = whole day, HALF = half day (AM departure) */
+    startDayType: leaveDayTypeEnum('start_day_type').default('FULL').notNull(),
+
+    /** FULL = whole day, HALF = half day (PM return). Ignored when startDate = endDate. */
+    endDayType: leaveDayTypeEnum('end_day_type').default('FULL').notNull(),
+
     // Total leave units requested (supports partial days via decimals)
     days: numeric('days', { precision: 10, scale: 4 }).notNull(),
+
+    notes: text('notes'),
 
     status: leaveRequestStatusEnum('status')
       .default('PENDING')
