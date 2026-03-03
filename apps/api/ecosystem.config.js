@@ -2,7 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'be-hris-api',
-      script: 'dist/src/main.js',
+      script: 'dist/main.js',
+      cwd: '/home/ec2-user/Projects/hybrid-hris/apps/api',
       instances: 1,
       exec_mode: 'fork',
       watch: false,
@@ -14,10 +15,9 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: '4000',
-        NODE_OPTIONS: '--max-old-space-size=1536 --enable-source-maps --heapsnapshot-signal=SIGUSR2'
+        NODE_OPTIONS:
+          '--max-old-space-size=1536 --enable-source-maps --heapsnapshot-signal=SIGUSR2',
       },
-      out_file: '~/.pm2/logs/be-idp-server-out.log',
-      error_file: '~/.pm2/logs/be-idp-server-error.log',
     },
   ],
 };
