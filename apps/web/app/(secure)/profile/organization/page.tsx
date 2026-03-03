@@ -59,7 +59,7 @@ export default function OrganizationPage() {
     const fullName = `${ctx.employee.firstName} ${ctx.employee.lastName}`
 
     return (
-        <div className="space-y-5 max-w-3xl">
+        <div className="p-6 space-y-4 max-w-4xl">
             {/* ── My Position Card ─────────────────────────────────── */}
             <Card className="overflow-hidden">
                 <div className="px-6 pt-6 pb-5">

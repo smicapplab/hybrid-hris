@@ -48,7 +48,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts",
+    "**/*.mts", "app/(secure)/profile/_layout.tsxl", "app/(secure)/profile/layout.tsxl",
   ],
   "exclude": [
     "node_modules"

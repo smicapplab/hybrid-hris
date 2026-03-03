@@ -5,8 +5,6 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { usePathname } from "next/navigation";
 import { navigation } from "@/lib/config";
-import { SIDEBAR_NAV_ITEMS } from "./profile/config";
-
 
 export default function LayoutClient({
     children,
@@ -18,14 +16,6 @@ export default function LayoutClient({
 
     function deriveTitle(): string {
         if (!pathname) return "";
-
-        if (pathname.startsWith("/profile")) {
-            const match = SIDEBAR_NAV_ITEMS.find(
-                (item) => pathname === item.href || pathname.startsWith(item.href + "/")
-            );
-
-            if (match) return match.title;
-        }
 
         for (const category of navigation) {
             for (const item of category.elements) {
@@ -49,9 +39,6 @@ export default function LayoutClient({
 
         return "";
     }
-
-
-
 
     return (
         <SidebarProvider>

@@ -165,275 +165,275 @@ export default function MyProfilePage() {
         .join(' ')
 
     return (
-        <Card>
-            <CardContent className="p-6 space-y-8">
-
-                {/* ── Identity (read-only) ── */}
-                <div className="space-y-3">
-                    <SectionTitle>Identity</SectionTitle>
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4">
-                        <div className="col-span-2">
-                            <ReadOnlyField label="Full Name" value={fullName} />
+        <div className="p-6 space-y-4 max-w-6xl">
+            <Card>
+                <CardContent className="p-6 space-y-8">
+                    {/* ── Identity (read-only) ── */}
+                    <div className="space-y-3">
+                        <SectionTitle>Identity</SectionTitle>
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4">
+                            <div className="col-span-2">
+                                <ReadOnlyField label="Full Name" value={fullName} />
+                            </div>
+                            <ReadOnlyField label="Employee No." value={profile.employeeNo} />
+                            <ReadOnlyField label="Work Email" value={profile.email} />
                         </div>
-                        <ReadOnlyField label="Employee No." value={profile.employeeNo} />
-                        <ReadOnlyField label="Work Email" value={profile.email} />
                     </div>
-                </div>
 
-                <Separator />
+                    <Separator />
 
-                {/* ── Demographics ── */}
-                <div className="space-y-4">
-                    <SectionTitle>Demographics</SectionTitle>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {/* ── Demographics ── */}
+                    <div className="space-y-4">
+                        <SectionTitle>Demographics</SectionTitle>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
-                        <Field>
-                            <FieldLabel>Date of Birth</FieldLabel>
-                            <BirthdayPickerField
-                                value={form.birthDate || null}
-                                onChangeAction={(v) => set('birthDate', v)}
-                                label=""
-                            />
-                        </Field>
+                            <Field>
+                                <FieldLabel>Date of Birth</FieldLabel>
+                                <BirthdayPickerField
+                                    value={form.birthDate || null}
+                                    onChangeAction={(v) => set('birthDate', v)}
+                                    label=""
+                                />
+                            </Field>
 
-                        <Field>
-                            <FieldLabel>Gender</FieldLabel>
-                            <Select
-                                value={form.gender}
-                                onValueChange={(v) => set('gender', v)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select gender" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {GENDER_OPTIONS.map((o) => (
-                                        <SelectItem key={o.value} value={o.value}>
-                                            {o.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </Field>
+                            <Field>
+                                <FieldLabel>Gender</FieldLabel>
+                                <Select
+                                    value={form.gender}
+                                    onValueChange={(v) => set('gender', v)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select gender" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {GENDER_OPTIONS.map((o) => (
+                                            <SelectItem key={o.value} value={o.value}>
+                                                {o.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
 
-                        <Field>
-                            <FieldLabel>Civil Status</FieldLabel>
-                            <Select
-                                value={form.civilStatus}
-                                onValueChange={(v) => set('civilStatus', v)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select civil status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {CIVIL_STATUS_OPTIONS.map((o) => (
-                                        <SelectItem key={o.value} value={o.value}>
-                                            {o.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </Field>
+                            <Field>
+                                <FieldLabel>Civil Status</FieldLabel>
+                                <Select
+                                    value={form.civilStatus}
+                                    onValueChange={(v) => set('civilStatus', v)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select civil status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {CIVIL_STATUS_OPTIONS.map((o) => (
+                                            <SelectItem key={o.value} value={o.value}>
+                                                {o.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
 
-                        <Field>
-                            <FieldLabel>Nationality</FieldLabel>
-                            <Select
-                                value={form.nationality}
-                                onValueChange={(v) => set('nationality', v)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select nationality" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-60">
-                                    {NATIONALITY_OPTIONS.map((n) => (
-                                        <SelectItem key={n} value={n}>
-                                            {n}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </Field>
+                            <Field>
+                                <FieldLabel>Nationality</FieldLabel>
+                                <Select
+                                    value={form.nationality}
+                                    onValueChange={(v) => set('nationality', v)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select nationality" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-60">
+                                        {NATIONALITY_OPTIONS.map((n) => (
+                                            <SelectItem key={n} value={n}>
+                                                {n}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
 
+                        </div>
                     </div>
-                </div>
 
-                <Separator />
+                    <Separator />
 
-                {/* ── Contact ── */}
-                <div className="space-y-4">
-                    <SectionTitle>Contact Information</SectionTitle>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {/* ── Contact ── */}
+                    <div className="space-y-4">
+                        <SectionTitle>Contact Information</SectionTitle>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
-                        <Field>
-                            <FieldLabel htmlFor="mobileNo">Mobile Number</FieldLabel>
-                            <Input
-                                id="mobileNo"
-                                value={form.mobileNo}
-                                placeholder="+63 9XX XXX XXXX"
-                                onChange={(e) => set('mobileNo', e.target.value)}
-                            />
-                        </Field>
+                            <Field>
+                                <FieldLabel htmlFor="mobileNo">Mobile Number</FieldLabel>
+                                <Input
+                                    id="mobileNo"
+                                    value={form.mobileNo}
+                                    placeholder="+63 9XX XXX XXXX"
+                                    onChange={(e) => set('mobileNo', e.target.value)}
+                                />
+                            </Field>
 
-                        <Field>
-                            <FieldLabel htmlFor="landlineNo">Landline Number</FieldLabel>
-                            <Input
-                                id="landlineNo"
-                                value={form.landlineNo}
-                                placeholder="+02 8XXX XXXX"
-                                onChange={(e) => set('landlineNo', e.target.value)}
-                            />
-                        </Field>
+                            <Field>
+                                <FieldLabel htmlFor="landlineNo">Landline Number</FieldLabel>
+                                <Input
+                                    id="landlineNo"
+                                    value={form.landlineNo}
+                                    placeholder="+02 8XXX XXXX"
+                                    onChange={(e) => set('landlineNo', e.target.value)}
+                                />
+                            </Field>
 
-                        <Field>
-                            <FieldLabel htmlFor="personalEmail">Personal Email</FieldLabel>
-                            <Input
-                                id="personalEmail"
-                                type="email"
-                                value={form.personalEmail}
-                                placeholder="your@personal.email"
-                                onChange={(e) => set('personalEmail', e.target.value)}
-                            />
-                        </Field>
+                            <Field>
+                                <FieldLabel htmlFor="personalEmail">Personal Email</FieldLabel>
+                                <Input
+                                    id="personalEmail"
+                                    type="email"
+                                    value={form.personalEmail}
+                                    placeholder="your@personal.email"
+                                    onChange={(e) => set('personalEmail', e.target.value)}
+                                />
+                            </Field>
 
-                        <Field>
-                            <FieldLabel htmlFor="alternateEmail">Alternate Email</FieldLabel>
-                            <Input
-                                id="alternateEmail"
-                                type="email"
-                                value={form.alternateEmail}
-                                placeholder="alternate@email.com"
-                                onChange={(e) => set('alternateEmail', e.target.value)}
-                            />
-                        </Field>
+                            <Field>
+                                <FieldLabel htmlFor="alternateEmail">Alternate Email</FieldLabel>
+                                <Input
+                                    id="alternateEmail"
+                                    type="email"
+                                    value={form.alternateEmail}
+                                    placeholder="alternate@email.com"
+                                    onChange={(e) => set('alternateEmail', e.target.value)}
+                                />
+                            </Field>
 
+                        </div>
                     </div>
-                </div>
 
-                <Separator />
+                    <Separator />
 
-                {/* ── Emergency Contact ── */}
-                <div className="space-y-4">
-                    <SectionTitle>Emergency Contact</SectionTitle>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {/* ── Emergency Contact ── */}
+                    <div className="space-y-4">
+                        <SectionTitle>Emergency Contact</SectionTitle>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
-                        <Field>
-                            <FieldLabel htmlFor="ecName">Full Name</FieldLabel>
-                            <Input
-                                id="ecName"
-                                value={form.emergencyContactName}
-                                placeholder="Contact name"
-                                onChange={(e) => set('emergencyContactName', e.target.value)}
-                            />
-                        </Field>
+                            <Field>
+                                <FieldLabel htmlFor="ecName">Full Name</FieldLabel>
+                                <Input
+                                    id="ecName"
+                                    value={form.emergencyContactName}
+                                    placeholder="Contact name"
+                                    onChange={(e) => set('emergencyContactName', e.target.value)}
+                                />
+                            </Field>
 
-                        <Field>
-                            <FieldLabel htmlFor="ecRel">Relationship</FieldLabel>
-                            <Input
-                                id="ecRel"
-                                value={form.emergencyContactRelationship}
-                                placeholder="e.g. Spouse, Parent, Sibling"
-                                onChange={(e) => set('emergencyContactRelationship', e.target.value)}
-                            />
-                        </Field>
+                            <Field>
+                                <FieldLabel htmlFor="ecRel">Relationship</FieldLabel>
+                                <Input
+                                    id="ecRel"
+                                    value={form.emergencyContactRelationship}
+                                    placeholder="e.g. Spouse, Parent, Sibling"
+                                    onChange={(e) => set('emergencyContactRelationship', e.target.value)}
+                                />
+                            </Field>
 
-                        <Field>
-                            <FieldLabel htmlFor="ecMobile">Mobile Number</FieldLabel>
-                            <Input
-                                id="ecMobile"
-                                value={form.emergencyContactMobileNo}
-                                placeholder="+63 9XX XXX XXXX"
-                                onChange={(e) => set('emergencyContactMobileNo', e.target.value)}
-                            />
-                        </Field>
+                            <Field>
+                                <FieldLabel htmlFor="ecMobile">Mobile Number</FieldLabel>
+                                <Input
+                                    id="ecMobile"
+                                    value={form.emergencyContactMobileNo}
+                                    placeholder="+63 9XX XXX XXXX"
+                                    onChange={(e) => set('emergencyContactMobileNo', e.target.value)}
+                                />
+                            </Field>
 
+                        </div>
                     </div>
-                </div>
 
-                <Separator />
+                    <Separator />
 
-                {/* ── Address ── */}
-                <div className="space-y-4">
-                    <SectionTitle>Address</SectionTitle>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {/* ── Address ── */}
+                    <div className="space-y-4">
+                        <SectionTitle>Address</SectionTitle>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
-                        <Field className="sm:col-span-2">
-                            <FieldLabel htmlFor="addr1">Address Line 1</FieldLabel>
-                            <Input
-                                id="addr1"
-                                value={form.addressLine1}
-                                placeholder="House / Unit no., Street, Barangay"
-                                onChange={(e) => set('addressLine1', e.target.value)}
-                            />
-                        </Field>
+                            <Field className="sm:col-span-2">
+                                <FieldLabel htmlFor="addr1">Address Line 1</FieldLabel>
+                                <Input
+                                    id="addr1"
+                                    value={form.addressLine1}
+                                    placeholder="House / Unit no., Street, Barangay"
+                                    onChange={(e) => set('addressLine1', e.target.value)}
+                                />
+                            </Field>
 
-                        <Field className="sm:col-span-2">
-                            <FieldLabel htmlFor="addr2">Address Line 2 (optional)</FieldLabel>
-                            <Input
-                                id="addr2"
-                                value={form.addressLine2}
-                                placeholder="Subdivision, Purok"
-                                onChange={(e) => set('addressLine2', e.target.value)}
-                            />
-                        </Field>
+                            <Field className="sm:col-span-2">
+                                <FieldLabel htmlFor="addr2">Address Line 2 (optional)</FieldLabel>
+                                <Input
+                                    id="addr2"
+                                    value={form.addressLine2}
+                                    placeholder="Subdivision, Purok"
+                                    onChange={(e) => set('addressLine2', e.target.value)}
+                                />
+                            </Field>
 
-                        <Field>
-                            <FieldLabel htmlFor="city">City / Municipality</FieldLabel>
-                            <Input
-                                id="city"
-                                value={form.city}
-                                onChange={(e) => set('city', e.target.value)}
-                            />
-                        </Field>
+                            <Field>
+                                <FieldLabel htmlFor="city">City / Municipality</FieldLabel>
+                                <Input
+                                    id="city"
+                                    value={form.city}
+                                    onChange={(e) => set('city', e.target.value)}
+                                />
+                            </Field>
 
-                        <Field>
-                            <FieldLabel htmlFor="province">Province / State</FieldLabel>
-                            <Input
-                                id="province"
-                                value={form.province}
-                                onChange={(e) => set('province', e.target.value)}
-                            />
-                        </Field>
+                            <Field>
+                                <FieldLabel htmlFor="province">Province / State</FieldLabel>
+                                <Input
+                                    id="province"
+                                    value={form.province}
+                                    onChange={(e) => set('province', e.target.value)}
+                                />
+                            </Field>
 
-                        <Field>
-                            <FieldLabel htmlFor="postal">Postal Code</FieldLabel>
-                            <Input
-                                id="postal"
-                                value={form.postalCode}
-                                onChange={(e) => set('postalCode', e.target.value)}
-                            />
-                        </Field>
+                            <Field>
+                                <FieldLabel htmlFor="postal">Postal Code</FieldLabel>
+                                <Input
+                                    id="postal"
+                                    value={form.postalCode}
+                                    onChange={(e) => set('postalCode', e.target.value)}
+                                />
+                            </Field>
 
-                        <Field>
-                            <FieldLabel>Country</FieldLabel>
-                            <Select
-                                value={form.countryCode}
-                                onValueChange={(v) => set('countryCode', v)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select country" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-60">
-                                    {COUNTRY_OPTIONS.map((c) => (
-                                        <SelectItem key={c.code} value={c.code}>
-                                            {c.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </Field>
+                            <Field>
+                                <FieldLabel>Country</FieldLabel>
+                                <Select
+                                    value={form.countryCode}
+                                    onValueChange={(v) => set('countryCode', v)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select country" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-60">
+                                        {COUNTRY_OPTIONS.map((c) => (
+                                            <SelectItem key={c.code} value={c.code}>
+                                                {c.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
 
+                        </div>
                     </div>
-                </div>
 
-                <Separator />
+                    <Separator />
 
-                {/* ── Save ── */}
-                <div className="flex justify-end">
-                    <Button onClick={handleSave} disabled={saving}>
-                        {saving ? 'Saving…' : 'Save Changes'}
-                    </Button>
-                </div>
-
-            </CardContent>
-        </Card>
+                    {/* ── Save ── */}
+                    <div className="flex justify-end">
+                        <Button onClick={handleSave} disabled={saving}>
+                            {saving ? 'Saving…' : 'Save Changes'}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
     )
 }

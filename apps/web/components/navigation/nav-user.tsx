@@ -1,13 +1,11 @@
 "use client";
 
-import { ChevronsUpDown, LogOut, UserPen, MessageSquare } from "lucide-react";
+import { ChevronsUpDown, LogOut } from "lucide-react";
 
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -16,13 +14,11 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useRouter } from "next/navigation";
 import { AvatarSidebar } from "./avatar-sidebar";
 import { useAuth } from "@/context/AuthContext";
 
 export function NavUser() {
   const { logout } = useAuth();
-  const router = useRouter();
   const { isMobile } = useSidebar();
 
   return (
@@ -44,16 +40,6 @@ export function NavUser() {
             align="end"
             sideOffset={4}
           >
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => router.push("/profile/my-profile")}
-              >
-                <UserPen />
-                My Profile
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
             <DropdownMenuItem
               className="cursor-pointer"
               onClick={() => logout()}>

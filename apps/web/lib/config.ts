@@ -7,10 +7,12 @@ import {
     CalendarDays,
     CheckCircle2,
     Shield,
-    UserCog,
     Sailboat,
+    User,
+    Clock,
+    ClipboardList,
+    Settings,
 } from "lucide-react";
-
 
 export const navigation: NavCategory[] = [
     {
@@ -23,6 +25,41 @@ export const navigation: NavCategory[] = [
         ]
     },
     {
+        title: "My Profile",
+        elements: [
+            {
+                title: "Personal Information",
+                url: "/profile/my-profile",
+                icon: User,
+            },
+            {
+                title: "My Organization",
+                url: "/profile/organization",
+                icon: Building2,
+            },
+            {
+                title: "Account Security",
+                url: "/profile/security",
+                icon: Shield,
+            },
+            {
+                title: "Work Schedule",
+                url: "/profile/work-schedule",
+                icon: Clock,
+            },
+            {
+                title: "Attendance History",
+                url: "/profile/attendance-history",
+                icon: ClipboardList,
+            },
+            {
+                title: "My Leave Requests",
+                url: "/profile/my-leave-requests",
+                icon: CalendarDays,
+            },
+        ]
+    },
+    {
         title: "People",
         elements: [
             {
@@ -31,7 +68,7 @@ export const navigation: NavCategory[] = [
                 icon: Users,
             },
             {
-                title: "Org Structure",
+                title: "Organization Structure",
                 url: "/people/org-structure",
                 icon: Building2,
             },
@@ -55,12 +92,6 @@ export const navigation: NavCategory[] = [
                 url: "/leave/approvals",
                 icon: CheckCircle2,
             },
-            // {
-            //     title: "Policies",
-            //     url: "/leave/policies",
-            //     icon: LayoutDashboard,
-            //     isActive: true,
-            // },
         ]
     },
     {
@@ -68,14 +99,14 @@ export const navigation: NavCategory[] = [
         roles: ['HR_ADMIN', 'ADMIN'],
         elements: [
             {
-                title: "Leave Management",
-                url: "/admin/leave-managment",
+                title: "Leave Policies",
+                url: "/admin/leave-management",
                 icon: Sailboat,
             },
             {
                 title: "Leave Types",
                 url: "/admin/leave-types",
-                icon: Shield,
+                icon: Settings,
             },
         ]
     },

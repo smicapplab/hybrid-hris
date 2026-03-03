@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Clock, Calendar, Zap } from 'lucide-react'
+import { Clock, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, parseISO } from 'date-fns'
 import { WorkSchedule } from '@/types/work-schedule.type'
@@ -84,7 +84,7 @@ export default function WorkSchedulePage() {
     const workDayCount = DAYS.filter(d => schedule[d.key] as boolean).length
 
     return (
-        <div className="space-y-5 max-w-3xl">
+        <div className="p-6 space-y-4 max-w-4xl">
             {/* ── Shift info card ── */}
             <Card>
                 <CardContent className="pt-6">
@@ -148,53 +148,69 @@ export default function WorkSchedulePage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="space-y-1.5">
-                        {DAYS.map(({ key, short }) => {
-                            const isWorkDay = schedule[key] as boolean
-                            return (
-                                <div
-                                    key={key}
-                                    className={cn(
-                                        'flex items-center rounded-lg px-4 py-3 gap-4',
-                                        isWorkDay ? 'bg-muted/40' : 'opacity-50'
-                                    )}
-                                >
-                                    <span className="w-8 text-xs font-semibold text-muted-foreground uppercase tracking-wide shrink-0">
-                                        {short}
-                                    </span>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
+                                    <th className="py-2 pr-4 font-medium">Day</th>
+                                    <th className="py-2 pr-4 font-medium">Status</th>
+                                    <th className="py-2 pr-4 font-medium">Start</th>
+                                    <th className="py-2 pr-4 font-medium">End</th>
+                                    <th className="py-2 pr-4 font-medium">Break</th>
+                                    <th className="py-2 pr-4 font-medium">Hours</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {DAYS.map(({ key, short }) => {
+                                    const isWorkDay = schedule[key] as boolean
 
-                                    <span className={cn(
-                                        'text-xs border rounded-full px-2 py-0.5 font-medium shrink-0 w-10 text-center',
-                                        isWorkDay
-                                            ? 'bg-green-50 text-green-700 border-green-200'
-                                            : 'bg-muted text-muted-foreground border-border'
-                                    )}>
-                                        {isWorkDay ? 'Work' : 'Off'}
-                                    </span>
+                                    return (
+                                        <tr
+                                            key={key}
+                                            className={cn(
+                                                'border-b last:border-0',
+                                                !isWorkDay && 'opacity-50'
+                                            )}
+                                        >
+                                            <td className="py-3 pr-4 font-semibold text-muted-foreground uppercase">
+                                                {short}
+                                            </td>
 
-                                    {isWorkDay ? (
-                                        <div className="flex items-center gap-3 text-sm flex-wrap">
-                                            <span className="font-medium">
-                                                {formatTime(schedule.startTime)} – {formatTime(schedule.endTime)}
-                                            </span>
-                                            <span className="text-muted-foreground text-xs">
-                                                {formatDuration(totalMinutes)}
-                                            </span>
-                                            {schedule.breakMinutes > 0 && (
-                                                <span className="text-muted-foreground text-xs">
-                                                    · {schedule.breakMinutes}m break
+                                            <td className="py-3 pr-4">
+                                                <span
+                                                    className={cn(
+                                                        'text-xs border rounded-full px-2 py-0.5 font-medium',
+                                                        isWorkDay
+                                                            ? 'bg-green-50 text-green-700 border-green-200'
+                                                            : 'bg-muted text-muted-foreground border-border'
+                                                    )}
+                                                >
+                                                    {isWorkDay ? 'Work' : 'Off'}
                                                 </span>
-                                            )}
-                                            {schedule.isFlexible && (
-                                                <Zap className="w-3.5 h-3.5 text-violet-500" />
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <span className="text-xs text-muted-foreground">Rest day</span>
-                                    )}
-                                </div>
-                            )
-                        })}
+                                            </td>
+
+                                            <td className="py-3 pr-4">
+                                                {isWorkDay ? formatTime(schedule.startTime) : '-'}
+                                            </td>
+
+                                            <td className="py-3 pr-4">
+                                                {isWorkDay ? formatTime(schedule.endTime) : '-'}
+                                            </td>
+
+                                            <td className="py-3 pr-4">
+                                                {isWorkDay && schedule.breakMinutes > 0
+                                                    ? `${schedule.breakMinutes}m`
+                                                    : '-'}
+                                            </td>
+
+                                            <td className="py-3 pr-4">
+                                                {isWorkDay ? formatDuration(totalMinutes) : '-'}
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 </CardContent>
             </Card>

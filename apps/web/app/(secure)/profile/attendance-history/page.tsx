@@ -50,10 +50,10 @@ function formatDuration(inAt: string | null, outAt: string | null): string | nul
 }
 
 const SOURCE_BADGE: Record<AttendanceSource, string> = {
-    WEB:    'bg-blue-50 text-blue-600 border-blue-200',
+    WEB: 'bg-blue-50 text-blue-600 border-blue-200',
     MOBILE: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-    KIOSK:  'bg-violet-50 text-violet-600 border-violet-200',
-    API:    'bg-zinc-100 text-zinc-500 border-zinc-200',
+    KIOSK: 'bg-violet-50 text-violet-600 border-violet-200',
+    API: 'bg-zinc-100 text-zinc-500 border-zinc-200',
 }
 
 /* ─── Sub-components ─────────────────────────────────────────── */
@@ -138,113 +138,115 @@ export default function AttendanceHistoryPage() {
     }
 
     return (
-        <Card>
-            <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-2">
-                    <History className="w-4 h-4 text-muted-foreground" />
-                    Last 30 Days
-                    {records.length > 0 && (
-                        <span className="ml-auto text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium">
-                            {records.length} record{records.length !== 1 ? 's' : ''}
-                        </span>
-                    )}
-                </CardTitle>
-            </CardHeader>
+        <div className="p-6 space-y-4">
+            <Card>
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                        <History className="w-4 h-4 text-muted-foreground" />
+                        Last 30 Days
+                        {records.length > 0 && (
+                            <span className="ml-auto text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium">
+                                {records.length} record{records.length !== 1 ? 's' : ''}
+                            </span>
+                        )}
+                    </CardTitle>
+                </CardHeader>
 
-            <CardContent className="p-0">
-                {records.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 gap-3">
-                        <Clock className="w-10 h-10 text-muted-foreground/40" />
-                        <p className="text-sm text-muted-foreground font-medium">
-                            No attendance records in the last 30 days
-                        </p>
-                    </div>
-                ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Scheduled</TableHead>
-                                <TableHead>Time In</TableHead>
-                                <TableHead>Time Out</TableHead>
-                                <TableHead>Hours</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-10" />
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {records.map(row => {
-                                const scheduledIn = formatTime(row.scheduledInAt)
-                                const scheduledOut = formatTime(row.scheduledOutAt)
-                                const duration = formatDuration(row.actualInAt, row.actualOutAt)
+                <CardContent className="p-0">
+                    {records.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 gap-3">
+                            <Clock className="w-10 h-10 text-muted-foreground/40" />
+                            <p className="text-sm text-muted-foreground font-medium">
+                                No attendance records in the last 30 days
+                            </p>
+                        </div>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Scheduled</TableHead>
+                                    <TableHead>Time In</TableHead>
+                                    <TableHead>Time Out</TableHead>
+                                    <TableHead>Hours</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="w-10" />
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {records.map(row => {
+                                    const scheduledIn = formatTime(row.scheduledInAt)
+                                    const scheduledOut = formatTime(row.scheduledOutAt)
+                                    const duration = formatDuration(row.actualInAt, row.actualOutAt)
 
-                                return (
-                                    <TableRow key={row.id}>
-                                        {/* Date */}
-                                        <TableCell>
-                                            <div className="flex items-center gap-1.5">
-                                                {row.isLocked && (
-                                                    <Lock className="w-3 h-3 text-muted-foreground shrink-0" />
-                                                )}
-                                                <div>
-                                                    <p className="font-medium text-sm leading-tight">
-                                                        {format(parseISO(row.workDate), 'EEE, MMM d')}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {format(parseISO(row.workDate), 'yyyy')}
-                                                    </p>
+                                    return (
+                                        <TableRow key={row.id}>
+                                            {/* Date */}
+                                            <TableCell>
+                                                <div className="flex items-center gap-1.5">
+                                                    {row.isLocked && (
+                                                        <Lock className="w-3 h-3 text-muted-foreground shrink-0" />
+                                                    )}
+                                                    <div>
+                                                        <p className="font-medium text-sm leading-tight">
+                                                            {format(parseISO(row.workDate), 'EEE, MMM d')}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {format(parseISO(row.workDate), 'yyyy')}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </TableCell>
+                                            </TableCell>
 
-                                        {/* Scheduled */}
-                                        <TableCell className="text-sm text-muted-foreground tabular-nums">
-                                            {scheduledIn && scheduledOut
-                                                ? `${scheduledIn} – ${scheduledOut}`
-                                                : '—'
-                                            }
-                                        </TableCell>
+                                            {/* Scheduled */}
+                                            <TableCell className="text-sm text-muted-foreground tabular-nums">
+                                                {scheduledIn && scheduledOut
+                                                    ? `${scheduledIn} – ${scheduledOut}`
+                                                    : '—'
+                                                }
+                                            </TableCell>
 
-                                        {/* Actual In */}
-                                        <TableCell>
-                                            <TimeCell ts={row.actualInAt} source={row.sourceIn} />
-                                        </TableCell>
+                                            {/* Actual In */}
+                                            <TableCell>
+                                                <TimeCell ts={row.actualInAt} source={row.sourceIn} />
+                                            </TableCell>
 
-                                        {/* Actual Out */}
-                                        <TableCell>
-                                            <TimeCell ts={row.actualOutAt} source={row.sourceOut} />
-                                        </TableCell>
+                                            {/* Actual Out */}
+                                            <TableCell>
+                                                <TimeCell ts={row.actualOutAt} source={row.sourceOut} />
+                                            </TableCell>
 
-                                        {/* Hours */}
-                                        <TableCell>
-                                            {duration
-                                                ? <span className="text-sm font-medium tabular-nums">{duration}</span>
-                                                : <span className="text-muted-foreground">—</span>
-                                            }
-                                        </TableCell>
+                                            {/* Hours */}
+                                            <TableCell>
+                                                {duration
+                                                    ? <span className="text-sm font-medium tabular-nums">{duration}</span>
+                                                    : <span className="text-muted-foreground">—</span>
+                                                }
+                                            </TableCell>
 
-                                        {/* Status */}
-                                        <TableCell>
-                                            <StatusBadge row={row} />
-                                        </TableCell>
+                                            {/* Status */}
+                                            <TableCell>
+                                                <StatusBadge row={row} />
+                                            </TableCell>
 
-                                        {/* Actions */}
-                                        <TableCell>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8"
-                                            >
-                                                <MoreHorizontal className="w-4 h-4" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                )
-                            })}
-                        </TableBody>
-                    </Table>
-                )}
-            </CardContent>
-        </Card>
+                                            {/* Actions */}
+                                            <TableCell>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                >
+                                                    <MoreHorizontal className="w-4 h-4" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                })}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
     )
 }
