@@ -52,11 +52,6 @@ export const navigation: NavCategory[] = [
                 url: "/me/attendance-history",
                 icon: ClipboardList,
             },
-            {
-                title: "My Leave Requests",
-                url: "/me/my-leave-requests",
-                icon: CalendarDays,
-            },
         ]
     },
     {
@@ -84,7 +79,7 @@ export const navigation: NavCategory[] = [
         elements: [
             {
                 title: "My Leave Requests",
-                url: "/leave/my-requests",
+                url: "/me/my-leave-requests",
                 icon: CalendarDays,
             },
             {
