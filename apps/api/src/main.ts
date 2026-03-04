@@ -13,17 +13,20 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      const allowed = (process.env.CORS_ORIGIN ?? '')
-        .split(',')
-        .map(o => o.trim());
+      const allowedOrigins = [
+        'https://hybrid-hris-web.vercel.app',
+        'http://localhost:3000',
+      ];
 
-      if (!origin || allowed.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   app.use(cookieParser());
