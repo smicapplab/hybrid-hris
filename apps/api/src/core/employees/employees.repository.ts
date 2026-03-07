@@ -13,6 +13,7 @@ import {
     roles,
     userRoles,
     users,
+    employeeLeavePolicies,
 } from '@hybrid-hris/db'
 
 @Injectable()
@@ -172,6 +173,7 @@ export class EmployeesRepository {
         email: string | null
         profile: InferSelectModel<typeof employeeProfiles> | null
         identifiers: InferSelectModel<typeof employeeIdentifiers> | null
+        policyId: string | null
     } | null> {
         const includeDeleted = opts?.includeDeleted ?? false
 
@@ -185,11 +187,20 @@ export class EmployeesRepository {
                 email: users.email,
                 profile: employeeProfiles,
                 identifiers: employeeIdentifiers,
+                policyId: employeeLeavePolicies.policyId,
             })
             .from(employees)
             .leftJoin(users, eq(users.employeeId, employees.id))
             .leftJoin(employeeProfiles, eq(employeeProfiles.employeeId, employees.id))
             .leftJoin(employeeIdentifiers, eq(employeeIdentifiers.employeeId, employees.id))
+            .leftJoin(
+                employeeLeavePolicies,
+                and(
+                    eq(employeeLeavePolicies.employeeId, employees.id),
+                    sql`${employeeLeavePolicies.effectiveFrom} <= CURRENT_DATE`,
+                    sql`(${employeeLeavePolicies.effectiveTo} IS NULL OR ${employeeLeavePolicies.effectiveTo} >= CURRENT_DATE)`,
+                ),
+            )
             .where(whereClause)
             .limit(1)
 

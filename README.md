@@ -11,33 +11,31 @@ The system focuses on deterministic background processing, clean domain separati
 
 ### Core Modules
 
-- **Employee Management** – Master records, employment type, status, organizational assignment
-- **Organizational Structure** – Hierarchical Org Units (multi-level), shared Positions, OrgUnit-Position mapping, and Org Unit Leaders (HEAD / CO_HEAD / ACTING_HEAD)
-- **Identity & RBAC** – Users, roles, and user-role mappings with soft deletion support
-- **Leave Management (Ledger-Based)** – Accrual, consumption, adjustment, multi-level approvals, and policy-driven rules
-- **Leave Policies & Assignments** – Policy definitions, rule enforcement, and employee-level policy mapping with DB-level temporal integrity
-- **Holiday Calendar** – Country-aware holiday support for leave duration calculation
-- **Database-Sealed Constraints** – Critical business rules enforced at DB level (uniqueness, exclusion constraints, sign validation, idempotent accrual keys)
+- **Employee Management** – Master records, employment type, status, and organizational assignment.
+- **Organizational Structure** – Hierarchical Org Units (multi-level), shared Positions, OrgUnit-Position mapping, and Org Unit Leaders (HEAD / CO_HEAD / ACTING_HEAD).
+- **Leave Management (Ledger-Based)** – Robust leave tracking using an append-only financial-style ledger. Supports accrual, consumption, and manual adjustments.
+- **Leave Policies & Rules** – Flexible policy engine supporting Monthly Accrual, Annual Grants, Max Balance caps, and Carry-over limits.
+- **Attendance & Shift Management** – Shift templates, employee shift assignments (flexible/fixed), and attendance logging.
+- **Identity & RBAC** – Users, roles, and user-role mappings with soft deletion support.
+- **Database-Sealed Constraints** – Critical business rules enforced at the DB level (uniqueness, exclusion constraints for temporal integrity, and idempotent accrual keys).
 
 ### Design Philosophy
 
-- Append-only financial-style ledger for leave balances
-- Idempotent background jobs (safe for retries in Lambda or queue workers)
-- Soft deletion across core entities (except immutable ledger)
-- Case-insensitive identity enforcement at database level
-- Monorepo architecture with strict package boundaries
+- **Immutable Ledger:** Leave balances are derived from an append-only ledger, ensuring a perfect audit trail.
+- **Idempotent Accruals:** Monthly accruals use deterministic keys to prevent duplicate credits, even if a job is retried.
+- **Temporal Integrity:** Policy assignments and shift assignments use Postgres `EXCLUDE` constraints to prevent overlapping records for the same employee.
+- **Case-Insensitive Identity:** Identity enforcement (emails, codes) is handled at the database level for maximum reliability.
+- **Monorepo Architecture:** Clean package boundaries with shared domain logic.
 
 ---
 
-Hybrid-deployable Human Resource Information System (HRIS) built with a TypeScript monorepo architecture.
-
 ## Tech Stack
 
-- **Frontend:** Next.js (App Router) – `apps/web`
-- **API:** NestJS – `apps/api`
-- **Database:** PostgreSQL
+- **Frontend:** Next.js 15 (App Router) – `apps/web`
+- **API:** NestJS 11 – `apps/api`
+- **Database:** PostgreSQL (with `btree_gist` and `pgcrypto` extensions)
 - **ORM:** Drizzle ORM – `packages/db`
-- **Domain Layer:** `packages/domain`
+- **Domain Layer:** `packages/domain` (Shared enums, types, and logic)
 - **Package Manager:** pnpm (workspace)
 
 ---
@@ -50,8 +48,9 @@ hybrid-hris/
     web/        # Next.js frontend
     api/        # NestJS backend
   packages/
-    db/         # Drizzle schema & DB connection
-    domain/     # Pure business logic layer
+    db/         # Drizzle schema, migrations & seed scripts
+    domain/     # Pure business logic, enums & shared types
+  scripts/      # DevOps and maintenance scripts
 ```
 
 ---
@@ -64,202 +63,80 @@ hybrid-hris/
 pnpm install
 ```
 
-### 2. Build Shared Packages
+### 2. Environment Configuration
+
+Copy `.env.sample` to `.env` in the root and in `apps/api`.
+
+### 3. Build Shared Packages
 
 ```bash
 pnpm --filter @hybrid-hris/db run build
 pnpm --filter @hybrid-hris/domain run build
 ```
 
-### 3. Start API (NestJS)
+### 4. Database Setup
 
-```bash
-pnpm --filter api start:dev
-```
-
-Default:
-
-```
-http://localhost:4000
-```
-
-### 4. Start Web (Next.js)
-
-```bash
-pnpm --filter web dev
-```
-
-Default:
-
-```
-http://localhost:3000
-```
-
----
-
-## Build All Projects
-
-```bash
-pnpm -r run build
-```
-
----
-
-## Type Checking
-
-Per app:
-
-```bash
-pnpm --filter api exec tsc --noEmit
-pnpm --filter web exec tsc --noEmit
-```
-
----
-
-## Architecture Principles
-
-- Shared packages compile independently
-- Apps consume compiled package output
-- No cross-project TypeScript source compilation
-- Workspace linking via `workspace:*`
-- Clean separation between:
-  - Application layer (Nest / Next)
-  - Domain layer
-  - Infrastructure layer (DB)
-
----
-
-## Authentication
-
-The API implements JWT-based authentication with database-backed refresh token rotation.
-
-### Architecture
-
-- Access Token (short-lived)
-- Refresh Token (httpOnly cookie)
-- Refresh tokens stored in `user_refresh_tokens` table
-- Rotation + revocation supported
-- Roles embedded in JWT payload
-
-### Default Admin (Development Only)
-
-After running the seed command:
-
-Email: `admin@hybrid-hris.local`
-Password: `Admin123!`
-
-⚠️ Change this password in production environments.
-
-### Environment Variables (API)
-
-Required in `apps/api/.env`:
-
-```
-DATABASE_URL=postgresql://...
-JWT_ACCESS_SECRET=...
-JWT_REFRESH_SECRET=...
-JWT_ACCESS_TTL=15m
-JWT_REFRESH_TTL=7d
-COOKIE_REFRESH_NAME=hris_refresh
-COOKIE_SECURE=false
-COOKIE_SAMESITE=lax
-COOKIE_DOMAIN=
-```
-
----
-
-## Database Setup & Reset
-
-### One-Command Reset (Recommended)
+Ensure Docker is running, then use the reset script for a fresh start:
 
 ```bash
 ./scripts/reset-db.sh
 ```
 
-This script will:
-- Destroy local database volume
-- Recreate Postgres container
-- Enable required extensions
-- Generate fresh migrations
-- Apply migrations
-- Seed system data
-
-### Start PostgreSQL (Docker)
-
-```bash
-docker compose up -d
-```
-
-### Recreate Database (Full Reset)
-
-This will remove the container and volume:
-
-```bash
-docker compose down -v
-```
-
-Then start fresh:
-
-```bash
-docker compose up -d
-```
-
-### Enable Required Extensions
-
-```bash
-docker exec -it hris-postgres psql -U hris -d hris_db
-```
-
-Inside psql:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "btree_gist";
-\q
-```
-
-### Generate Migrations
-
-```bash
-pnpm --filter @hybrid-hris/db db:generate
-```
-
-### Apply Migrations
-
-```bash
-pnpm --filter @hybrid-hris/db db:migrate
-```
-
-### Seed System Data
-
-```bash
-pnpm --filter @hybrid-hris/db seed
-```
-
-### Optional Test Data
-
-To load structured demo data (multi-level org tree, positions, employees, users, roles, and org leaders):
+Alternatively, to load the full testing environment (15+ employees, org tree, and leave history):
 
 ```bash
 LOAD_TEST_DATA=true pnpm --filter @hybrid-hris/db seed
 ```
 
-This will generate:
-- Multi-level Org Units (Head Office → HR → HR Sub-units, IT → IT Sub-units)
-- Positions mapped to specific Org Units
-- Sample employees with manager hierarchy
-- Users automatically created for employees
-- Role assignments (MANAGER / EMPLOYEE)
-- Org Unit leader assignments
+### 5. Start Applications
+
+**API (NestJS):**
+```bash
+pnpm --filter api start:dev # Runs on http://localhost:4000
+```
+
+**Web (Next.js):**
+```bash
+pnpm --filter web dev # Runs on http://localhost:3000
+```
+
+---
+
+## Authentication
+
+The system uses JWT-based authentication with **Refresh Token Rotation**.
+
+- **Access Token:** Short-lived (15m default), stored in memory/header.
+- **Refresh Token:** Long-lived (7d default), stored in an `httpOnly` cookie.
+- **RBAC:** Roles are embedded in the JWT and verified via `RolesGuard` in the API.
+
+### Default Admin (Development)
+
+Email: `admin@hybrid-hris.local`  
+Password: `Admin123!`
+
+---
+
+## Management Features
+
+### Leave Policy Management
+Administrators can define different leave policies (e.g., Standard, Intern) and assign them to employees.
+- **Process Accruals:** A dedicated UI tool allows admins to trigger monthly leave credits for the entire organization or specific months.
+- **Employee Table:** View and manage all employees assigned to a specific policy directly from the policy detail panel.
+
+### Employee Management
+- Full lifecycle management from Probation to Regular/Resigned.
+- Dynamic supervisor assignment for approval hierarchies.
+- Identity and Government ID tracking (PH-centric: TIN, SSS, PhilHealth, Pag-IBIG).
+
 ---
 
 ## Next Steps
 
-- Finalize leave accrual engine (monthly + annual grant model)
-- Implement approval → ledger transactional integration
-- Add hybrid background job execution (BullMQ + Lambda/EventBridge)
-- Implement attendance & working schedule module
-- Harden RBAC and permission boundaries
+- [ ] Implement approval → ledger transactional integration.
+- [ ] Add hybrid background job execution (BullMQ for standalone / EventBridge for serverless).
+- [ ] Finalize attendance compute engine (late/undertime/overtime calculation).
+- [ ] Implement payroll export module.
 
 ---
 

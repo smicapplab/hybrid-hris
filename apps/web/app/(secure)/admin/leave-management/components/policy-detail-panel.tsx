@@ -1,8 +1,21 @@
 'use client'
 
-import { Sailboat, Pencil, PowerOff, Power, Plus, Trash2, Edit2, CalendarRange, Star } from 'lucide-react'
+import { Sailboat, Pencil, PowerOff, Power, Plus, Trash2, Edit2, CalendarRange, Star, Users, Search, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table'
+import { apiFetch } from '@/lib/api'
+import { useState, useEffect, useCallback } from 'react'
 import type { LeavePolicyWithRules, LeavePolicyRule } from '@/types/leave.types'
+import type { Employee } from '@/types/employee.type'
+import Link from 'next/link'
 
 type Props = {
     policy: LeavePolicyWithRules
@@ -37,6 +50,45 @@ export function PolicyDetailPanel({
 }: Props) {
     const isInactive = !policy.isActive
 
+    // ── Employees state ──────────────────────────────────────────────────────────
+    const [employeesList, setEmployeesList] = useState<Employee[]>([])
+    const [totalEmployees, setTotalEmployees] = useState(0)
+    const [loadingEmployees, setLoadingEmployees] = useState(false)
+    const [page, setPage] = useState(1)
+    const [search, setSearch] = useState('')
+    const limit = 10
+
+    const loadEmployees = useCallback(async () => {
+        try {
+            setLoadingEmployees(true)
+            const params = new URLSearchParams()
+            params.append('page', page.toString())
+            params.append('limit', limit.toString())
+            if (search) params.append('search', search)
+
+            const result = await apiFetch<{ items: Employee[], total: number }>(`/leave-policies/${policy.id}/employees?${params.toString()}`)
+            setEmployeesList(result.items)
+            setTotalEmployees(result.total)
+        } catch (err) {
+            console.error('Failed to load employees for policy:', err)
+            setEmployeesList([])
+            setTotalEmployees(0)
+        } finally {
+            setLoadingEmployees(false)
+        }
+    }, [policy.id, page, search])
+
+    useEffect(() => {
+        setPage(1)
+    }, [policy.id])
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            loadEmployees()
+        }, 300)
+        return () => clearTimeout(timer)
+    }, [loadEmployees])
+
     function fmt(d: string | null | undefined) {
         if (!d) return '—'
         return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -47,8 +99,10 @@ export function PolicyDetailPanel({
         return `${parseFloat(v)} days`
     }
 
+    const totalPages = Math.ceil(totalEmployees / limit)
+
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             {/* Policy header card */}
             <div className={`rounded-xl border p-5 bg-gradient-to-br ${isInactive ? 'from-zinc-50 to-zinc-100/60' : 'from-card to-muted/20'}`}>
                 <div className="flex items-start gap-4">
@@ -200,6 +254,107 @@ export function PolicyDetailPanel({
                                 ))}
                             </tbody>
                         </table>
+                    </div>
+                )}
+            </div>
+
+            {/* Employees Section */}
+            <div className="rounded-xl border overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/10">
+                    <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                            <h3 className="text-sm font-semibold">Assigned Employees</h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                {totalEmployees} employee{totalEmployees !== 1 ? 's' : ''} currently under this policy
+                            </p>
+                        </div>
+                    </div>
+                    <div className="relative w-48">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <Input
+                            placeholder="Search name..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-8 h-8 text-xs"
+                        />
+                    </div>
+                </div>
+
+                <div className="min-h-[200px]">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-muted/30 hover:bg-muted/30">
+                                <TableHead className="w-[100px] text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pl-4">ID</TableHead>
+                                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Name</TableHead>
+                                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</TableHead>
+                                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Hire Date</TableHead>
+                                <TableHead className="w-[50px] pr-4"></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loadingEmployees && employeesList.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground text-xs italic">
+                                        Loading employees...
+                                    </TableCell>
+                                </TableRow>
+                            ) : employeesList.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground text-xs">
+                                        No employees found under this policy.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                employeesList.map((emp) => (
+                                    <TableRow key={emp.id} className="hover:bg-muted/20 transition-colors">
+                                        <TableCell className="font-mono text-[11px] pl-4">{emp.employeeNo}</TableCell>
+                                        <TableCell className="text-xs font-medium">{emp.firstName} {emp.lastName}</TableCell>
+                                        <TableCell>
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-100 text-zinc-600 capitalize">
+                                                {emp.status.toLowerCase()}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="text-[11px] text-muted-foreground">{fmt(emp.hireDate)}</TableCell>
+                                        <TableCell className="pr-4">
+                                            <Link href={`/people/employees/${emp.id}`}>
+                                                <Button size="icon" variant="ghost" className="h-7 w-7">
+                                                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                                                </Button>
+                                            </Link>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/5">
+                        <p className="text-[10px] text-muted-foreground">
+                            Page {page} of {totalPages}
+                        </p>
+                        <div className="flex items-center gap-1">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7"
+                                disabled={page === 1}
+                                onClick={() => setPage(page - 1)}
+                            >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7"
+                                disabled={page === totalPages}
+                                onClick={() => setPage(page + 1)}
+                            >
+                                <ChevronRight className="w-3.5 h-3.5" />
+                            </Button>
+                        </div>
                     </div>
                 )}
             </div>

@@ -5,9 +5,9 @@ import {
     BadRequestException,
 } from '@nestjs/common'
 import { DatabaseService } from 'src/database/database.service'
-import { leavePolicies, leavePolicyRules, leaveTypes } from '@hybrid-hris/db/schema'
+import { leavePolicies, leavePolicyRules, leaveTypes, employeeLeavePolicies, employees } from '@hybrid-hris/db/schema'
 import { AccrualMethod } from '@hybrid-hris/domain'
-import { and, eq, ilike, or, asc } from 'drizzle-orm'
+import { and, eq, ilike, or, asc, sql, isNull, SQL } from 'drizzle-orm'
 
 @Injectable()
 export class LeavePoliciesService {
@@ -15,11 +15,66 @@ export class LeavePoliciesService {
 
     // ─── Policies ───────────────────────────────────────────────────────────────
 
+    async getEmployeesByPolicy(
+        policyId: string,
+        filters: { page: number; limit: number; search?: string }
+    ) {
+        const conditions: (SQL | undefined)[] = [
+            eq(employeeLeavePolicies.policyId, policyId),
+            isNull(employeeLeavePolicies.effectiveTo),
+        ];
+
+        if (filters.search) {
+            const searchValue = `%${filters.search}%`;
+            conditions.push(
+                or(
+                    ilike(employees.firstName, searchValue),
+                    ilike(employees.lastName, searchValue)
+                )
+            );
+        }
+
+        const offset = (filters.page - 1) * filters.limit;
+
+        const [items, countResult] = await Promise.all([
+            this.db.db
+                .select({
+                    id: employees.id,
+                    employeeNo: employees.employeeNo,
+                    firstName: employees.firstName,
+                    lastName: employees.lastName,
+                    status: employees.status,
+                    hireDate: employees.hireDate,
+                })
+                .from(employees)
+                .innerJoin(employeeLeavePolicies, eq(employees.id, employeeLeavePolicies.employeeId))
+                .where(and(...conditions))
+                .limit(filters.limit)
+                .offset(offset)
+                .orderBy(asc(employees.lastName), asc(employees.firstName)),
+            this.db.db
+                .select({ count: sql<number>`count(*)` })
+                .from(employees)
+                .innerJoin(employeeLeavePolicies, eq(employees.id, employeeLeavePolicies.employeeId))
+                .where(and(...conditions))
+        ]);
+
+        const total = Number(countResult[0]?.count ?? 0);
+
+        return {
+            items,
+            total,
+            page: filters.page,
+            limit: filters.limit,
+            totalPages: Math.ceil(total / filters.limit),
+        };
+    }
+
     async getAll(filters?: {
         search?: string
         active?: boolean
     }) {
-        const conditions = []
+        const conditions: (SQL | undefined)[] = []
 
         if (filters?.active !== undefined) {
             conditions.push(eq(leavePolicies.isActive, filters.active))

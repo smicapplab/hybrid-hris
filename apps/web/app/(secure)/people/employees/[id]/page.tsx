@@ -20,6 +20,7 @@ import type {
 } from '@/types/employee.type'
 import type { OrgUnitOption } from '@/types/org-unit.type'
 import type { PositionOption } from '@/types/position.types'
+import type { LeavePolicy } from '@/types/leave.types'
 import {
     isEmployeeStatus,
     isEmploymentType,
@@ -41,6 +42,7 @@ export default function EmployeeDetailPage() {
     const [originalStatus, setOriginalStatus] = useState<string | null>(null)
     const [allowedNextStatuses, setAllowedNextStatuses] = useState<string[]>([])
     const [positions, setPositions] = useState<PositionOption[]>([])
+    const [policies, setPolicies] = useState<LeavePolicy[]>([])
     const [currentOrgUnit, setCurrentOrgUnit] = useState<OrgUnitOption | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -64,14 +66,16 @@ export default function EmployeeDetailPage() {
                 setEmployee(data)
                 setOriginalStatus(data.status)
 
-                const [, orgUnit, positionsData] = await Promise.all([
+                const [, orgUnit, positionsData, policiesData] = await Promise.all([
                     refreshStatusOptions(),
                     apiFetch<OrgUnitOption>(`/org-units/${data.orgUnitId}`),
                     apiFetch<PositionOption[]>(`/org-units/${data.orgUnitId}/positions`),
+                    apiFetch<LeavePolicy[]>('/leave-policies?active=true'),
                 ])
 
                 setCurrentOrgUnit(orgUnit)
                 setPositions(positionsData)
+                setPolicies(policiesData)
 
                 if (positionsData.length > 0 && !positionsData.some((p) => p.id === data.positionId)) {
                     setEmployee((prev) => prev ? { ...prev, positionId: positionsData[0]!.id } : prev)
@@ -156,6 +160,7 @@ export default function EmployeeDetailPage() {
             const {
                 firstName, lastName, middleName, alternateEmail, email,
                 hireDate, employmentType, orgUnitId, positionId, supervisorId,
+                policyId,
                 addressLine1, addressLine2, city, province, postalCode, countryCode,
                 profile, identifiers,
             } = employee
@@ -173,6 +178,7 @@ export default function EmployeeDetailPage() {
                     orgUnitId,
                     positionId,
                     supervisorId: supervisorId ?? null,
+                    policyId: policyId ?? null,
                     addressLine1: addressLine1 ?? null,
                     addressLine2: addressLine2 ?? null,
                     city: city ?? null,
@@ -468,6 +474,17 @@ export default function EmployeeDetailPage() {
                                 excludeIds={[employee.id]}
                                 placeholder="Search supervisor..."
                             />
+
+                            <RequiredSelect
+                                label="Leave Policy"
+                                value={employee.policyId ?? 'none'}
+                                onChangeAction={(v) => setEmployee({ ...employee, policyId: v === 'none' ? null : v })}
+                            >
+                                <SelectItem value="none">No Policy</SelectItem>
+                                {policies.map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name} ({p.code})</SelectItem>
+                                ))}
+                            </RequiredSelect>
                         </div>
                     </div>
 

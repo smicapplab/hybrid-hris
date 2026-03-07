@@ -25,10 +25,16 @@ import { PolicyListPanel } from './components/policy-list-panel'
 import { PolicyDetailPanel } from './components/policy-detail-panel'
 import { PolicyDialog } from './components/policy-dialog'
 import { RuleDialog } from './components/rule-dialog'
+import { AccrualDialog } from './components/accrual-dialog'
+import { Calculator } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export default function LeaveManagmentPage() {
     const { user } = useAuth()
     const { toast } = useToast()
+
+    // ── Accrual dialog ───────────────────────────────────────────────────────────
+    const [accrualDialogOpen, setAccrualDialogOpen] = useState(false)
 
     // ── List state ───────────────────────────────────────────────────────────────
     const [policies, setPolicies] = useState<LeavePolicy[]>([])
@@ -163,11 +169,17 @@ export default function LeaveManagmentPage() {
     return (
         <div className="p-6 h-full flex flex-col gap-4">
             {/* Page header */}
-            <div>
-                <h1 className="text-xl font-bold">Leave Management</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                    Configure leave policies and entitlement rules for your organization.
-                </p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-xl font-bold">Leave Management</h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                        Configure leave policies and entitlement rules for your organization.
+                    </p>
+                </div>
+                <Button variant="outline" className="gap-2 text-violet-600 border-violet-200 hover:bg-violet-50 hover:text-violet-700" onClick={() => setAccrualDialogOpen(true)}>
+                    <Calculator className="w-4 h-4" />
+                    Process Accruals
+                </Button>
             </div>
 
             {/* Split panels */}
@@ -301,6 +313,12 @@ export default function LeaveManagmentPage() {
                     onSuccessAction={() => loadDetail(selectedId)}
                 />
             )}
+
+            {/* Accrual process dialog */}
+            <AccrualDialog
+                open={accrualDialogOpen}
+                onOpenChange={setAccrualDialogOpen}
+            />
         </div>
     )
 }

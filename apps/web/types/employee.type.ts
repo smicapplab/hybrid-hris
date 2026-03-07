@@ -26,6 +26,7 @@ export type Employee = WithSerializedTimestamps<DbEmployee> & {
     identifiers?: EmployeeIdentifiers | null
     positionTitle?: string | null
     orgUnitName?: string | null
+    policyId?: string | null
 }
 
 // ── Auxiliary API types ───────────────────────────────────────────────────────

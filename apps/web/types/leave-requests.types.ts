@@ -47,7 +47,9 @@ export type PendingApprovalItem = TeamLeaveItem & {
     status: LeaveRequestStatus
     createdAt: string
     approvalId: string
+    approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED'
     approvalRemarks: string | null
+    approvalActedAt: string | null
 }
 
 export type MyUpcomingLeave = {

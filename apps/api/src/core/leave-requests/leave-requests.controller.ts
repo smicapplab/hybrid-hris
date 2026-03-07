@@ -5,6 +5,7 @@ import {
     Patch,
     Body,
     Param,
+    Query,
     Req,
     UseGuards,
     UnprocessableEntityException,
@@ -14,7 +15,7 @@ import { Request } from 'express'
 import { RolesGuard } from 'src/auth/guards/roles.guard'
 import { Roles } from 'src/auth/decorators/roles.decorator'
 import { SystemRole } from '@hybrid-hris/domain'
-import { LeaveRequestsService, CreateLeaveRequestDto, ActOnLeaveRequestDto } from './leave-requests.service'
+import { LeaveRequestsService, CreateLeaveRequestDto, ActOnLeaveRequestDto, LeaveRequestFilterDto } from './leave-requests.service'
 
 type AuthRequest = Request & {
     user: { id: string; email: string; employeeId: string | null }
@@ -68,8 +69,16 @@ export class LeaveRequestsController {
     @UseGuards(RolesGuard)
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.MANAGER)
     @Get('pending-approval')
-    async getPendingForApproval(@Req() req: AuthRequest) {
-        return this.service.getPendingForApproval(req.user.id)
+    async getPendingForApproval(@Req() req: AuthRequest, @Query() query: LeaveRequestFilterDto) {
+        return this.service.getPendingForApproval(req.user.id, query)
+    }
+
+    /** All requests (past and pending) for my team */
+    @UseGuards(RolesGuard)
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.MANAGER)
+    @Get('team-history')
+    async getTeamHistory(@Req() req: AuthRequest, @Query() query: LeaveRequestFilterDto) {
+        return this.service.getTeamHistory(req.user.id, query)
     }
 
     /** Upcoming approved team leaves (approver dashboard) */

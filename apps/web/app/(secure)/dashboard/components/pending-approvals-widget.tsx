@@ -15,8 +15,8 @@ export default function PendingApprovalsWidget() {
     const [dialogOpen, setDialogOpen] = useState(false)
 
     const load = useCallback(() => {
-        apiFetch<PendingApprovalItem[]>('/leave-requests/pending-approval')
-            .then(setItems)
+        apiFetch<{ items: PendingApprovalItem[], total: number }>('/leave-requests/pending-approval')
+            .then(data => setItems(data?.items ?? []))
             .catch(() => { })
             .finally(() => setLoading(false))
     }, [])

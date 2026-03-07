@@ -14,20 +14,18 @@ import {
     users,
     userRoles,
     roles,
-    employeeLeavePolicies,
-    leavePolicies,
-    leavePolicyRules,
 } from '@hybrid-hris/db/schema'
 import {
     eq,
     and,
     or,
+    ilike,
     sql,
     desc,
     gte,
     lte,
-    ne,
     inArray,
+    SQL,
 } from 'drizzle-orm'
 
 // ──────────────────────────────────────────────────────────
@@ -44,6 +42,12 @@ export interface CreateLeaveRequestDto {
 
 export interface ActOnLeaveRequestDto {
     remarks?: string
+}
+
+export interface LeaveRequestFilterDto {
+    page?: number
+    limit?: number
+    search?: string
 }
 
 @Injectable()
@@ -364,7 +368,37 @@ export class LeaveRequestsService {
     /**
      * Get pending requests for approval — for HR_ADMIN / MANAGER users.
      */
-    async getPendingForApproval(userId: string) {
+    async getPendingForApproval(userId: string, filter: LeaveRequestFilterDto = {}) {
+        const page = Number(filter.page ?? 1)
+        const limit = Number(filter.limit ?? 10)
+        const offset = (page - 1) * limit
+
+        const whereClauses: (SQL | undefined)[] = [
+            eq(leaveRequestApprovals.approverUserId, userId),
+            eq(leaveRequestApprovals.status, 'PENDING'),
+            eq(leaveRequests.status, 'PENDING'),
+        ]
+
+        if (filter.search) {
+            const search = `%${filter.search}%`
+            whereClauses.push(
+                or(
+                    ilike(employees.firstName, search),
+                    ilike(employees.lastName, search),
+                ),
+            )
+        }
+
+        const [countResult] = await this.db.db
+            .select({ count: sql<number>`cast(count(*) as int)` })
+            .from(leaveRequests)
+            .innerJoin(employees, eq(employees.id, leaveRequests.employeeId))
+            .innerJoin(
+                leaveRequestApprovals,
+                eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
+            )
+            .where(and(...whereClauses))
+
         const rows = await this.db.db
             .select({
                 id: leaveRequests.id,
@@ -382,7 +416,9 @@ export class LeaveRequestsService {
                 employeeFirstName: employees.firstName,
                 employeeLastName: employees.lastName,
                 approvalId: leaveRequestApprovals.id,
+                approvalStatus: leaveRequestApprovals.status,
                 approvalRemarks: leaveRequestApprovals.remarks,
+                approvalActedAt: leaveRequestApprovals.actedAt,
             })
             .from(leaveRequests)
             .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
@@ -395,13 +431,100 @@ export class LeaveRequestsService {
                     eq(leaveRequestApprovals.status, 'PENDING'),
                 ),
             )
-            .where(eq(leaveRequests.status, 'PENDING'))
+            .where(and(...whereClauses))
             .orderBy(desc(leaveRequests.createdAt))
+            .limit(limit)
+            .offset(offset)
 
-        return rows.map((r) => ({
-            ...r,
-            days: parseFloat(r.days as unknown as string),
-        }))
+        return {
+            items: rows.map((r) => ({
+                ...r,
+                days: parseFloat(r.days as unknown as string),
+            })),
+            total: countResult?.count ?? 0,
+            page,
+            limit,
+        }
+    }
+
+    /**
+     * Get all requests (past and pending) for approval — for HR_ADMIN / MANAGER users.
+     * Includes those already acted upon by this user.
+     */
+    async getTeamHistory(userId: string, filter: LeaveRequestFilterDto = {}) {
+        const page = Number(filter.page ?? 1)
+        const limit = Number(filter.limit ?? 10)
+        const offset = (page - 1) * limit
+
+        const whereClauses: (SQL | undefined)[] = [
+            eq(leaveRequestApprovals.approverUserId, userId),
+        ]
+
+        if (filter.search) {
+            const search = `%${filter.search}%`
+            whereClauses.push(
+                or(
+                    ilike(employees.firstName, search),
+                    ilike(employees.lastName, search),
+                ),
+            )
+        }
+
+        const [countResult] = await this.db.db
+            .select({ count: sql<number>`cast(count(*) as int)` })
+            .from(leaveRequests)
+            .innerJoin(employees, eq(employees.id, leaveRequests.employeeId))
+            .innerJoin(
+                leaveRequestApprovals,
+                eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
+            )
+            .where(and(...whereClauses))
+
+        const rows = await this.db.db
+            .select({
+                id: leaveRequests.id,
+                leaveTypeId: leaveRequests.leaveTypeId,
+                leaveTypeName: leaveTypes.name,
+                startDate: leaveRequests.startDate,
+                endDate: leaveRequests.endDate,
+                startDayType: leaveRequests.startDayType,
+                endDayType: leaveRequests.endDayType,
+                days: leaveRequests.days,
+                notes: leaveRequests.notes,
+                status: leaveRequests.status,
+                createdAt: leaveRequests.createdAt,
+                employeeId: leaveRequests.employeeId,
+                employeeFirstName: employees.firstName,
+                employeeLastName: employees.lastName,
+                approvalId: leaveRequestApprovals.id,
+                approvalStatus: leaveRequestApprovals.status,
+                approvalRemarks: leaveRequestApprovals.remarks,
+                approvalActedAt: leaveRequestApprovals.actedAt,
+            })
+            .from(leaveRequests)
+            .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
+            .innerJoin(employees, eq(employees.id, leaveRequests.employeeId))
+            .innerJoin(
+                leaveRequestApprovals,
+                and(
+                    eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
+                    eq(leaveRequestApprovals.approverUserId, userId),
+                ),
+            )
+            .where(and(...whereClauses))
+            .orderBy(desc(leaveRequests.createdAt))
+            .limit(limit)
+            .offset(offset)
+
+        return {
+            items: rows.map((r) => ({
+                ...r,
+                days: parseFloat(r.days as unknown as string),
+            })),
+            total: countResult?.count ?? 0,
+            page,
+            limit,
+        }
     }
 
     /**

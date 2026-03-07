@@ -5,7 +5,7 @@ import { EmployeeFilterDto } from './dto/employee-filter.dto'
 import { CreateEmployeeDto } from './dto/create-employee.dto'
 import { UpdateEmployeeDto } from './dto/update-employee-dto'
 import { employees, leavePolicies, employeeLeavePolicies } from '@hybrid-hris/db/schema'
-import { InferSelectModel, eq, and } from 'drizzle-orm'
+import { InferSelectModel, eq, and, isNull } from 'drizzle-orm'
 import { DatabaseService } from 'src/database/database.service'
 import { Tx } from 'src/database/database.types'
 
@@ -98,6 +98,7 @@ export class EmployeesService {
             email: result.email ?? null,
             profile: result.profile ?? null,
             identifiers: result.identifiers ?? null,
+            policyId: result.policyId ?? null,
         }
     }
 
@@ -323,6 +324,76 @@ export class EmployeesService {
                     companyIdNo: dto.identifiers.companyIdNo ?? null,
                     updatedAt: new Date(),
                 })
+            }
+
+            if (dto.policyId !== undefined) {
+                const targetPolicyId = dto.policyId as string;
+
+                // Find the currently active (no end date) policy record
+                const [currentPolicyRecord] = await tx.select()
+                    .from(employeeLeavePolicies)
+                    .where(and(
+                        eq(employeeLeavePolicies.employeeId, id),
+                        isNull(employeeLeavePolicies.effectiveTo)
+                    ))
+                    .limit(1);
+
+                const currentPolicyId = currentPolicyRecord?.policyId;
+
+                if (targetPolicyId !== currentPolicyId) {
+                    const today = new Date().toISOString().slice(0, 10);
+
+                    // If the current policy started today, we can just update or remove it
+                    if (currentPolicyRecord && currentPolicyRecord.effectiveFrom === today) {
+                        if (targetPolicyId) {
+                            // Ensure the policy exists and is active
+                            const [policy] = await tx.select()
+                                .from(leavePolicies)
+                                .where(and(
+                                    eq(leavePolicies.id, targetPolicyId),
+                                    eq(leavePolicies.isActive, true)
+                                ))
+                                .limit(1);
+
+                            if (!policy) throw new BadRequestException('Invalid or inactive policyId');
+
+                            await tx.update(employeeLeavePolicies)
+                                .set({ policyId: targetPolicyId })
+                                .where(eq(employeeLeavePolicies.id, currentPolicyRecord.id));
+                        } else {
+                            // Removing policy that just started today — just delete it
+                            await tx.delete(employeeLeavePolicies)
+                                .where(eq(employeeLeavePolicies.id, currentPolicyRecord.id));
+                        }
+                    } else {
+                        // Current policy started before today — end it today and start a new one (if provided)
+                        if (currentPolicyRecord) {
+                            await tx.update(employeeLeavePolicies)
+                                .set({ effectiveTo: today })
+                                .where(eq(employeeLeavePolicies.id, currentPolicyRecord.id));
+                        }
+
+                        if (targetPolicyId) {
+                            // Ensure the policy exists and is active
+                            const [policy] = await tx.select()
+                                .from(leavePolicies)
+                                .where(and(
+                                    eq(leavePolicies.id, targetPolicyId),
+                                    eq(leavePolicies.isActive, true)
+                                ))
+                                .limit(1);
+
+                            if (!policy) throw new BadRequestException('Invalid or inactive policyId');
+
+                            await tx.insert(employeeLeavePolicies)
+                                .values({
+                                    employeeId: id,
+                                    policyId: targetPolicyId,
+                                    effectiveFrom: today,
+                                });
+                        }
+                    }
+                }
             }
 
             return updated

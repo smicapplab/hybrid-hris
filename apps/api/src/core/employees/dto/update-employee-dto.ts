@@ -122,6 +122,10 @@ export class UpdateEmployeeDto {
     @IsUUID()
     supervisorId?: string | null
 
+    @IsOptional()
+    @IsUUID()
+    policyId?: string
+
     // Optional nested updates (handled in service layer)
     @IsOptional()
     @ValidateNested()

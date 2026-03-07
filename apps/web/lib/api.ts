@@ -65,11 +65,26 @@ function buildHeaders(base?: HeadersInit, token?: string | null, hasBody?: boole
 
 export async function apiFetch<T>(
     path: string,
-    init: RequestInit & { retry?: boolean } = {},
+    init: RequestInit & { retry?: boolean; params?: Record<string, string | number | boolean | undefined> } = {},
 ): Promise<T> {
+    let url = `${API_URL}${path}`
+
+    if (init.params) {
+        const query = new URLSearchParams()
+        Object.entries(init.params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                query.append(key, String(value))
+            }
+        })
+        const queryString = query.toString()
+        if (queryString) {
+            url += `${url.includes('?') ? '&' : '?'}${queryString}`
+        }
+    }
+
     const headers = buildHeaders(init.headers, accessToken, !!init.body)
 
-    const res = await fetch(`${API_URL}${path}`, {
+    const res = await fetch(url, {
         ...init,
         headers,
         credentials: 'include',

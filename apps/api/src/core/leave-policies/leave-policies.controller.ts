@@ -40,6 +40,20 @@ export class LeavePoliciesController {
         return this.service.getById(id)
     }
 
+    @Get(':id/employees')
+    async getEmployees(
+        @Param('id') id: string,
+        @Query('page') page: string,
+        @Query('limit') limit: string,
+        @Query('search') search?: string,
+    ) {
+        return this.service.getEmployeesByPolicy(id, {
+            page: parseInt(page) || 1,
+            limit: parseInt(limit) || 10,
+            search,
+        })
+    }
+
     @UseGuards(RolesGuard)
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     @Post()

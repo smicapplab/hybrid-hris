@@ -10,13 +10,19 @@ import { orgUnits } from '../schema/org-units';
 import { positions } from '../schema/positions';
 import { orgUnitPositions } from '../schema/org-unit-positions';
 import { orgUnitLeaders } from '../schema/org-unit-leaders';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
 import { hrSettings } from '../schema/hr-settings';
 import { employeeProfiles } from '../schema/employee-profiles';
 import { employeeIdentifiers } from '../schema/employee-identifiers';
 import { shiftTemplates } from '../schema/shift-templates';
 import { employeeShiftAssignments } from '../schema/employee-shift-assignments';
+import { leaveRequests } from '../schema/leave-requests';
+import { leaveRequestApprovals } from '../schema/leave-request-approvals';
+import { leaveLedger } from '../schema/leave-ledger';
+import { leavePolicies } from '../schema/leave-policies';
+import { leavePolicyRules } from '../schema/leave-policy-rules';
+import { employeeLeavePolicies } from '../schema/employee-leave-policies';
 
 
 const pool = new Pool({
@@ -30,7 +36,8 @@ export async function seedSystem() {
     const loadTestData = process.env.LOAD_TEST_DATA === 'true';
     console.log('LOAD_TEST_DATA:', process.env.LOAD_TEST_DATA);
 
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const today = new Date();
+    const todayIso = today.toISOString().slice(0, 10);
 
     function digitsOnly(value: string): string {
         return value.replace(/\D/g, '');
@@ -42,25 +49,21 @@ export async function seedSystem() {
     }
 
     function makeTin(employeeNo: string): string {
-        // PH TIN commonly 9-12 digits; use 12 digits here for consistency
         const base = padLeft(digitsOnly(employeeNo), 12);
         return base.slice(0, 12);
     }
 
     function makeSss(employeeNo: string): string {
-        // SSS is 10 digits; generate deterministic 10-digit value
         const base = padLeft(digitsOnly(employeeNo), 10);
         return base.slice(0, 10);
     }
 
     function makePhilHealth(employeeNo: string): string {
-        // PhilHealth PIN is typically 12 digits
         const base = padLeft(digitsOnly(employeeNo), 12);
         return base.slice(0, 12);
     }
 
     function makePagIbig(employeeNo: string): string {
-        // Pag-IBIG MID is typically 12 digits
         const base = padLeft(digitsOnly(employeeNo), 12);
         return base.slice(0, 12);
     }
@@ -69,7 +72,6 @@ export async function seedSystem() {
         await db.insert(employeeProfiles)
             .values({
                 employeeId,
-                // Example demographic fields (adjust to your schema if names differ)
                 mobileNo: `09${padLeft(digitsOnly(employeeNo), 9).slice(0, 9)}`,
                 birthDate: '1990-01-01',
                 gender: 'MALE',
@@ -81,8 +83,6 @@ export async function seedSystem() {
     }
 
     async function ensureEmployeeIdentifiers(employeeId: string, employeeNo: string) {
-        // NOTE: keep these key names aligned with `employeeIdentifiers` schema.
-        // Common naming in the schema is `*No` suffix.
         const identifiers: typeof employeeIdentifiers.$inferInsert = {
             employeeId,
             tinNo: makeTin(employeeNo),
@@ -125,7 +125,7 @@ export async function seedSystem() {
     ]).onConflictDoNothing();
 
     // ---- Default Leave Types ----
-    await db.insert(leaveTypes).values([
+    const leaveTypesData = [
         {
             code: 'VL',
             name: 'Vacation Leave',
@@ -142,10 +142,94 @@ export async function seedSystem() {
             isAccrualBased: true,
             isPaid: true,
         },
-    ]).onConflictDoNothing();
+    ];
+
+    for (const lt of leaveTypesData) {
+        await db.insert(leaveTypes).values(lt).onConflictDoNothing();
+    }
+
+    const allLeaveTypes = await db.select().from(leaveTypes);
+    const vlType = allLeaveTypes.find(t => t.code === 'VL');
+    const slType = allLeaveTypes.find(t => t.code === 'SL');
+
+    // ---- Standard Leave Policy ----
+    let [standardPolicy] = await db.insert(leavePolicies)
+        .values({
+            code: 'STD_POLICY',
+            name: 'Standard Leave Policy',
+            description: 'Standard leave policy with 15 days VL and 15 days SL per year',
+            isDefault: true,
+            isActive: true,
+            effectiveFrom: '2024-01-01',
+        })
+        .onConflictDoNothing()
+        .returning();
+
+    if (!standardPolicy) {
+        standardPolicy = (await db.select().from(leavePolicies).where(eq(leavePolicies.code, 'STD_POLICY')))[0];
+    }
+
+    if (standardPolicy) {
+        // Rules for Standard Policy
+        if (vlType) {
+            await db.insert(leavePolicyRules)
+                .values({
+                    policyId: standardPolicy.id,
+                    leaveTypeId: vlType.id,
+                    accrualMethod: 'MONTHLY',
+                    accrualRatePerMonth: '1.2500', // 15 days / 12 months
+                    maxBalance: '30.0000',
+                    maxCarryOver: '10.0000',
+                })
+                .onConflictDoNothing();
+        }
+        if (slType) {
+            await db.insert(leavePolicyRules)
+                .values({
+                    policyId: standardPolicy.id,
+                    leaveTypeId: slType.id,
+                    accrualMethod: 'MONTHLY',
+                    accrualRatePerMonth: '1.2500',
+                    maxBalance: '15.0000',
+                    maxCarryOver: '0.0000',
+                })
+                .onConflictDoNothing();
+        }
+    }
+
+    // ---- Intern Leave Policy ----
+    let [internPolicy] = await db.insert(leavePolicies)
+        .values({
+            code: 'INTERN_POLICY',
+            name: 'Intern Leave Policy',
+            description: 'Reduced leave entitlements for interns (6 days VL/year)',
+            isDefault: false,
+            isActive: true,
+            effectiveFrom: '2024-01-01',
+        })
+        .onConflictDoNothing()
+        .returning();
+
+    if (!internPolicy) {
+        internPolicy = (await db.select().from(leavePolicies).where(eq(leavePolicies.code, 'INTERN_POLICY')))[0];
+    }
+
+    if (internPolicy) {
+        if (vlType) {
+            await db.insert(leavePolicyRules)
+                .values({
+                    policyId: internPolicy.id,
+                    leaveTypeId: vlType.id,
+                    accrualMethod: 'MONTHLY',
+                    accrualRatePerMonth: '0.5000', // 6 days / 12 months
+                    maxBalance: '6.0000',
+                    maxCarryOver: '0.0000',
+                })
+                .onConflictDoNothing();
+        }
+    }
 
     // ---- HR Settings (Singleton) ----
-    // onConflictDoUpdate: patches employeeNoPadding on existing installations
     await db.insert(hrSettings)
         .values({
             singleton: true,
@@ -209,7 +293,7 @@ export async function seedSystem() {
             })
             .onConflictDoNothing()
             .returning()
-    )[0];
+        )[0];
 
     if (!defaultPosition) {
         defaultPosition = (
@@ -217,6 +301,55 @@ export async function seedSystem() {
                 .from(positions)
                 .where(eq(positions.code, 'SYSTEM_ADMIN'))
         )[0];
+    }
+
+    // Ensure mapping exists so admin can be updated
+    if (defaultOrg && defaultPosition) {
+        await db.insert(orgUnitPositions)
+            .values({ orgUnitId: defaultOrg.id, positionId: defaultPosition.id })
+            .onConflictDoNothing();
+    }
+
+    // ---- More Org Units and Positions for testing ----
+    const engineeringOrg = (await db.insert(orgUnits).values({
+        name: 'Engineering',
+        code: 'ENG',
+        parentId: rootOrg?.id,
+        isActive: true,
+    }).onConflictDoNothing().returning())[0] || (await db.select().from(orgUnits).where(eq(orgUnits.code, 'ENG')))[0];
+
+    const ctoPos = (await db.insert(positions).values({
+        code: 'CTO',
+        title: 'Chief Technology Officer',
+        isActive: true,
+    }).onConflictDoNothing().returning())[0] || (await db.select().from(positions).where(eq(positions.code, 'CTO')))[0];
+
+    const leadEngPos = (await db.insert(positions).values({
+        code: 'LEAD_ENG',
+        title: 'Lead Engineer',
+        isActive: true,
+    }).onConflictDoNothing().returning())[0] || (await db.select().from(positions).where(eq(positions.code, 'LEAD_ENG')))[0];
+
+    if (engineeringOrg) {
+        if (ctoPos) await db.insert(orgUnitPositions).values({ orgUnitId: engineeringOrg.id, positionId: ctoPos.id }).onConflictDoNothing();
+        if (leadEngPos) await db.insert(orgUnitPositions).values({ orgUnitId: engineeringOrg.id, positionId: leadEngPos.id }).onConflictDoNothing();
+    }
+
+    const hrOrg = (await db.insert(orgUnits).values({
+        name: 'Human Resources',
+        code: 'HR',
+        parentId: rootOrg?.id,
+        isActive: true,
+    }).onConflictDoNothing().returning())[0] || (await db.select().from(orgUnits).where(eq(orgUnits.code, 'HR')))[0];
+
+    const hrMgrPos = (await db.insert(positions).values({
+        code: 'HR_MGR',
+        title: 'HR Manager',
+        isActive: true,
+    }).onConflictDoNothing().returning())[0] || (await db.select().from(positions).where(eq(positions.code, 'HR_MGR')))[0];
+
+    if (hrOrg && hrMgrPos) {
+        await db.insert(orgUnitPositions).values({ orgUnitId: hrOrg.id, positionId: hrMgrPos.id }).onConflictDoNothing();
     }
 
     // ---- Default Shift Templates ----
@@ -233,25 +366,8 @@ export async function seedSystem() {
         .onConflictDoNothing()
         .returning();
 
-    const [nightShift] = await db.insert(shiftTemplates)
-        .values({
-            code: 'NIGHT_SHIFT',
-            name: 'Night Shift (10PM-6AM)',
-            startTime: '22:00',
-            endTime: '06:00',
-            breakMinutes: 60,
-            isFlexible: false,
-            isActive: true,
-        })
-        .onConflictDoNothing()
-        .returning();
-
     const resolvedDayShift = dayShift ?? (
         await db.select().from(shiftTemplates).where(eq(shiftTemplates.code, 'DAY_SHIFT'))
-    )[0];
-
-    const resolvedNightShift = nightShift ?? (
-        await db.select().from(shiftTemplates).where(eq(shiftTemplates.code, 'NIGHT_SHIFT'))
     )[0];
 
     // ---- Initial Admin Employee ----
@@ -282,11 +398,20 @@ export async function seedSystem() {
     if (adminEmployeeId) {
         await ensureEmployeeProfile(adminEmployeeId, 'EMP-000001');
         await ensureEmployeeIdentifiers(adminEmployeeId, 'EMP-000001');
+
+        // Assign Standard Leave Policy
+        if (standardPolicy) {
+            await db.insert(employeeLeavePolicies)
+                .values({
+                    employeeId: adminEmployeeId,
+                    policyId: standardPolicy.id,
+                    effectiveFrom: todayIso,
+                })
+                .onConflictDoNothing();
+        }
     }
 
     // ---- Assign Day Shift to Admin Employee ----
-    // isSat/isSun forced true so the seed works for testing on any day of the week.
-    // onConflictDoUpdate patches existing rows so re-running the seed fixes old data.
     if (adminEmployeeId && resolvedDayShift) {
         await db.insert(employeeShiftAssignments)
             .values({
@@ -323,10 +448,10 @@ export async function seedSystem() {
     const passwordHash = await bcrypt.hash('Admin123!', 10);
     const pinHash = await bcrypt.hash('123456', 10);
 
-    // Fetch HR_ADMIN role
-    const [adminRole] = await db.select()
-        .from(roles)
-        .where(eq(roles.code, 'HR_ADMIN'));
+    // Fetch roles
+    const [adminRole] = await db.select().from(roles).where(eq(roles.code, 'HR_ADMIN'));
+    const [managerRole] = await db.select().from(roles).where(eq(roles.code, 'MANAGER'));
+    const [employeeRole] = await db.select().from(roles).where(eq(roles.code, 'EMPLOYEE'));
 
     // ---- Initial Admin User ----
     let adminUserId: string | undefined;
@@ -373,454 +498,175 @@ export async function seedSystem() {
             .onConflictDoNothing();
     }
 
-    // ---- Optional Test Org Structure ----
+    // ---- Test Data for Pagination and Approvals ----
     if (loadTestData) {
-        console.log('Loading test organizational data...');
+        console.log('Loading test organizational data and leave requests...');
 
-        let rootOrg = (
-            await db.insert(orgUnits)
-                .values({
-                    name: 'Head Office',
-                    code: 'HO',
-                    isActive: true,
-                })
-                .onConflictDoNothing()
-                .returning()
-        )[0];
-
-        if (!rootOrg) {
-            rootOrg = (
-                await db.select()
-                    .from(orgUnits)
-                    .where(eq(orgUnits.code, 'HO'))
-            )[0];
-        }
-
-        const [hrOrg] = await db.insert(orgUnits)
+        // Create a dedicated team under Admin
+        const [teamOrg] = await db.insert(orgUnits)
             .values({
-                name: 'Human Resources',
-                code: 'HR',
+                name: 'Managed Team',
+                code: 'MNG_TEAM',
                 parentId: rootOrg?.id,
                 isActive: true,
             })
             .onConflictDoNothing()
             .returning();
 
-        // ---- HR Sub Units ----
-        const [hrRecruitment] = await db.insert(orgUnits)
-            .values({
-                name: 'HR Recruitment',
-                code: 'HR_REC',
-                parentId: hrOrg?.id,
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning();
+        const resolvedTeamOrg = teamOrg || (await db.select().from(orgUnits).where(eq(orgUnits.code, 'MNG_TEAM')))[0];
 
-        const [hrOperations] = await db.insert(orgUnits)
-            .values({
-                name: 'HR Operations',
-                code: 'HR_OPS',
-                parentId: hrOrg?.id,
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning();
-
-        let managerPosition = (
-            await db.insert(positions)
-                .values({
-                    code: 'HR_MANAGER',
-                    title: 'HR Manager',
-                    description: 'Manages HR department',
-                    isActive: true,
-                })
-                .onConflictDoNothing()
-                .returning()
-        )[0];
-
-        if (!managerPosition) {
-            managerPosition = (
-                await db.select()
-                    .from(positions)
-                    .where(eq(positions.code, 'HR_MANAGER'))
-            )[0];
-        }
-
-        if (hrOrg && managerPosition) {
-            await db.insert(orgUnitPositions)
-                .values({
-                    orgUnitId: hrOrg.id,
-                    positionId: managerPosition.id,
-                })
-                .onConflictDoNothing();
-        }
-
-        // Assign manager position to HR sub-units
-        if (managerPosition) {
-            for (const unit of [hrRecruitment, hrOperations]) {
-                if (!unit) continue;
-
-                await db.insert(orgUnitPositions)
-                    .values({
-                        orgUnitId: unit.id,
-                        positionId: managerPosition.id,
-                    })
-                    .onConflictDoNothing();
-            }
-        }
-
-        // ---- Additional Org Units ----
-        const [itOrg] = await db.insert(orgUnits)
-            .values({
-                name: 'Information Technology',
-                code: 'IT',
-                parentId: rootOrg?.id,
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning();
-
-        // ---- IT Sub Units ----
-        const [itEngineering] = await db.insert(orgUnits)
-            .values({
-                name: 'IT Engineering',
-                code: 'IT_ENG',
-                parentId: itOrg?.id,
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning();
-
-        const [itSupport] = await db.insert(orgUnits)
-            .values({
-                name: 'IT Support',
-                code: 'IT_SUP',
-                parentId: itOrg?.id,
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning();
-
-        // ---- Additional Positions ----
-        let devPosition = (
-            await db.insert(positions)
+        let devPosition = (await db.select().from(positions).where(eq(positions.code, 'SOFTWARE_ENGINEER')))[0];
+        if (!devPosition) {
+            [devPosition] = await db.insert(positions)
                 .values({
                     code: 'SOFTWARE_ENGINEER',
                     title: 'Software Engineer',
-                    description: 'Develops and maintains systems',
-                    isActive: true,
-                })
-                .onConflictDoNothing()
-                .returning()
-        )[0];
-
-        if (!devPosition) {
-            devPosition = (
-                await db.select()
-                    .from(positions)
-                    .where(eq(positions.code, 'SOFTWARE_ENGINEER'))
-            )[0];
-        }
-
-        let itManagerPosition = (
-            await db.insert(positions)
-                .values({
-                    code: 'IT_MANAGER',
-                    title: 'IT Manager',
-                    description: 'Leads IT department',
-                    isActive: true,
-                })
-                .onConflictDoNothing()
-                .returning()
-        )[0];
-
-        if (!itManagerPosition) {
-            itManagerPosition = (
-                await db.select()
-                    .from(positions)
-                    .where(eq(positions.code, 'IT_MANAGER'))
-            )[0];
-        }
-
-        // Map positions to org units
-        if (itOrg && devPosition) {
-            await db.insert(orgUnitPositions)
-                .values({ orgUnitId: itOrg.id, positionId: devPosition.id })
-                .onConflictDoNothing();
-        }
-
-        if (itOrg && itManagerPosition) {
-            await db.insert(orgUnitPositions)
-                .values({ orgUnitId: itOrg.id, positionId: itManagerPosition.id })
-                .onConflictDoNothing();
-        }
-
-        // Allow multiple positions in IT sub-units
-        if (devPosition || itManagerPosition) {
-            for (const unit of [itEngineering, itSupport]) {
-                if (!unit) continue;
-
-                if (devPosition) {
-                    await db.insert(orgUnitPositions)
-                        .values({
-                            orgUnitId: unit.id,
-                            positionId: devPosition.id,
-                        })
-                        .onConflictDoNothing();
-                }
-
-                if (itManagerPosition) {
-                    await db.insert(orgUnitPositions)
-                        .values({
-                            orgUnitId: unit.id,
-                            positionId: itManagerPosition.id,
-                        })
-                        .onConflictDoNothing();
-                }
-            }
-        }
-
-        // ---- Sample Employees ----
-        const [hrManagerEmployee] = await db.insert(employees)
-            .values({
-                employeeNo: 'EMP-001001',
-                firstName: 'Alice',
-                lastName: 'Santos',
-                hireDate: todayIso,
-                employmentType: 'REGULAR',
-                status: 'ACTIVE',
-                orgUnitId: hrOrg?.id,
-                positionId: managerPosition?.id,
-                supervisorId: null,
-            })
-            .onConflictDoNothing()
-            .returning();
-
-        if (hrManagerEmployee) {
-            await ensureEmployeeProfile(hrManagerEmployee.id, hrManagerEmployee.employeeNo);
-            await ensureEmployeeIdentifiers(hrManagerEmployee.id, hrManagerEmployee.employeeNo);
-        }
-
-        // Assign Day Shift to HR Manager
-        if (resolvedDayShift) {
-            await db.insert(employeeShiftAssignments)
-                .values({
-                    employeeId: hrManagerEmployee.id,
-                    shiftTemplateId: resolvedDayShift.id,
-                    startTime: resolvedDayShift.startTime,
-                    endTime: resolvedDayShift.endTime,
-                    breakMinutes: resolvedDayShift.breakMinutes,
-                    isFlexible: resolvedDayShift.isFlexible,
-                    isMon: true,
-                    isTue: true,
-                    isWed: true,
-                    isThu: true,
-                    isFri: true,
-                    isSat: true,
-                    isSun: true,
-                    effectiveFrom: todayIso,
-                })
-                .onConflictDoUpdate({
-                    target: employeeShiftAssignments.employeeId,
-                    set: { isMon: true, isTue: true, isWed: true, isThu: true, isFri: true, isSat: true, isSun: true, updatedAt: new Date() },
-                });
-        }
-
-        if (hrManagerEmployee && hrOrg) {
-            await db.insert(orgUnitLeaders)
-                .values({
-                    orgUnitId: hrOrg.id,
-                    employeeId: hrManagerEmployee.id,
-                    role: 'HEAD',
-                    effectiveFrom: todayIso,
-                })
-                .onConflictDoNothing();
-        }
-
-        const [itManagerEmployee] = await db.insert(employees)
-            .values({
-                employeeNo: 'EMP-001002',
-                firstName: 'Mark',
-                lastName: 'Reyes',
-                hireDate: todayIso,
-                employmentType: 'REGULAR',
-                status: 'ACTIVE',
-                orgUnitId: itOrg?.id,
-                positionId: itManagerPosition?.id,
-                supervisorId: null,
-            })
-            .onConflictDoNothing()
-            .returning();
-
-        if (itManagerEmployee) {
-            await ensureEmployeeProfile(itManagerEmployee.id, itManagerEmployee.employeeNo);
-            await ensureEmployeeIdentifiers(itManagerEmployee.id, itManagerEmployee.employeeNo);
-        }
-
-        // Assign Day Shift to IT Manager
-        if (resolvedDayShift) {
-            await db.insert(employeeShiftAssignments)
-                .values({
-                    employeeId: itManagerEmployee.id,
-                    shiftTemplateId: resolvedDayShift.id,
-                    startTime: resolvedDayShift.startTime,
-                    endTime: resolvedDayShift.endTime,
-                    breakMinutes: resolvedDayShift.breakMinutes,
-                    isFlexible: resolvedDayShift.isFlexible,
-                    isMon: true,
-                    isTue: true,
-                    isWed: true,
-                    isThu: true,
-                    isFri: true,
-                    isSat: true,
-                    isSun: true,
-                    effectiveFrom: todayIso,
-                })
-                .onConflictDoUpdate({
-                    target: employeeShiftAssignments.employeeId,
-                    set: { isMon: true, isTue: true, isWed: true, isThu: true, isFri: true, isSat: true, isSun: true, updatedAt: new Date() },
-                });
-        }
-
-        if (itManagerEmployee && itOrg) {
-            await db.insert(orgUnitLeaders)
-                .values({
-                    orgUnitId: itOrg.id,
-                    employeeId: itManagerEmployee.id,
-                    role: 'HEAD',
-                    effectiveFrom: todayIso,
-                })
-                .onConflictDoNothing();
-        }
-
-        // Developers reporting to IT Manager
-        if (itManagerEmployee) {
-            await db.insert(employees)
-                .values([
-                    {
-                        employeeNo: 'EMP-001003',
-                        firstName: 'John',
-                        lastName: 'Dela Cruz',
-                        hireDate: todayIso,
-                        employmentType: 'REGULAR',
-                        status: 'ACTIVE',
-                        orgUnitId: itEngineering?.id,
-                        positionId: devPosition?.id,
-                        supervisorId: itManagerEmployee.id,
-                    },
-                    {
-                        employeeNo: 'EMP-001004',
-                        firstName: 'Jane',
-                        lastName: 'Lopez',
-                        hireDate: todayIso,
-                        employmentType: 'REGULAR',
-                        status: 'ACTIVE',
-                        orgUnitId: itEngineering?.id,
-                        positionId: devPosition?.id,
-                        supervisorId: itManagerEmployee.id,
-                    },
-                ])
-                .onConflictDoNothing();
-
-            const insertedDevs = await db.select()
-                .from(employees)
-                .where(eq(employees.orgUnitId, itEngineering!.id));
-
-            for (const dev of insertedDevs) {
-                if (!dev?.id) continue;
-                if (dev.employeeNo !== 'EMP-001003' && dev.employeeNo !== 'EMP-001004') continue;
-                await ensureEmployeeProfile(dev.id, dev.employeeNo);
-                await ensureEmployeeIdentifiers(dev.id, dev.employeeNo);
-                // Assign Day Shift to Developers
-                if (resolvedDayShift) {
-                    await db.insert(employeeShiftAssignments)
-                        .values({
-                            employeeId: dev.id,
-                            shiftTemplateId: resolvedDayShift.id,
-                            startTime: resolvedDayShift.startTime,
-                            endTime: resolvedDayShift.endTime,
-                            breakMinutes: resolvedDayShift.breakMinutes,
-                            isFlexible: resolvedDayShift.isFlexible,
-                            isMon: true,
-                            isTue: true,
-                            isWed: true,
-                            isThu: true,
-                            isFri: true,
-                            isSat: true,
-                            isSun: true,
-                            effectiveFrom: todayIso,
-                        })
-                        .onConflictDoUpdate({
-                            target: employeeShiftAssignments.employeeId,
-                            set: { isMon: true, isTue: true, isWed: true, isThu: true, isFri: true, isSat: true, isSun: true, updatedAt: new Date() },
-                        });
-                }
-            }
-        }
-
-        // ---- Create Users for Sample Employees ----
-        const defaultPassword = await bcrypt.hash('Password123!', 10);
-
-        const allSampleEmployees = await db.select()
-            .from(employees)
-            .where(
-                eq(employees.status, 'ACTIVE')
-            );
-
-        const [managerRole] = await db.select()
-            .from(roles)
-            .where(eq(roles.code, 'MANAGER'));
-
-        const [employeeRole] = await db.select()
-            .from(roles)
-            .where(eq(roles.code, 'EMPLOYEE'));
-
-        for (const emp of allSampleEmployees) {
-            if (emp.employeeNo === 'EMP-000001') continue; // skip system admin
-
-            const insertedUser = await db.insert(users)
-                .values({
-                    employeeId: emp.id,
-                    email: `${emp.employeeNo.toLowerCase()}@hybrid-hris.local`,
-                    passwordHash: defaultPassword,
-                    attendancePinHash: pinHash,
                     isActive: true,
                 })
                 .onConflictDoNothing()
                 .returning();
+        }
 
-            const userId = insertedUser[0]?.id ?? (
-                await db.select()
-                    .from(users)
-                    .where(eq(users.employeeId, emp.id))
-            )[0]?.id;
+        if (resolvedTeamOrg && devPosition) {
+            await db.insert(orgUnitPositions)
+                .values({ orgUnitId: resolvedTeamOrg.id, positionId: devPosition.id })
+                .onConflictDoNothing();
+        }
 
-            if (!userId) continue;
+        const teamMembers = [];
+        const defaultUserPassword = await bcrypt.hash('Password123!', 10);
 
-            const isManager = ['EMP-001001', 'EMP-001002'].includes(emp.employeeNo);
+        // Create 15 team members reporting to Admin
+        for (let i = 1; i <= 15; i++) {
+            const empNo = `EMP-TEAM-${padLeft(i.toString(), 3)}`;
+            let [emp] = await db.insert(employees)
+                .values({
+                    employeeNo: empNo,
+                    firstName: `TeamMember`,
+                    lastName: `${i}`,
+                    hireDate: todayIso,
+                    employmentType: 'REGULAR',
+                    status: 'ACTIVE',
+                    orgUnitId: resolvedTeamOrg?.id,
+                    positionId: devPosition?.id,
+                    supervisorId: adminEmployeeId, // Reports to Admin
+                })
+                .onConflictDoNothing()
+                .returning();
 
-            const roleToAssign = isManager ? managerRole : employeeRole;
-
-            if (roleToAssign) {
-                await db.insert(userRoles)
-                    .values({
-                        userId,
-                        roleId: roleToAssign.id,
-                    })
-                    .onConflictDoNothing();
+            if (!emp) {
+                emp = (await db.select().from(employees).where(eq(employees.employeeNo, empNo)))[0];
             }
 
-            // Assign Org Unit Leaders for Managers
-            if (isManager) {
-                await db.insert(orgUnitLeaders)
+            if (emp) {
+                teamMembers.push(emp);
+                await ensureEmployeeProfile(emp.id, emp.employeeNo);
+                await ensureEmployeeIdentifiers(emp.id, emp.employeeNo);
+
+                // Create User
+                let [usr] = await db.insert(users)
                     .values({
-                        orgUnitId: emp.orgUnitId,
                         employeeId: emp.id,
-                        role: 'HEAD',
-                        effectiveFrom: todayIso,
+                        email: `${emp.employeeNo.toLowerCase()}@hybrid-hris.local`,
+                        passwordHash: defaultUserPassword,
+                        isActive: true,
                     })
-                    .onConflictDoNothing();
+                    .onConflictDoNothing()
+                    .returning();
+
+                if (!usr) {
+                    usr = (await db.select().from(users).where(eq(users.employeeId, emp.id)))[0];
+                }
+
+                if (usr && employeeRole) {
+                    await db.insert(userRoles)
+                        .values({ userId: usr.id, roleId: employeeRole.id })
+                        .onConflictDoNothing();
+                }
+
+                // Assign Standard Leave Policy
+                if (standardPolicy) {
+                    await db.insert(employeeLeavePolicies)
+                        .values({
+                            employeeId: emp.id,
+                            policyId: standardPolicy.id,
+                            effectiveFrom: emp.hireDate,
+                        })
+                        .onConflictDoNothing();
+                }
+
+                // Initial Accrual for VL and SL (10 days each)
+                if (vlType && slType) {
+                    for (const lt of [vlType, slType]) {
+                        await db.insert(leaveLedger)
+                            .values({
+                                employeeId: emp.id,
+                                leaveTypeId: lt.id,
+                                entryType: 'ACCRUAL',
+                                amount: '10.0000',
+                                balance: '10.0000',
+                                accrualKey: 'INITIAL_SEED',
+                            })
+                            .onConflictDoNothing();
+                    }
+                }
+            }
+        }
+
+        // Create various leave requests for these team members
+        if (adminUserId && vlType && slType) {
+            for (let i = 0; i < teamMembers.length; i++) {
+                const emp = teamMembers[i];
+                const isPending = i < 8; // First 8 are pending
+                const isApproved = i >= 8 && i < 12; // Next 4 approved
+                const isRejected = i >= 12; // Last 3 rejected
+
+                const startDate = new Date(today);
+                startDate.setDate(today.getDate() + (i + 1));
+                const endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + 1);
+
+                const [req] = await db.insert(leaveRequests)
+                    .values({
+                        employeeId: emp.id,
+                        leaveTypeId: i % 2 === 0 ? vlType.id : slType.id,
+                        startDate: startDate.toISOString().slice(0, 10),
+                        endDate: endDate.toISOString().slice(0, 10),
+                        days: '2.0000',
+                        status: isPending ? 'PENDING' : (isApproved ? 'APPROVED' : 'REJECTED'),
+                        notes: `Sample request from team member ${i + 1}`,
+                        approvedBy: (isApproved || isRejected) ? adminUserId : null,
+                        approvedAt: (isApproved || isRejected) ? new Date() : null,
+                    })
+                    .returning();
+
+                if (req) {
+                    // Create approval record
+                    await db.insert(leaveRequestApprovals)
+                        .values({
+                            leaveRequestId: req.id,
+                            approverUserId: adminUserId,
+                            level: 1,
+                            status: isPending ? 'PENDING' : (isApproved ? 'APPROVED' : 'REJECTED'),
+                            actedAt: (isApproved || isRejected) ? new Date() : null,
+                            remarks: (isApproved || isRejected) ? 'Processed via seed' : null,
+                        })
+                        .onConflictDoNothing();
+
+                    // If approved, add consumption entry to ledger
+                    if (isApproved) {
+                        const ltId = i % 2 === 0 ? vlType.id : slType.id;
+                        await db.insert(leaveLedger)
+                            .values({
+                                employeeId: emp.id,
+                                leaveTypeId: ltId,
+                                entryType: 'CONSUMPTION',
+                                amount: '-2.0000',
+                                balance: '8.0000',
+                                referenceLeaveRequestId: req.id,
+                            });
+                    }
+                }
             }
         }
     }
