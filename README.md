@@ -9,6 +9,12 @@ Hybrid HRIS is a modular, enterprise-oriented Human Resource Information System 
 
 The system focuses on deterministic background processing, clean domain separation, and database-level integrity enforcement.
 
+### 🌐 Live Demo
+
+**Url:** [https://hybrid-hris-web.vercel.app](https://hybrid-hris-web.vercel.app)  
+**Email:** `admin@hybrid-hris.local`  
+**Password:** `Admin123!`
+
 ### Core Modules
 
 - **Employee Management** – Master records, employment type, status, and organizational assignment.
