@@ -11,6 +11,10 @@ CREATE TYPE "public"."leave_ledger_entry_type" AS ENUM('ACCRUAL', 'CONSUMPTION',
 CREATE TYPE "public"."pending_shift_status" AS ENUM('PENDING', 'APPLIED', 'CANCELLED');--> statement-breakpoint
 CREATE TYPE "public"."attendance_source" AS ENUM('WEB', 'MOBILE', 'KIOSK', 'API');--> statement-breakpoint
 CREATE TYPE "public"."attendance_adjustment_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED');--> statement-breakpoint
+CREATE TYPE "public"."budget_period_type" AS ENUM('MONTHLY', 'QUARTERLY', 'ANNUAL');--> statement-breakpoint
+CREATE TYPE "public"."expense_claim_status" AS ENUM('DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'CANCELLED', 'REIMBURSED');--> statement-breakpoint
+CREATE TYPE "public"."expense_approval_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
+CREATE TYPE "public"."budget_ledger_entry_type" AS ENUM('ALLOCATION', 'CONSUMPTION', 'ADJUSTMENT', 'REVERSAL', 'RESERVATION', 'RELEASE');--> statement-breakpoint
 CREATE TABLE "employees" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"employee_no" varchar(50) NOT NULL,
@@ -403,6 +407,86 @@ CREATE TABLE "attendance_adjustments" (
 	CONSTRAINT "attendance_adjustments_approval_consistency_check" CHECK (status <> 'APPROVED' OR (approved_by IS NOT NULL AND approved_at IS NOT NULL))
 );
 --> statement-breakpoint
+CREATE TABLE "expense_categories" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"code" varchar(50) NOT NULL,
+	"name" varchar(100) NOT NULL,
+	"description" varchar(255),
+	"is_active" boolean DEFAULT true NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "budget_periods" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"code" varchar(50) NOT NULL,
+	"name" varchar(100) NOT NULL,
+	"period_start" date NOT NULL,
+	"period_end" date NOT NULL,
+	"period_type" "budget_period_type" NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "org_unit_budgets" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_unit_id" uuid NOT NULL,
+	"budget_period_id" uuid NOT NULL,
+	"expense_category_id" uuid NOT NULL,
+	"amount_allocated" numeric(12, 2) DEFAULT '0.00' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "expense_claims" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"employee_id" uuid NOT NULL,
+	"org_unit_id" uuid NOT NULL,
+	"expense_category_id" uuid NOT NULL,
+	"budget_period_id" uuid NOT NULL,
+	"amount" numeric(12, 2) NOT NULL,
+	"expense_date" date NOT NULL,
+	"description" varchar(500) NOT NULL,
+	"status" "expense_claim_status" DEFAULT 'DRAFT' NOT NULL,
+	"submitted_at" timestamp with time zone,
+	"approved_at" timestamp with time zone,
+	"reimbursed_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "expense_claim_approvals" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"expense_claim_id" uuid NOT NULL,
+	"approver_user_id" uuid NOT NULL,
+	"level" integer NOT NULL,
+	"status" "expense_approval_status" DEFAULT 'PENDING' NOT NULL,
+	"acted_at" timestamp with time zone,
+	"remarks" varchar(500),
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "budget_ledger" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_unit_id" uuid NOT NULL,
+	"budget_period_id" uuid NOT NULL,
+	"expense_category_id" uuid NOT NULL,
+	"entry_type" "budget_ledger_entry_type" NOT NULL,
+	"amount" numeric(12, 2) NOT NULL,
+	"reference_expense_claim_id" uuid,
+	"reference_budget_id" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "expense_receipts" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"expense_claim_id" uuid NOT NULL,
+	"file_url" varchar(500) NOT NULL,
+	"uploaded_by" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_positions_id_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_supervisor_fk" FOREIGN KEY ("supervisor_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -439,6 +523,22 @@ ALTER TABLE "attendance_adjustments" ADD CONSTRAINT "attendance_adjustments_empl
 ALTER TABLE "attendance_adjustments" ADD CONSTRAINT "attendance_adjustments_attendance_log_id_attendance_logs_id_fk" FOREIGN KEY ("attendance_log_id") REFERENCES "public"."attendance_logs"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attendance_adjustments" ADD CONSTRAINT "attendance_adjustments_requested_by_users_id_fk" FOREIGN KEY ("requested_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attendance_adjustments" ADD CONSTRAINT "attendance_adjustments_approved_by_users_id_fk" FOREIGN KEY ("approved_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_unit_budgets" ADD CONSTRAINT "org_unit_budgets_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_unit_budgets" ADD CONSTRAINT "org_unit_budgets_budget_period_id_budget_periods_id_fk" FOREIGN KEY ("budget_period_id") REFERENCES "public"."budget_periods"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_unit_budgets" ADD CONSTRAINT "org_unit_budgets_expense_category_id_expense_categories_id_fk" FOREIGN KEY ("expense_category_id") REFERENCES "public"."expense_categories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "expense_claims" ADD CONSTRAINT "expense_claims_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "expense_claims" ADD CONSTRAINT "expense_claims_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "expense_claims" ADD CONSTRAINT "expense_claims_expense_category_id_expense_categories_id_fk" FOREIGN KEY ("expense_category_id") REFERENCES "public"."expense_categories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "expense_claims" ADD CONSTRAINT "expense_claims_budget_period_id_budget_periods_id_fk" FOREIGN KEY ("budget_period_id") REFERENCES "public"."budget_periods"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "expense_claim_approvals" ADD CONSTRAINT "expense_claim_approvals_expense_claim_id_expense_claims_id_fk" FOREIGN KEY ("expense_claim_id") REFERENCES "public"."expense_claims"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "expense_claim_approvals" ADD CONSTRAINT "expense_claim_approvals_approver_user_id_users_id_fk" FOREIGN KEY ("approver_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "budget_ledger" ADD CONSTRAINT "budget_ledger_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "budget_ledger" ADD CONSTRAINT "budget_ledger_budget_period_id_budget_periods_id_fk" FOREIGN KEY ("budget_period_id") REFERENCES "public"."budget_periods"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "budget_ledger" ADD CONSTRAINT "budget_ledger_expense_category_id_expense_categories_id_fk" FOREIGN KEY ("expense_category_id") REFERENCES "public"."expense_categories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "budget_ledger" ADD CONSTRAINT "budget_ledger_reference_expense_claim_id_expense_claims_id_fk" FOREIGN KEY ("reference_expense_claim_id") REFERENCES "public"."expense_claims"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "budget_ledger" ADD CONSTRAINT "budget_ledger_reference_budget_id_org_unit_budgets_id_fk" FOREIGN KEY ("reference_budget_id") REFERENCES "public"."org_unit_budgets"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "expense_receipts" ADD CONSTRAINT "expense_receipts_expense_claim_id_expense_claims_id_fk" FOREIGN KEY ("expense_claim_id") REFERENCES "public"."expense_claims"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "expense_receipts" ADD CONSTRAINT "expense_receipts_uploaded_by_users_id_fk" FOREIGN KEY ("uploaded_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "employees_employee_no_uq" ON "employees" USING btree ("employee_no");--> statement-breakpoint
 CREATE INDEX "employees_hire_date_idx" ON "employees" USING btree ("hire_date");--> statement-breakpoint
 CREATE INDEX "employees_last_name_idx" ON "employees" USING btree ("last_name");--> statement-breakpoint
@@ -515,4 +615,15 @@ CREATE UNIQUE INDEX "attendance_logs_employee_work_date_uq" ON "attendance_logs"
 CREATE INDEX "attendance_adjustments_employee_idx" ON "attendance_adjustments" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "attendance_adjustments_status_idx" ON "attendance_adjustments" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "attendance_adjustments_log_idx" ON "attendance_adjustments" USING btree ("attendance_log_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "attendance_adjustments_pending_per_log_uq" ON "attendance_adjustments" USING btree ("attendance_log_id") WHERE status = 'PENDING';
+CREATE UNIQUE INDEX "attendance_adjustments_pending_per_log_uq" ON "attendance_adjustments" USING btree ("attendance_log_id") WHERE status = 'PENDING';--> statement-breakpoint
+CREATE UNIQUE INDEX "expense_categories_code_uq" ON "expense_categories" USING btree ("code");--> statement-breakpoint
+CREATE UNIQUE INDEX "budget_periods_code_uq" ON "budget_periods" USING btree ("code");--> statement-breakpoint
+CREATE UNIQUE INDEX "org_unit_budgets_uq" ON "org_unit_budgets" USING btree ("org_unit_id","budget_period_id","expense_category_id");--> statement-breakpoint
+CREATE INDEX "expense_claims_employee_idx" ON "expense_claims" USING btree ("employee_id");--> statement-breakpoint
+CREATE INDEX "expense_claims_org_unit_idx" ON "expense_claims" USING btree ("org_unit_id");--> statement-breakpoint
+CREATE INDEX "expense_claims_status_idx" ON "expense_claims" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "expense_claim_approvals_claim_idx" ON "expense_claim_approvals" USING btree ("expense_claim_id");--> statement-breakpoint
+CREATE INDEX "expense_claim_approvals_approver_idx" ON "expense_claim_approvals" USING btree ("approver_user_id");--> statement-breakpoint
+CREATE INDEX "budget_ledger_org_unit_idx" ON "budget_ledger" USING btree ("org_unit_id");--> statement-breakpoint
+CREATE INDEX "budget_ledger_period_idx" ON "budget_ledger" USING btree ("budget_period_id");--> statement-breakpoint
+CREATE INDEX "budget_ledger_category_idx" ON "budget_ledger" USING btree ("expense_category_id");

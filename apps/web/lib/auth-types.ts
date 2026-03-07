@@ -2,6 +2,7 @@ export type JwtUser = {
     id: string;
     email: string;
     employeeId: string | null;
+    orgUnitId: string | null;
     firstName: string | null;
     lastName: string | null;
     roles: string[];

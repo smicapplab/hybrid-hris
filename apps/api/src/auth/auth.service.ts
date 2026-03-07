@@ -6,7 +6,7 @@ import * as crypto from 'crypto'
 
 import { UsersService } from '../identity/users/users.service'
 import { DatabaseService } from '../database/database.service'
-import { userRefreshTokens, users } from '@hybrid-hris/db/schema'
+import { userRefreshTokens, users, employees } from '@hybrid-hris/db/schema'
 
 @Injectable()
 export class AuthService {
@@ -39,11 +39,22 @@ export class AuthService {
         },
     ) {
         const roles = await this.usersService.getUserRoles(user.id)
+        let orgUnitId: string | null = null;
+
+        if (user.employeeId) {
+            const [emp] = await this.db.db
+                .select({ orgUnitId: employees.orgUnitId })
+                .from(employees)
+                .where(eq(employees.id, user.employeeId))
+                .limit(1);
+            orgUnitId = emp?.orgUnitId ?? null;
+        }
 
         const payload = {
             sub: user.id,
             email: user.email,
             employeeId: user.employeeId ?? null,
+            orgUnitId,
             firstName: user.firstName ?? null,
             lastName: user.lastName ?? null,
             roles,

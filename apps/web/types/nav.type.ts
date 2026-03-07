@@ -13,6 +13,7 @@ export type Element = {
     icon?: LucideIcon,
     isActive?: boolean;
     items?: Item[];
+    roles?: string[];
 }
 
 export type Item = {

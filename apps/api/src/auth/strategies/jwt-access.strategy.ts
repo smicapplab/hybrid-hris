@@ -31,9 +31,9 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt') {
     return {
       id: user.id,
       email: user.email,
-      // Re-fetch employeeId from the DB rather than trusting the token — ensures
-      // the value is current if the employee link changed since the token was issued.
+      // Re-fetch employeeId and orgUnitId from the DB rather than trusting the token
       employeeId: user.employeeId ?? null,
+      orgUnitId: user.employeeId ? (await this.usersService.getEmployeeOrgUnitId(user.employeeId)) : null,
       firstName: payload.firstName ?? null,
       lastName: payload.lastName ?? null,
       roles: payload.roles,

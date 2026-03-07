@@ -6,10 +6,11 @@ import { LeaveTypesModule } from './leave-types/leave-types.module';
 import { LeavePoliciesModule } from './leave-policies/leave-policies.module';
 import { LeaveRequestsModule } from './leave-requests/leave-requests.module';
 import { LeaveAccrualsModule } from './leave-accruals/leave-accruals.module';
+import { ExpensesModule } from './expenses/expenses.module';
 
 @Module({
-    imports: [OrgUnitsModule, PositionsModule, EmployeesModule, LeaveTypesModule, LeavePoliciesModule, LeaveRequestsModule, LeaveAccrualsModule],
-    exports: [OrgUnitsModule, PositionsModule, EmployeesModule, LeaveTypesModule, LeavePoliciesModule, LeaveRequestsModule, LeaveAccrualsModule],
+    imports: [OrgUnitsModule, PositionsModule, EmployeesModule, LeaveTypesModule, LeavePoliciesModule, LeaveRequestsModule, LeaveAccrualsModule, ExpensesModule],
+    exports: [OrgUnitsModule, PositionsModule, EmployeesModule, LeaveTypesModule, LeavePoliciesModule, LeaveRequestsModule, LeaveAccrualsModule, ExpensesModule],
 })
 
 export class CoreModule { }

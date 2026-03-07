@@ -15,17 +15,17 @@ The system focuses on deterministic background processing, clean domain separati
 - **Organizational Structure** – Hierarchical Org Units (multi-level), shared Positions, OrgUnit-Position mapping, and Org Unit Leaders (HEAD / CO_HEAD / ACTING_HEAD).
 - **Leave Management (Ledger-Based)** – Robust leave tracking using an append-only financial-style ledger. Supports accrual, consumption, and manual adjustments.
 - **Leave Policies & Rules** – Flexible policy engine supporting Monthly Accrual, Annual Grants, Max Balance caps, and Carry-over limits.
+- **Expense & Team Budgets** – Hierarchical budget allocation per Org Unit and category. Append-only budget ledger for consumption tracking.
 - **Attendance & Shift Management** – Shift templates, employee shift assignments (flexible/fixed), and attendance logging.
-- **Identity & RBAC** – Users, roles, and user-role mappings with soft deletion support.
-- **Database-Sealed Constraints** – Critical business rules enforced at the DB level (uniqueness, exclusion constraints for temporal integrity, and idempotent accrual keys).
+- **Identity & RBAC** – Users, roles, and user-role mappings with hardened database-first authorization.
 
 ### Design Philosophy
 
-- **Immutable Ledger:** Leave balances are derived from an append-only ledger, ensuring a perfect audit trail.
-- **Idempotent Accruals:** Monthly accruals use deterministic keys to prevent duplicate credits, even if a job is retried.
-- **Temporal Integrity:** Policy assignments and shift assignments use Postgres `EXCLUDE` constraints to prevent overlapping records for the same employee.
-- **Case-Insensitive Identity:** Identity enforcement (emails, codes) is handled at the database level for maximum reliability.
-- **Monorepo Architecture:** Clean package boundaries with shared domain logic.
+- **Immutable Ledgers:** Both Leave and Budget balances are derived from append-only ledgers, ensuring a perfect audit trail and preventing data corruption.
+- **Database-First Authorization:** Security is enforced at the service level by re-fetching user roles and leadership status directly from the database, preventing "stale" token access.
+- **Deterministic Accruals:** Monthly accruals use idempotent deterministic keys to prevent duplicate credits during retries or job restarts.
+- **Temporal Integrity:** Policy and shift assignments use Postgres `EXCLUDE` constraints to prevent overlapping records for the same employee.
+- **Monorepo Architecture:** Clean package boundaries with shared domain logic between frontend and backend.
 
 ---
 
@@ -82,7 +82,7 @@ Ensure Docker is running, then use the reset script for a fresh start:
 ./scripts/reset-db.sh
 ```
 
-Alternatively, to load the full testing environment (15+ employees, org tree, and leave history):
+Alternatively, to load the full testing environment (15+ employees, org tree, leave history, and team budgets):
 
 ```bash
 LOAD_TEST_DATA=true pnpm --filter @hybrid-hris/db seed
@@ -102,13 +102,14 @@ pnpm --filter web dev # Runs on http://localhost:3000
 
 ---
 
-## Authentication
+## Authentication & Security
 
 The system uses JWT-based authentication with **Refresh Token Rotation**.
 
 - **Access Token:** Short-lived (15m default), stored in memory/header.
 - **Refresh Token:** Long-lived (7d default), stored in an `httpOnly` cookie.
-- **RBAC:** Roles are embedded in the JWT and verified via `RolesGuard` in the API.
+- **RBAC:** Roles are verified via `RolesGuard` in the API. 
+- **Security Hardening:** Critical data visibility (Approvals, Budgets) is scoped using live database lookups of user roles and leadership assignments rather than trusting JWT claims.
 
 ### Default Admin (Development)
 
@@ -121,26 +122,30 @@ Password: `Admin123!`
 
 ### Leave Policy Management
 Administrators can define different leave policies (e.g., Standard, Intern) and assign them to employees.
-- **Process Accruals:** A dedicated UI tool allows admins to trigger monthly leave credits for the entire organization or specific months.
-- **Employee Table:** View and manage all employees assigned to a specific policy directly from the policy detail panel.
+- **Process Accruals:** A dedicated UI tool allows admins to trigger monthly leave credits organization-wide.
+- **Employee Visibility:** View all employees assigned to a specific policy directly from the policy dashboard.
 
-### Employee Management
-- Full lifecycle management from Probation to Regular/Resigned.
-- Dynamic supervisor assignment for approval hierarchies.
-- Identity and Government ID tracking (PH-centric: TIN, SSS, PhilHealth, Pag-IBIG).
+### Expense & Budget Matrix
+- **Budget Matrix:** Global view of allocations across all Organizational Units and Expense Categories (Travel, Meals, Hardware, etc.).
+- **Expense Filing:** Employees can file claims directly against their team's budget with real-time remaining balance checks.
+- **Approval Workflow:** Hierarchical approval (Supervisor -> Org Head -> Finance) with automated ledger consumption.
+
+### Employee Lifecycle
+- Full management from Probation to Regular/Resigned.
+- Dynamic supervisor assignment and organizational mapping.
+- Tracking of Government IDs (PH-centric: TIN, SSS, PhilHealth, Pag-IBIG).
 
 ---
 
 ## Next Steps
 
-- [ ] Implement approval → ledger transactional integration.
-- [ ] Add hybrid background job execution (BullMQ for standalone / EventBridge for serverless).
+- [ ] Add Receipt File Upload support (S3/Local strategy).
+- [ ] Implement multi-level approval logic for Leaves (currently single-level).
+- [ ] Add hybrid background job execution (BullMQ + Lambda/EventBridge).
 - [ ] Finalize attendance compute engine (late/undertime/overtime calculation).
-- [ ] Implement payroll export module.
 
 ---
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-

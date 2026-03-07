@@ -26,6 +26,7 @@ import {
     Search,
     ChevronLeft,
     ChevronRight,
+    Wallet,
 } from 'lucide-react'
 import ActOnRequestDialog from '../../me/my-leave-requests/components/act-on-request-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -188,6 +189,7 @@ export default function LeaveApprovalsPage() {
                             <TableHead className="w-[250px]">Employee</TableHead>
                             <TableHead>Type & Period</TableHead>
                             <TableHead>Duration</TableHead>
+                            <TableHead>Balance</TableHead>
                             {isHistory ? (
                                 <>
                                     <TableHead>Your Action</TableHead>
@@ -203,7 +205,7 @@ export default function LeaveApprovalsPage() {
                         {loading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
-                                    <TableCell colSpan={isHistory ? 6 : 5}>
+                                    <TableCell colSpan={isHistory ? 7 : 6}>
                                         <Skeleton className="h-12 w-full" />
                                     </TableCell>
                                 </TableRow>
@@ -245,6 +247,15 @@ export default function LeaveApprovalsPage() {
                                                     Partial Days
                                                 </span>
                                             )}
+                                        </div>
+                                    </TableCell>
+
+                                    <TableCell>
+                                        <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                            <Wallet className="w-3 h-3 text-zinc-400" />
+                                            <span className="font-medium">
+                                                {item.currentBalance.toLocaleString('en-US', { minimumFractionDigits: 1 })}
+                                            </span>
                                         </div>
                                     </TableCell>
 

@@ -10,7 +10,7 @@ import { orgUnits } from '../schema/org-units';
 import { positions } from '../schema/positions';
 import { orgUnitPositions } from '../schema/org-unit-positions';
 import { orgUnitLeaders } from '../schema/org-unit-leaders';
-import { eq, and } from 'drizzle-orm';
+import { eq, InferSelectModel } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
 import { hrSettings } from '../schema/hr-settings';
 import { employeeProfiles } from '../schema/employee-profiles';
@@ -23,6 +23,10 @@ import { leaveLedger } from '../schema/leave-ledger';
 import { leavePolicies } from '../schema/leave-policies';
 import { leavePolicyRules } from '../schema/leave-policy-rules';
 import { employeeLeavePolicies } from '../schema/employee-leave-policies';
+import { expenseCategories } from '../schema/expense-categories';
+import { budgetPeriods } from '../schema/budget-periods';
+import { orgUnitBudgets } from '../schema/org-unit-budgets';
+import { budgetLedger } from '../schema/budget-ledger';
 
 
 const pool = new Pool({
@@ -293,7 +297,7 @@ export async function seedSystem() {
             })
             .onConflictDoNothing()
             .returning()
-        )[0];
+    )[0];
 
     if (!defaultPosition) {
         defaultPosition = (
@@ -534,8 +538,6 @@ export async function seedSystem() {
         }
 
         const teamMembers = [];
-        const defaultUserPassword = await bcrypt.hash('Password123!', 10);
-
         // Create 15 team members reporting to Admin
         for (let i = 1; i <= 15; i++) {
             const empNo = `EMP-TEAM-${padLeft(i.toString(), 3)}`;
@@ -568,7 +570,7 @@ export async function seedSystem() {
                     .values({
                         employeeId: emp.id,
                         email: `${emp.employeeNo.toLowerCase()}@hybrid-hris.local`,
-                        passwordHash: defaultUserPassword,
+                        passwordHash: passwordHash,
                         isActive: true,
                     })
                     .onConflictDoNothing()
@@ -671,5 +673,102 @@ export async function seedSystem() {
         }
     }
 
+    await seedExpenses(db);
+
     console.log('System seed completed.');
+}
+
+async function seedExpenses(db: any) {
+    console.log('Seeding expense and budget data...');
+
+    const categories = [
+        { code: 'TRAVEL', name: 'Travel' },
+        { code: 'MEALS', name: 'Meals & Entertainment' },
+        { code: 'HARDWARE', name: 'Hardware & Equipment' },
+        { code: 'SOFTWARE', name: 'Software Subscriptions' },
+        { code: 'TRAINING', name: 'Training & Development' },
+        { code: 'SUPPLIES', name: 'Office Supplies' },
+    ];
+
+    const insertedCats = [];
+    for (const cat of categories) {
+        const [c] = await db.insert(expenseCategories).values(cat).onConflictDoNothing().returning();
+        insertedCats.push(c || (await db.select().from(expenseCategories).where(eq(expenseCategories.code, cat.code)))[0]);
+    }
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    const periods = [
+        {
+            code: `${currentYear}-${currentMonth.toString().padStart(2, '0')}`,
+            name: `${now.toLocaleString('default', { month: 'long' })} ${currentYear}`,
+            periodStart: `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`,
+            periodEnd: new Date(currentYear, currentMonth, 0).toISOString().slice(0, 10),
+            periodType: 'MONTHLY',
+        },
+        {
+            code: `FY-${currentYear}`,
+            name: `Fiscal Year ${currentYear}`,
+            periodStart: `${currentYear}-01-01`,
+            periodEnd: `${currentYear}-12-31`,
+            periodType: 'ANNUAL',
+        }
+    ];
+
+    const insertedPeriods = [];
+    for (const p of periods) {
+        const [per] = await db.insert(budgetPeriods).values(p).onConflictDoNothing().returning();
+        insertedPeriods.push(per || (await db.select().from(budgetPeriods).where(eq(budgetPeriods.code, p.code)))[0]);
+    }
+
+    // Allocate initial budgets to some leaf org units
+    const allOrgs = await db.select().from(orgUnits);
+    const leafOrgs = allOrgs.filter((ou: InferSelectModel<typeof orgUnits>) =>
+        !allOrgs.some((child: InferSelectModel<typeof orgUnits>) => child.parentId === ou.id)
+    );
+
+    const monthlyPeriod = insertedPeriods.find(p => p.periodType === 'MONTHLY');
+    const travelCat = insertedCats.find(c => c.code === 'TRAVEL');
+    const mealsCat = insertedCats.find(c => c.code === 'MEALS');
+
+    if (monthlyPeriod && leafOrgs.length > 0) {
+        for (const org of leafOrgs) {
+            // Give every leaf team $1,000 for travel and $500 for meals
+            if (travelCat) {
+                await db.insert(orgUnitBudgets).values({
+                    orgUnitId: org.id,
+                    budgetPeriodId: monthlyPeriod.id,
+                    expenseCategoryId: travelCat.id,
+                    amountAllocated: '1000.00',
+                }).onConflictDoNothing();
+
+                await db.insert(budgetLedger).values({
+                    orgUnitId: org.id,
+                    budgetPeriodId: monthlyPeriod.id,
+                    expenseCategoryId: travelCat.id,
+                    entryType: 'ALLOCATION',
+                    amount: '1000.00',
+                }).onConflictDoNothing();
+            }
+
+            if (mealsCat) {
+                await db.insert(orgUnitBudgets).values({
+                    orgUnitId: org.id,
+                    budgetPeriodId: monthlyPeriod.id,
+                    expenseCategoryId: mealsCat.id,
+                    amountAllocated: '500.00',
+                }).onConflictDoNothing();
+
+                await db.insert(budgetLedger).values({
+                    orgUnitId: org.id,
+                    budgetPeriodId: monthlyPeriod.id,
+                    expenseCategoryId: mealsCat.id,
+                    entryType: 'ALLOCATION',
+                    amount: '500.00',
+                }).onConflictDoNothing();
+            }
+        }
+    }
 }

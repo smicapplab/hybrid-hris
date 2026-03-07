@@ -14,7 +14,7 @@ import { UpdateMyProfileDto } from './dto/update-my-profile.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
 
 type AuthRequest = Request & {
-    user: { id: string; email: string; employeeId: string | null }
+    user: { id: string; email: string; employeeId: string | null; roles: string[] }
 }
 
 @UseGuards(AuthGuard('jwt'))

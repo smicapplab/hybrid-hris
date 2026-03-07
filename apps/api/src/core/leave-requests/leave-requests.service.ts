@@ -373,11 +373,24 @@ export class LeaveRequestsService {
         const limit = Number(filter.limit ?? 10)
         const offset = (page - 1) * limit
 
+        // Internal role lookup for security (don't trust JWT for data scoping)
+        const userRolesResult = await this.db.db
+            .select({ code: roles.code })
+            .from(userRoles)
+            .innerJoin(roles, eq(userRoles.roleId, roles.id))
+            .where(eq(userRoles.userId, userId));
+        
+        const currentRoles = userRolesResult.map(r => r.code);
+        const isAdmin = currentRoles.includes('ADMIN') || currentRoles.includes('HR_ADMIN');
+
         const whereClauses: (SQL | undefined)[] = [
-            eq(leaveRequestApprovals.approverUserId, userId),
             eq(leaveRequestApprovals.status, 'PENDING'),
             eq(leaveRequests.status, 'PENDING'),
         ]
+
+        if (!isAdmin) {
+            whereClauses.push(eq(leaveRequestApprovals.approverUserId, userId))
+        }
 
         if (filter.search) {
             const search = `%${filter.search}%`
@@ -398,6 +411,15 @@ export class LeaveRequestsService {
                 eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
             )
             .where(and(...whereClauses))
+
+        const approvalJoinCondition = [
+            eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
+            eq(leaveRequestApprovals.status, 'PENDING'),
+        ]
+
+        if (!isAdmin) {
+            approvalJoinCondition.push(eq(leaveRequestApprovals.approverUserId, userId))
+        }
 
         const rows = await this.db.db
             .select({
@@ -425,11 +447,7 @@ export class LeaveRequestsService {
             .innerJoin(employees, eq(employees.id, leaveRequests.employeeId))
             .innerJoin(
                 leaveRequestApprovals,
-                and(
-                    eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
-                    eq(leaveRequestApprovals.approverUserId, userId),
-                    eq(leaveRequestApprovals.status, 'PENDING'),
-                ),
+                and(...approvalJoinCondition),
             )
             .where(and(...whereClauses))
             .orderBy(desc(leaveRequests.createdAt))
@@ -437,10 +455,11 @@ export class LeaveRequestsService {
             .offset(offset)
 
         return {
-            items: rows.map((r) => ({
+            items: await Promise.all(rows.map(async (r) => ({
                 ...r,
                 days: parseFloat(r.days as unknown as string),
-            })),
+                currentBalance: await this.getBalance(r.employeeId, r.leaveTypeId),
+            }))),
             total: countResult?.count ?? 0,
             page,
             limit,
@@ -456,9 +475,21 @@ export class LeaveRequestsService {
         const limit = Number(filter.limit ?? 10)
         const offset = (page - 1) * limit
 
-        const whereClauses: (SQL | undefined)[] = [
-            eq(leaveRequestApprovals.approverUserId, userId),
-        ]
+        // Internal role lookup for security
+        const userRolesResult = await this.db.db
+            .select({ code: roles.code })
+            .from(userRoles)
+            .innerJoin(roles, eq(userRoles.roleId, roles.id))
+            .where(eq(userRoles.userId, userId));
+        
+        const currentRoles = userRolesResult.map(r => r.code);
+        const isAdmin = currentRoles.includes('ADMIN') || currentRoles.includes('HR_ADMIN');
+
+        const whereClauses: (SQL | undefined)[] = []
+
+        if (!isAdmin) {
+            whereClauses.push(eq(leaveRequestApprovals.approverUserId, userId))
+        }
 
         if (filter.search) {
             const search = `%${filter.search}%`
@@ -479,6 +510,14 @@ export class LeaveRequestsService {
                 eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
             )
             .where(and(...whereClauses))
+
+        const approvalJoinCondition = [
+            eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
+        ]
+
+        if (!isAdmin) {
+            approvalJoinCondition.push(eq(leaveRequestApprovals.approverUserId, userId))
+        }
 
         const rows = await this.db.db
             .select({
@@ -506,10 +545,7 @@ export class LeaveRequestsService {
             .innerJoin(employees, eq(employees.id, leaveRequests.employeeId))
             .innerJoin(
                 leaveRequestApprovals,
-                and(
-                    eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
-                    eq(leaveRequestApprovals.approverUserId, userId),
-                ),
+                and(...approvalJoinCondition),
             )
             .where(and(...whereClauses))
             .orderBy(desc(leaveRequests.createdAt))
@@ -517,10 +553,11 @@ export class LeaveRequestsService {
             .offset(offset)
 
         return {
-            items: rows.map((r) => ({
+            items: await Promise.all(rows.map(async (r) => ({
                 ...r,
                 days: parseFloat(r.days as unknown as string),
-            })),
+                currentBalance: await this.getBalance(r.employeeId, r.leaveTypeId),
+            }))),
             total: countResult?.count ?? 0,
             page,
             limit,

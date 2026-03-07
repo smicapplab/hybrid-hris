@@ -18,7 +18,7 @@ import { SystemRole } from '@hybrid-hris/domain'
 import { LeaveRequestsService, CreateLeaveRequestDto, ActOnLeaveRequestDto, LeaveRequestFilterDto } from './leave-requests.service'
 
 type AuthRequest = Request & {
-    user: { id: string; email: string; employeeId: string | null }
+    user: { id: string; email: string; employeeId: string | null; roles: string[] }
 }
 
 @UseGuards(AuthGuard('jwt'))

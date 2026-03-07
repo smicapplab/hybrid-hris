@@ -12,6 +12,8 @@ import {
     Clock,
     ClipboardList,
     Settings,
+    Receipt,
+    Calculator,
 } from "lucide-react";
 
 export const navigation: NavCategory[] = [
@@ -86,6 +88,23 @@ export const navigation: NavCategory[] = [
                 title: "Leave Approvals",
                 url: "/leave/approvals",
                 icon: CheckCircle2,
+                roles: ['ADMIN', 'HR_ADMIN', 'MANAGER'],
+            },
+        ]
+    },
+    {
+        title: "Expenses",
+        elements: [
+            {
+                title: "My Expenses",
+                url: "/me/expenses",
+                icon: Receipt,
+            },
+            {
+                title: "Expense Approvals",
+                url: "/expenses/approvals",
+                icon: CheckCircle2,
+                roles: ['ADMIN', 'HR_ADMIN', 'MANAGER'],
             },
         ]
     },
@@ -102,6 +121,11 @@ export const navigation: NavCategory[] = [
                 title: "Leave Types",
                 url: "/admin/leave-types",
                 icon: Settings,
+            },
+            {
+                title: "Team Budgets",
+                url: "/admin/budgets",
+                icon: Calculator,
             },
         ]
     },

@@ -50,6 +50,7 @@ export type PendingApprovalItem = TeamLeaveItem & {
     approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED'
     approvalRemarks: string | null
     approvalActedAt: string | null
+    currentBalance: number
 }
 
 export type MyUpcomingLeave = {
