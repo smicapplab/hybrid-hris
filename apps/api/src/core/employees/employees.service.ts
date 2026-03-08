@@ -328,7 +328,7 @@ export class EmployeesService {
             }
 
             if (dto.policyId !== undefined) {
-                const targetPolicyId = dto.policyId as string;
+                const targetPolicyId = dto.policyId;
 
                 // Find the currently active (no end date) policy record
                 const [currentPolicyRecord] = await tx.select()

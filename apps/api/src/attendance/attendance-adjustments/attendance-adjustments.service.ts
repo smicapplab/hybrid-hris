@@ -72,14 +72,14 @@ export class AttendanceAdjustmentsService {
             if (log?.isLocked) throw new BadRequestException('Attendance for this date is already locked.');
         }
 
-        const updateData: any = {
+        const updateData: Partial<typeof attendanceAdjustments.$inferInsert> = {
             updatedAt: new Date(),
         };
 
         if (dto.requestedActualInAt !== undefined) updateData.requestedActualInAt = dto.requestedActualInAt ? new Date(dto.requestedActualInAt) : null;
         if (dto.requestedActualOutAt !== undefined) updateData.requestedActualOutAt = dto.requestedActualOutAt ? new Date(dto.requestedActualOutAt) : null;
         if (dto.remarks !== undefined) updateData.remarks = dto.remarks;
-        if (dto.status !== undefined) updateData.status = dto.status;
+        if (dto.status !== undefined) updateData.status = dto.status as any; // Cast status since Drizzle types for enums can be strict
 
         const [updated] = await this.db.db
             .update(attendanceAdjustments)
