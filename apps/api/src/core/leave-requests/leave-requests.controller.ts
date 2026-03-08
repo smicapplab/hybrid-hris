@@ -15,7 +15,8 @@ import { Request } from 'express'
 import { RolesGuard } from 'src/auth/guards/roles.guard'
 import { Roles } from 'src/auth/decorators/roles.decorator'
 import { SystemRole } from '@hybrid-hris/domain'
-import { LeaveRequestsService, CreateLeaveRequestDto, ActOnLeaveRequestDto, LeaveRequestFilterDto } from './leave-requests.service'
+import { LeaveRequestsService } from './leave-requests.service'
+import { ActOnLeaveRequestDto, CreateLeaveRequestDto, LeaveRequestFilterDto } from './dto/create-leave-request.dto'
 
 type AuthRequest = Request & {
     user: { id: string; email: string; employeeId: string | null; roles: string[] }
