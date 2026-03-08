@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common'
-import { and, asc, desc, eq, gte, isNull } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNull, sql } from 'drizzle-orm'
 import * as bcrypt from 'bcrypt'
-import { employees, employeeProfiles, users, positions, orgUnits, orgUnitLeaders, employeeShiftAssignments, shiftTemplates, attendanceLogs } from '@hybrid-hris/db'
+import { employees, employeeProfiles, users, positions, orgUnits, orgUnitLeaders, employeeShiftAssignments, shiftTemplates, attendanceLogs, attendanceAdjustments } from '@hybrid-hris/db'
 import { DatabaseService } from 'src/database/database.service'
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
@@ -310,7 +310,7 @@ export class ProfileService {
         return this.db.db
             .select({
                 id: attendanceLogs.id,
-                workDate: attendanceLogs.workDate,
+                workDate: sql<string>`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`,
                 scheduledInAt: attendanceLogs.scheduledInAt,
                 scheduledOutAt: attendanceLogs.scheduledOutAt,
                 actualInAt: attendanceLogs.actualInAt,
@@ -318,14 +318,39 @@ export class ProfileService {
                 sourceIn: attendanceLogs.sourceIn,
                 sourceOut: attendanceLogs.sourceOut,
                 isLocked: attendanceLogs.isLocked,
+                // Include raw shift times from assignment
+                startTime: employeeShiftAssignments.startTime,
+                endTime: employeeShiftAssignments.endTime,
+                // Pending adjustment info
+                pendingAdjustmentId: attendanceAdjustments.id,
+                pendingActualInAt: attendanceAdjustments.requestedActualInAt,
+                pendingActualOutAt: attendanceAdjustments.requestedActualOutAt,
+                pendingStatus: attendanceAdjustments.status,
+                pendingRemarks: attendanceAdjustments.remarks,
+                pendingApproverRemarks: attendanceAdjustments.approverRemarks,
             })
             .from(attendanceLogs)
+            .fullJoin(
+                attendanceAdjustments,
+                and(
+                    eq(attendanceLogs.employeeId, attendanceAdjustments.employeeId),
+                    eq(attendanceLogs.workDate, attendanceAdjustments.workDate),
+                    eq(attendanceAdjustments.status, 'PENDING')
+                )
+            )
+            .leftJoin(
+                employeeShiftAssignments,
+                and(
+                    eq(sql`COALESCE(${attendanceLogs.employeeId}, ${attendanceAdjustments.employeeId})`, employeeShiftAssignments.employeeId),
+                    sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate}) >= ${employeeShiftAssignments.effectiveFrom}`,
+                )
+            )
             .where(
                 and(
-                    eq(attendanceLogs.employeeId, employeeId),
-                    gte(attendanceLogs.workDate, sinceStr),
+                    eq(sql`COALESCE(${attendanceLogs.employeeId}, ${attendanceAdjustments.employeeId})`, employeeId),
+                    gte(sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`, sinceStr),
                 ),
             )
-            .orderBy(desc(attendanceLogs.workDate))
+            .orderBy(desc(sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`))
     }
 }

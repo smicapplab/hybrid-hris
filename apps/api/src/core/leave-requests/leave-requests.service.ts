@@ -16,8 +16,6 @@ import {
     users,
     userRoles,
     roles,
-    orgUnits,
-    orgUnitLeaders,
 } from '@hybrid-hris/db/schema'
 import {
     eq,
@@ -29,7 +27,6 @@ import {
     gte,
     lte,
     ne,
-    isNull,
     inArray,
     SQL,
 } from 'drizzle-orm'

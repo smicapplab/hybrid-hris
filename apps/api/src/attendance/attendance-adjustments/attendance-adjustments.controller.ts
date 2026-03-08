@@ -1,92 +1,66 @@
-import {
-    Controller,
-    Get,
-    Post,
-    Param,
-    Query,
-    Body,
-    Req,
-    UseGuards,
-} from '@nestjs/common'
-import { AuthGuard } from '@nestjs/passport'
-import { Request } from 'express'
-import { AttendanceAdjustmentsService } from './attendance-adjustments.service'
-import { CreateAttendanceAdjustmentDto } from './dto/create-attendance-adjustment.dto'
-import { RolesGuard } from 'src/auth/guards/roles.guard'
-import { Roles } from 'src/auth/decorators/roles.decorator'
-import { SystemRole } from '@hybrid-hris/domain'
+import { Controller, Post, Body, Get, UseGuards, Req, Param, Patch } from '@nestjs/common';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { Request } from 'express';
+import { AttendanceAdjustmentsService } from './attendance-adjustments.service';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { SystemRole } from '@hybrid-hris/domain';
+import { CreateAdjustmentDto, ActOnAdjustmentDto } from './dto/create-adjustment.dto';
 
-@UseGuards(AuthGuard('jwt'))
+interface AuthenticatedRequest extends Request {
+    user: {
+        id: string;
+        email: string;
+        employeeId: string | null;
+        roles: string[];
+    }
+}
+
+@UseGuards(JwtAuthGuard)
 @Controller('attendance-adjustments')
 export class AttendanceAdjustmentsController {
-    constructor(
-        private readonly attendanceAdjustmentsService: AttendanceAdjustmentsService,
-    ) { }
+    constructor(private readonly service: AttendanceAdjustmentsService) { }
 
-    /* ============================================================
-       READ
-       ============================================================ */
-
-    /** Return all adjustments for an employee (newest first). */
-    @Get()
-    async findAllByEmployee(@Query('employeeId') employeeId: string) {
-        return this.attendanceAdjustmentsService.findAllByEmployee(employeeId)
-    }
-
-    @Get(':id')
-    async findById(@Param('id') id: string) {
-        return this.attendanceAdjustmentsService.findById(id)
-    }
-
-    /* ============================================================
-       SUBMIT A CORRECTION REQUEST
-       ============================================================ */
-
-    /**
-     * Any authenticated user can submit a correction request on behalf of an employee.
-     * The requestedBy is derived from the JWT so it cannot be spoofed.
-     */
     @Post()
-    async request(
-        @Req() req: Request & { user: { sub: string } },
-        @Body() body: CreateAttendanceAdjustmentDto,
-    ) {
-        const requestedBy = req.user.sub
-        return this.attendanceAdjustmentsService.request(body, requestedBy)
+    async create(@Req() req: AuthenticatedRequest, @Body() dto: CreateAdjustmentDto) {
+        return this.service.createRequest(req.user.id, req.user.employeeId!, dto);
     }
 
-    /* ============================================================
-       REVIEW ACTIONS (HR_ADMIN / ADMIN only)
-       ============================================================ */
+    @Patch(':id')
+    async update(
+        @Req() req: AuthenticatedRequest,
+        @Param('id') id: string,
+        @Body() dto: Partial<CreateAdjustmentDto>
+    ) {
+        return this.service.updateRequest(req.user.id, id, dto);
+    }
 
     @UseGuards(RolesGuard)
-    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-    @Post(':id/approve')
+    @Roles(SystemRole.MANAGER, SystemRole.SUPERVISOR, SystemRole.ADMIN, SystemRole.HR_ADMIN)
+    @Get('pending')
+    async getPending(@Req() req: AuthenticatedRequest) {
+        return this.service.getPendingForApproval(req.user.id);
+    }
+
+    @UseGuards(RolesGuard)
+    @Roles(SystemRole.MANAGER, SystemRole.SUPERVISOR, SystemRole.ADMIN, SystemRole.HR_ADMIN)
+    @Patch(':id/approve')
     async approve(
+        @Req() req: AuthenticatedRequest,
         @Param('id') id: string,
-        @Req() req: Request & { user: { sub: string } },
+        @Body() dto: ActOnAdjustmentDto
     ) {
-        const approverId = req.user.sub
-        return this.attendanceAdjustmentsService.approve(id, approverId)
+        return this.service.approve(req.user.id, id, dto.remarks);
     }
 
     @UseGuards(RolesGuard)
-    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-    @Post(':id/reject')
+    @Roles(SystemRole.MANAGER, SystemRole.SUPERVISOR, SystemRole.ADMIN, SystemRole.HR_ADMIN)
+    @Patch(':id/reject')
     async reject(
+        @Req() req: AuthenticatedRequest,
         @Param('id') id: string,
-        @Req() req: Request & { user: { sub: string } },
+        @Body() dto: ActOnAdjustmentDto
     ) {
-        const approverId = req.user.sub
-        return this.attendanceAdjustmentsService.reject(id, approverId)
-    }
-
-    /* ============================================================
-       CANCEL (any authenticated user — business rule: own requests only)
-       ============================================================ */
-
-    @Post(':id/cancel')
-    async cancel(@Param('id') id: string) {
-        return this.attendanceAdjustmentsService.cancel(id)
+        return this.service.reject(req.user.id, id, dto.remarks);
     }
 }

@@ -7,6 +7,8 @@ import {
     uniqueIndex,
     check,
     pgEnum,
+    date,
+    text,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
@@ -17,10 +19,12 @@ import { ATTENDANCE_ADJUSTMENT_STATUSES } from '@hybrid-hris/domain'
 
 /**
  * Attendance corrections requiring approval.
- * On approval, the linked attendance_logs row is mutated to reflect the corrected times.
- * previousActual* fields snapshot the original values before mutation for audit purposes.
- *
- * workDate is intentionally absent — derive it by joining to attendance_logs when needed.
+ * 
+ * This table handles two types of requests:
+ * 1. Correction: attendanceLogId is NOT NULL (fixing an existing punch).
+ * 2. Missing Entry: attendanceLogId is NULL (filling a day with no punches).
+ * 
+ * On approval, the service either mutates the linked log or creates a new one.
  */
 
 export const attendanceAdjustmentStatusEnum = pgEnum('attendance_adjustment_status', ATTENDANCE_ADJUSTMENT_STATUSES)
@@ -34,18 +38,23 @@ export const attendanceAdjustments = pgTable(
             .notNull()
             .references(() => employees.id, { onDelete: 'restrict' }),
 
-        // Direct FK to the log being corrected. On approval the service mutates this row.
+        // NULL if the employee forgot to punch entirely for this date
         attendanceLogId: uuid('attendance_log_id')
-            .notNull()
             .references(() => attendanceLogs.id, { onDelete: 'restrict' }),
+
+        // The logical work date being corrected
+        workDate: date('work_date').notNull(),
 
         requestedActualInAt: timestamp('requested_actual_in_at', { withTimezone: true }),
         requestedActualOutAt: timestamp('requested_actual_out_at', { withTimezone: true }),
 
+        // Snapshot of values before the request (null for missing entries)
         previousActualInAt: timestamp('previous_actual_in_at', { withTimezone: true }),
         previousActualOutAt: timestamp('previous_actual_out_at', { withTimezone: true }),
 
-        reason: integer('reason_code'),
+        reasonCode: integer('reason_code'),
+        remarks: text('remarks').notNull(),
+        approverRemarks: text('approver_remarks'),
 
         status: attendanceAdjustmentStatusEnum('status')
             .notNull()
@@ -72,10 +81,11 @@ export const attendanceAdjustments = pgTable(
         employeeIdx: index('attendance_adjustments_employee_idx').on(t.employeeId),
         statusIdx: index('attendance_adjustments_status_idx').on(t.status),
         attendanceLogIdx: index('attendance_adjustments_log_idx').on(t.attendanceLogId),
+        workDateIdx: index('attendance_adjustments_work_date_idx').on(t.workDate),
 
-        // At most one PENDING adjustment per log — prevents duplicate open correction requests.
-        pendingPerLog: uniqueIndex('attendance_adjustments_pending_per_log_uq')
-            .on(t.attendanceLogId)
+        // Prevent duplicate pending requests for the same employee and work date
+        pendingPerDateUq: uniqueIndex('attendance_adjustments_pending_date_uq')
+            .on(t.employeeId, t.workDate)
             .where(sql`status = 'PENDING'`),
 
         // When a correction is approved, both approver and timestamp must be recorded.

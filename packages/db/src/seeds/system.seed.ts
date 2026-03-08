@@ -420,15 +420,15 @@ export async function seedSystem() {
             .onConflictDoNothing()
             .returning();
 
-        // CEO just gets basic Employee system role (will be dynamically upgraded)
-        const [empRole] = await db.select().from(roles).where(eq(roles.code, 'EMPLOYEE'));
-        if (ceoUser && empRole) {
-            await db.insert(userRoles).values({ userId: ceoUser.id, roleId: empRole.id }).onConflictDoNothing();
+        // CEO gets Manager role
+        const [managerRoleRecord] = await db.select().from(roles).where(eq(roles.code, 'MANAGER'));
+        if (ceoUser && managerRoleRecord) {
+            await db.insert(userRoles).values({ userId: ceoUser.id, roleId: managerRoleRecord.id }).onConflictDoNothing();
         }
     }
 
     // ---- Default Shift Templates ----
-    const [dayShift] = await db.insert(shiftTemplates)
+    const [dayShiftTemplate] = await db.insert(shiftTemplates)
         .values({
             code: 'DAY_SHIFT',
             name: 'Day Shift (9AM-6PM)',
@@ -441,9 +441,31 @@ export async function seedSystem() {
         .onConflictDoNothing()
         .returning();
 
-    const resolvedDayShift = dayShift ?? (
+    const resolvedDayShift = dayShiftTemplate ?? (
         await db.select().from(shiftTemplates).where(eq(shiftTemplates.code, 'DAY_SHIFT'))
     )[0];
+
+    // ---- Assign Day Shift to CEO ----
+    if (ceoEmployee && resolvedDayShift) {
+        await db.insert(employeeShiftAssignments)
+            .values({
+                employeeId: ceoEmployee.id,
+                shiftTemplateId: resolvedDayShift.id,
+                startTime: resolvedDayShift.startTime,
+                endTime: resolvedDayShift.endTime,
+                breakMinutes: resolvedDayShift.breakMinutes,
+                isFlexible: resolvedDayShift.isFlexible,
+                isMon: true,
+                isTue: true,
+                isWed: true,
+                isThu: true,
+                isFri: true,
+                isSat: false,
+                isSun: false,
+                effectiveFrom: '2020-01-01',
+            })
+            .onConflictDoNothing();
+    }
 
     // ---- Initial Admin Employee ----
     let adminEmployeeId: string | undefined;

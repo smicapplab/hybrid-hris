@@ -1,5 +1,5 @@
 {
-  "id": "1b7ed5e6-977f-4558-ad9a-34d3352b1b1f",
+  "id": "748f1e86-e90b-4227-9839-eb40ec88f1a9",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -3769,6 +3769,12 @@
           "name": "attendance_log_id",
           "type": "uuid",
           "primaryKey": false,
+          "notNull": false
+        },
+        "work_date": {
+          "name": "work_date",
+          "type": "date",
+          "primaryKey": false,
           "notNull": true
         },
         "requested_actual_in_at": {
@@ -3798,6 +3804,18 @@
         "reason_code": {
           "name": "reason_code",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "remarks": {
+          "name": "remarks",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "approver_remarks": {
+          "name": "approver_remarks",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -3888,11 +3906,32 @@
           "method": "btree",
           "with": {}
         },
-        "attendance_adjustments_pending_per_log_uq": {
-          "name": "attendance_adjustments_pending_per_log_uq",
+        "attendance_adjustments_work_date_idx": {
+          "name": "attendance_adjustments_work_date_idx",
           "columns": [
             {
-              "expression": "attendance_log_id",
+              "expression": "work_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attendance_adjustments_pending_date_uq": {
+          "name": "attendance_adjustments_pending_date_uq",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "work_date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

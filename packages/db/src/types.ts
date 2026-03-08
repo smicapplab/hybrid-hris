@@ -12,6 +12,7 @@ import {
     expenseClaimApprovals,
     budgetLedger,
     expenseReceipts,
+    attendanceAdjustments,
 } from './schema'
 
 export type OrgUnit = InferSelectModel<typeof orgUnits>

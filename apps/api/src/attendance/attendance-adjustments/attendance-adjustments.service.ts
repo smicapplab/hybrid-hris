@@ -1,247 +1,241 @@
-import {
-    Injectable,
-    NotFoundException,
-    BadRequestException,
-    ConflictException,
-    ForbiddenException,
-} from '@nestjs/common'
-import { and, desc, eq } from 'drizzle-orm'
-import {
-    attendanceAdjustments,
-    attendanceLogs,
-    AttendanceAdjustment,
-} from '@hybrid-hris/db'
-import { DatabaseService } from 'src/database/database.service'
-import { CreateAttendanceAdjustmentDto } from './dto/create-attendance-adjustment.dto'
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { DatabaseService } from 'src/database/database.service';
+import { attendanceAdjustments, attendanceLogs, employees, AttendanceAdjustment } from '@hybrid-hris/db/schema';
+import { eq, and, inArray, or, SQL, ne, desc } from 'drizzle-orm';
+import { UsersService } from 'src/identity/users/users.service';
+import { OrgUnitsService } from 'src/core/org-units/org-units.service';
+import { CreateAdjustmentDto } from './dto/create-adjustment.dto';
 
 @Injectable()
 export class AttendanceAdjustmentsService {
-    constructor(private readonly db: DatabaseService) { }
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly usersService: UsersService,
+        private readonly orgUnitsService: OrgUnitsService,
+    ) { }
 
-    /** Return all adjustments for an employee, newest first. */
-    async findAllByEmployee(employeeId: string): Promise<AttendanceAdjustment[]> {
-        return this.db.db
-            .select()
-            .from(attendanceAdjustments)
-            .where(eq(attendanceAdjustments.employeeId, employeeId))
-            .orderBy(desc(attendanceAdjustments.createdAt))
-    }
-
-    /** Return a single adjustment or throw 404. */
-    async findById(id: string): Promise<AttendanceAdjustment> {
-        const [row] = await this.db.db
-            .select()
-            .from(attendanceAdjustments)
-            .where(eq(attendanceAdjustments.id, id))
-            .limit(1)
-
-        if (!row) {
-            throw new NotFoundException('Attendance adjustment not found')
-        }
-
-        return row
-    }
-
-    /**
-     * Submit a correction request for a specific attendance log.
-     * At least one of requestedActualInAt / requestedActualOutAt must be provided.
-     * The partial unique index (status = 'PENDING') prevents duplicate open requests for the same log.
-     */
-    async request(
-        payload: CreateAttendanceAdjustmentDto,
-        requestedBy: string,
-    ): Promise<AttendanceAdjustment> {
-        if (!payload.requestedActualInAt && !payload.requestedActualOutAt) {
-            throw new BadRequestException(
-                'At least one of requestedActualInAt or requestedActualOutAt is required',
-            )
-        }
-
-        // Load and validate the target log
-        const [log] = await this.db.db
-            .select()
-            .from(attendanceLogs)
-            .where(eq(attendanceLogs.id, payload.attendanceLogId))
-            .limit(1)
-
-        if (!log) {
-            throw new NotFoundException('Attendance log not found')
-        }
-
-        if (log.isLocked) {
-            throw new ForbiddenException(
-                'Attendance log is locked after payroll close — no further corrections allowed',
-            )
-        }
-
-        // Check for existing PENDING adjustment (friendly error before hitting the DB unique index)
-        const [existingPending] = await this.db.db
-            .select({ id: attendanceAdjustments.id })
-            .from(attendanceAdjustments)
-            .where(
-                and(
-                    eq(attendanceAdjustments.attendanceLogId, payload.attendanceLogId),
-                    eq(attendanceAdjustments.status, 'PENDING'),
-                ),
-            )
-            .limit(1)
-
-        if (existingPending) {
-            throw new ConflictException(
-                'A pending correction already exists for this attendance log',
-            )
-        }
-
-        try {
-            const [created] = await this.db.db
-                .insert(attendanceAdjustments)
-                .values({
-                    employeeId: payload.employeeId,
-                    attendanceLogId: payload.attendanceLogId,
-                    requestedActualInAt: payload.requestedActualInAt
-                        ? new Date(payload.requestedActualInAt)
-                        : null,
-                    requestedActualOutAt: payload.requestedActualOutAt
-                        ? new Date(payload.requestedActualOutAt)
-                        : null,
-                    // Snapshot current actual times for audit trail
-                    previousActualInAt: log.actualInAt ?? null,
-                    previousActualOutAt: log.actualOutAt ?? null,
-                    reason: payload.reason ?? null,
-                    requestedBy,
-                    status: 'PENDING',
-                })
-                .returning()
-
-            return created
-        } catch (err: unknown) {
-            const pgError = err as { code?: string }
-            if (pgError?.code === '23505') {
-                throw new ConflictException(
-                    'A pending correction already exists for this attendance log',
-                )
-            }
-
-            throw err
-        }
-    }
-
-    /**
-     * Approve a PENDING adjustment.
-     * Mutates the attendance_log row with the requested times, then marks the adjustment APPROVED.
-     * Both operations run in a single transaction.
-     */
-    async approve(id: string, approverId: string): Promise<AttendanceAdjustment> {
-        return this.db.withTransaction(async (tx) => {
-            const [adjustment] = await tx
-                .select()
-                .from(attendanceAdjustments)
-                .where(eq(attendanceAdjustments.id, id))
-                .limit(1)
-
-            if (!adjustment) {
-                throw new NotFoundException('Attendance adjustment not found')
-            }
-
-            if (adjustment.status !== 'PENDING') {
-                throw new BadRequestException(
-                    `Cannot approve an adjustment with status '${adjustment.status}'`,
-                )
-            }
-
-            // Guard: log must still be unlocked at approval time
-            const [log] = await tx
+    async createRequest(userId: string, employeeId: string, dto: CreateAdjustmentDto): Promise<AttendanceAdjustment> {
+        // 1. Check if log is locked (if it exists)
+        if (dto.attendanceLogId) {
+            const [log] = await this.db.db
                 .select({ isLocked: attendanceLogs.isLocked })
                 .from(attendanceLogs)
-                .where(eq(attendanceLogs.id, adjustment.attendanceLogId))
-                .limit(1)
+                .where(eq(attendanceLogs.id, dto.attendanceLogId))
+                .limit(1);
+            if (log?.isLocked) throw new BadRequestException('Attendance for this date is already locked.');
+        }
 
-            if (!log) {
-                throw new NotFoundException('Attendance log not found')
+        // 2. Fetch current log state for snapshot (if exists)
+        let previousIn: Date | null = null;
+        let previousOut: Date | null = null;
+        if (dto.attendanceLogId) {
+            const [log] = await this.db.db.select().from(attendanceLogs).where(eq(attendanceLogs.id, dto.attendanceLogId)).limit(1);
+            previousIn = log?.actualInAt;
+            previousOut = log?.actualOutAt;
+        }
+
+        // 3. Insert the adjustment request
+        const [inserted] = await this.db.db.insert(attendanceAdjustments).values({
+            employeeId,
+            attendanceLogId: dto.attendanceLogId ?? null,
+            workDate: dto.workDate,
+            requestedActualInAt: dto.requestedActualInAt ? new Date(dto.requestedActualInAt) : null,
+            requestedActualOutAt: dto.requestedActualOutAt ? new Date(dto.requestedActualOutAt) : null,
+            previousActualInAt: previousIn,
+            previousActualOutAt: previousOut,
+            remarks: dto.remarks,
+            status: 'PENDING',
+            requestedBy: userId,
+        }).returning();
+
+        return inserted;
+    }
+
+    async updateRequest(userId: string, id: string, dto: Partial<CreateAdjustmentDto & { status: string }>): Promise<AttendanceAdjustment> {
+        const [existing] = await this.db.db
+            .select()
+            .from(attendanceAdjustments)
+            .where(eq(attendanceAdjustments.id, id))
+            .limit(1);
+
+        if (!existing) throw new NotFoundException('Adjustment request not found');
+        if (existing.requestedBy !== userId) throw new ForbiddenException('You can only update your own requests');
+        if (existing.status !== 'PENDING') throw new BadRequestException('Only pending requests can be updated');
+
+        // Check if log is locked (if it exists)
+        if (existing.attendanceLogId) {
+            const [log] = await this.db.db
+                .select({ isLocked: attendanceLogs.isLocked })
+                .from(attendanceLogs)
+                .where(eq(attendanceLogs.id, existing.attendanceLogId))
+                .limit(1);
+            if (log?.isLocked) throw new BadRequestException('Attendance for this date is already locked.');
+        }
+
+        const updateData: any = {
+            updatedAt: new Date(),
+        };
+
+        if (dto.requestedActualInAt !== undefined) updateData.requestedActualInAt = dto.requestedActualInAt ? new Date(dto.requestedActualInAt) : null;
+        if (dto.requestedActualOutAt !== undefined) updateData.requestedActualOutAt = dto.requestedActualOutAt ? new Date(dto.requestedActualOutAt) : null;
+        if (dto.remarks !== undefined) updateData.remarks = dto.remarks;
+        if (dto.status !== undefined) updateData.status = dto.status;
+
+        const [updated] = await this.db.db
+            .update(attendanceAdjustments)
+            .set(updateData)
+            .where(eq(attendanceAdjustments.id, id))
+            .returning();
+
+        return updated;
+    }
+
+    async getPendingForApproval(userId: string): Promise<any[]> {
+        const user = await this.usersService.getUserFullProfile(userId);
+        if (!user) return [];
+
+        const isPowerUser = user.roles.includes('ADMIN') || user.roles.includes('HR_ADMIN');
+        const isRootLeader = user.isRootLeader;
+        const directIds = user.ledOrgUnitIds;
+
+        const conditions: (SQL | undefined)[] = [
+            eq(attendanceAdjustments.status, 'PENDING')
+        ];
+
+        if (!isRootLeader) {
+            conditions.push(ne(attendanceAdjustments.employeeId, user.employeeId ?? ''));
+        }
+
+        if (!isPowerUser) {
+            if (directIds.length > 0) {
+                const childIds = await this.orgUnitsService.getDescendantOrgUnitIds(directIds);
+                const hierarchyConditions: (SQL | undefined)[] = [
+                    inArray(employees.orgUnitId, directIds)
+                ];
+
+                if (childIds.length > 0) {
+                    const childLeadEmployeeIds = await this.orgUnitsService.getOrgUnitLeaderEmployeeIds(childIds);
+                    if (childLeadEmployeeIds.length > 0) {
+                        hierarchyConditions.push(
+                            and(
+                                inArray(employees.orgUnitId, childIds),
+                                inArray(employees.id, childLeadEmployeeIds)
+                            )
+                        );
+                    }
+                }
+                conditions.push(or(...hierarchyConditions));
+            } else {
+                return [];
             }
+        }
 
-            if (log.isLocked) {
-                throw new ForbiddenException(
-                    'Attendance log has been locked — cannot apply correction',
-                )
-            }
+        return this.db.db
+            .select({
+                adjustment: attendanceAdjustments,
+                employee: {
+                    firstName: employees.firstName,
+                    lastName: employees.lastName,
+                    employeeNo: employees.employeeNo
+                }
+            })
+            .from(attendanceAdjustments)
+            .innerJoin(employees, eq(employees.id, attendanceAdjustments.employeeId))
+            .where(and(...conditions))
+            .orderBy(desc(attendanceAdjustments.createdAt));
+    }
 
-            // Only overwrite fields that were part of the correction request
-            const logPatch: Record<string, unknown> = { updatedAt: new Date() }
-            if (adjustment.requestedActualInAt) logPatch.actualInAt = adjustment.requestedActualInAt
-            if (adjustment.requestedActualOutAt) logPatch.actualOutAt = adjustment.requestedActualOutAt
+    async approve(userId: string, id: string, remarks?: string) {
+        const adjustment = await this.getValidatedAuthority(userId, id);
 
-            await tx
-                .update(attendanceLogs)
-                .set(logPatch)
-                .where(eq(attendanceLogs.id, adjustment.attendanceLogId))
-
-            const now = new Date()
-            const [updated] = await tx
-                .update(attendanceAdjustments)
+        return this.db.withTransaction(async (tx) => {
+            // 1. Update Adjustment Status
+            await tx.update(attendanceAdjustments)
                 .set({
                     status: 'APPROVED',
-                    approvedBy: approverId,
-                    approvedAt: now,
-                    updatedAt: now,
+                    approvedBy: userId,
+                    approvedAt: new Date(),
+                    approverRemarks: remarks,
+                    updatedAt: new Date(),
                 })
-                .where(eq(attendanceAdjustments.id, id))
-                .returning()
+                .where(eq(attendanceAdjustments.id, id));
 
-            return updated
-        })
+            // 2. Update or Create Attendance Log
+            if (adjustment.attendanceLogId) {
+                // Correction
+                await tx.update(attendanceLogs)
+                    .set({
+                        actualInAt: adjustment.requestedActualInAt,
+                        actualOutAt: adjustment.requestedActualOutAt,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(attendanceLogs.id, adjustment.attendanceLogId));
+            } else {
+                // Missing Entry - create new log
+                await tx.insert(attendanceLogs).values({
+                    employeeId: adjustment.employeeId,
+                    workDate: adjustment.workDate,
+                    actualInAt: adjustment.requestedActualInAt,
+                    actualOutAt: adjustment.requestedActualOutAt,
+                    sourceIn: 'API', // Mark as system-generated
+                    sourceOut: 'API',
+                });
+            }
+
+            return { success: true };
+        });
     }
 
-    /**
-     * Reject a PENDING adjustment.
-     * Records the reviewer and timestamp for audit purposes.
-     */
-    async reject(id: string, approverId: string): Promise<AttendanceAdjustment> {
-        const adjustment = await this.findById(id)
+    async reject(userId: string, id: string, remarks?: string) {
+        await this.getValidatedAuthority(userId, id);
 
-        if (adjustment.status !== 'PENDING') {
-            throw new BadRequestException(
-                `Cannot reject an adjustment with status '${adjustment.status}'`,
-            )
-        }
-
-        const now = new Date()
-        const [updated] = await this.db.db
-            .update(attendanceAdjustments)
+        await this.db.db.update(attendanceAdjustments)
             .set({
                 status: 'REJECTED',
-                approvedBy: approverId,
-                approvedAt: now,
-                updatedAt: now,
-            })
-            .where(eq(attendanceAdjustments.id, id))
-            .returning()
-
-        return updated
-    }
-
-    /**
-     * Cancel a PENDING adjustment.
-     * Typically called by the original requester before it is reviewed.
-     */
-    async cancel(id: string): Promise<AttendanceAdjustment> {
-        const adjustment = await this.findById(id)
-
-        if (adjustment.status !== 'PENDING') {
-            throw new BadRequestException(
-                `Cannot cancel an adjustment with status '${adjustment.status}'`,
-            )
-        }
-
-        const [updated] = await this.db.db
-            .update(attendanceAdjustments)
-            .set({
-                status: 'CANCELLED',
+                approvedBy: userId,
+                approvedAt: new Date(),
+                approverRemarks: remarks,
                 updatedAt: new Date(),
             })
-            .where(eq(attendanceAdjustments.id, id))
-            .returning()
+            .where(eq(attendanceAdjustments.id, id));
 
-        return updated
+        return { success: true };
+    }
+
+    private async getValidatedAuthority(userId: string, id: string) {
+        const [adjustment] = await this.db.db
+            .select()
+            .from(attendanceAdjustments)
+            .where(and(eq(attendanceAdjustments.id, id), eq(attendanceAdjustments.status, 'PENDING')))
+            .limit(1);
+
+        if (!adjustment) throw new NotFoundException('Adjustment request not found');
+
+        const user = await this.usersService.getUserFullProfile(userId);
+        if (!user) throw new ForbiddenException();
+
+        const isAdmin = user.roles.includes('ADMIN') || user.roles.includes('HR_ADMIN');
+        const isRoot = user.isRootLeader;
+
+        let hasAuthority = isAdmin || isRoot;
+
+        if (!hasAuthority && user.ledOrgUnitIds.length > 0) {
+            const childOrgIds = await this.orgUnitsService.getDescendantOrgUnitIds(user.ledOrgUnitIds);
+            const allowedOrgIds = [...user.ledOrgUnitIds, ...childOrgIds];
+            
+            const [reqEmp] = await this.db.db
+                .select({ orgUnitId: employees.orgUnitId })
+                .from(employees)
+                .where(eq(employees.id, adjustment.employeeId))
+                .limit(1);
+            
+            if (reqEmp && allowedOrgIds.includes(reqEmp.orgUnitId)) {
+                hasAuthority = true;
+            }
+        }
+
+        if (!hasAuthority) throw new ForbiddenException('You do not have authority to act on this request');
+
+        return adjustment;
     }
 }

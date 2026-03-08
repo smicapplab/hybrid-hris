@@ -392,12 +392,15 @@ CREATE TABLE "attendance_logs" (
 CREATE TABLE "attendance_adjustments" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"employee_id" uuid NOT NULL,
-	"attendance_log_id" uuid NOT NULL,
+	"attendance_log_id" uuid,
+	"work_date" date NOT NULL,
 	"requested_actual_in_at" timestamp with time zone,
 	"requested_actual_out_at" timestamp with time zone,
 	"previous_actual_in_at" timestamp with time zone,
 	"previous_actual_out_at" timestamp with time zone,
 	"reason_code" integer,
+	"remarks" text NOT NULL,
+	"approver_remarks" text,
 	"status" "attendance_adjustment_status" DEFAULT 'PENDING' NOT NULL,
 	"requested_by" uuid NOT NULL,
 	"approved_by" uuid,
@@ -615,7 +618,8 @@ CREATE UNIQUE INDEX "attendance_logs_employee_work_date_uq" ON "attendance_logs"
 CREATE INDEX "attendance_adjustments_employee_idx" ON "attendance_adjustments" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "attendance_adjustments_status_idx" ON "attendance_adjustments" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "attendance_adjustments_log_idx" ON "attendance_adjustments" USING btree ("attendance_log_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "attendance_adjustments_pending_per_log_uq" ON "attendance_adjustments" USING btree ("attendance_log_id") WHERE status = 'PENDING';--> statement-breakpoint
+CREATE INDEX "attendance_adjustments_work_date_idx" ON "attendance_adjustments" USING btree ("work_date");--> statement-breakpoint
+CREATE UNIQUE INDEX "attendance_adjustments_pending_date_uq" ON "attendance_adjustments" USING btree ("employee_id","work_date") WHERE status = 'PENDING';--> statement-breakpoint
 CREATE UNIQUE INDEX "expense_categories_code_uq" ON "expense_categories" USING btree ("code");--> statement-breakpoint
 CREATE UNIQUE INDEX "budget_periods_code_uq" ON "budget_periods" USING btree ("code");--> statement-breakpoint
 CREATE UNIQUE INDEX "org_unit_budgets_uq" ON "org_unit_budgets" USING btree ("org_unit_id","budget_period_id","expense_category_id");--> statement-breakpoint

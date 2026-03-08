@@ -91,6 +91,12 @@ export const navigation: NavCategory[] = [
                 icon: CheckCircle2,
                 roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR'],
             },
+            {
+                title: "Attendance Approvals",
+                url: "/attendance/approvals",
+                icon: ClipboardList,
+                roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR'],
+            },
         ]
     },
     {

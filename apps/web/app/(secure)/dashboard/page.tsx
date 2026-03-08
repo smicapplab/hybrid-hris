@@ -3,6 +3,7 @@
 import { useAuth } from '@/context/AuthContext'
 import MyUpcomingLeaves from './components/my-upcoming-leaves'
 import PendingApprovalsWidget from './components/pending-approvals-widget'
+import PendingAttendanceApprovalsWidget from './components/pending-attendance-approvals-widget'
 import UpcomingTeamLeaves from './components/upcoming-team-leaves'
 import AttendanceWidget from './components/attendance-widget'
 
@@ -43,8 +44,11 @@ export default function DashboardPage() {
                     <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                         Action Required
                     </h2>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <PendingApprovalsWidget />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="space-y-6">
+                            <PendingApprovalsWidget />
+                            <PendingAttendanceApprovalsWidget />
+                        </div>
                         <UpcomingTeamLeaves />
                     </div>
                 </section>
