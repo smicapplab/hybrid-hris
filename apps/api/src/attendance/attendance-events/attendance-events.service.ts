@@ -61,6 +61,30 @@ export class AttendanceEventsService {
         return row
     }
 
+    async getTodayStatus(employeeId: string) {
+        const now = new Date()
+        const timezone = await this.getEmployeeTimezone(employeeId)
+        const todayWorkDate = this.toLocalDateString(now, timezone)
+
+        // Fetch the last 2 entries to cover today and the previous work day (whenever that was)
+        const logs = await this.db.db
+            .select()
+            .from(attendanceLogs)
+            .where(eq(attendanceLogs.employeeId, employeeId))
+            .orderBy(desc(attendanceLogs.workDate), desc(attendanceLogs.createdAt))
+            .limit(2)
+
+        const todayLog = logs.find(l => l.workDate === todayWorkDate) ?? null
+        const lastLog = logs.find(l => l.id !== todayLog?.id) ?? null
+
+        return {
+            today: todayLog,
+            last: lastLog,
+            serverTime: now.toISOString(),
+            timezone
+        }
+    }
+
     /* ============================================================
        FLOW 1: AUTHENTICATED USER (JWT)
        ============================================================ */
@@ -268,9 +292,13 @@ export class AttendanceEventsService {
             )
             .limit(1)
 
+        if (existing?.actualInAt) {
+            throw new BadRequestException('You have already recorded a Time In for this work date.')
+        }
+
         return this.db.withTransaction(async (tx) => {
             if (existing) {
-                // Row was pre-created (e.g., by a scheduler); stamp actual in and source
+                // Row was pre-created (e.g., by a scheduler) but has no actualInAt yet
                 const [updated] = await tx
                     .update(attendanceLogs)
                     .set({

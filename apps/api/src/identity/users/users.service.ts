@@ -101,15 +101,6 @@ export class UsersService {
             .where(eq(users.id, userId))
     }
 
-    async getEmployeeOrgUnitId(employeeId: string): Promise<string | null> {
-        const [emp] = await this.db.db
-            .select({ orgUnitId: employees.orgUnitId })
-            .from(employees)
-            .where(eq(employees.id, employeeId))
-            .limit(1);
-        return emp?.orgUnitId ?? null;
-    }
-
     /**
      * Consolidates user profile data and structural flags (isSupervisor, isOrgLead, isRootLeader)
      * in a single method to minimize redundant DB calls.

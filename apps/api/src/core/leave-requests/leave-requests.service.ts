@@ -85,7 +85,7 @@ export class LeaveRequestsService {
         return row ? parseFloat(row.balance) : 0
     }
 
-    /** Resolve the approver userId — priorities: 1. Direct Supervisor, 2. Root Self-Approval, 3. HR_ADMIN */
+    /** Resolve the approver userId — priorities: 1. Direct Supervisor, 2. Root Self-Approval */
     private async resolveApproverUserId(requesterEmployeeId: string): Promise<string | null> {
         // 1. Try to get the userId of the requester's supervisor
         const [supervisor] = await this.db.db
@@ -123,39 +123,13 @@ export class LeaveRequestsService {
                 and(
                     inArray(roles.code, [SystemRole.HR_ADMIN, SystemRole.ADMIN]),
                     eq(users.isActive, true),
-                    // If fallback is needed, still ensure it's not the requester (unless they are root)
+                    // Ensure fallback is not the requester
                     ne(users.employeeId, requesterEmployeeId)
                 ),
             )
             .limit(1)
 
-        if (hrApprover?.userId) {
-            return hrApprover.userId;
-        }
-
-        // 4. Ultimate Fallback: The Root Org Leader
-        const [rootOrg] = await this.db.db
-            .select({ id: orgUnits.id })
-            .from(orgUnits)
-            .where(isNull(orgUnits.parentId))
-            .limit(1);
-        
-        if (rootOrg) {
-            const [rootLeader] = await this.db.db
-                .select({ userId: users.id })
-                .from(orgUnitLeaders)
-                .innerJoin(users, eq(users.employeeId, orgUnitLeaders.employeeId))
-                .where(and(
-                    eq(orgUnitLeaders.orgUnitId, rootOrg.id),
-                    isNull(orgUnitLeaders.deletedAt),
-                    eq(users.isActive, true)
-                ))
-                .limit(1);
-            
-            if (rootLeader) return rootLeader.userId;
-        }
-
-        return null;
+        return hrApprover?.userId ?? null;
     }
 
     // ─── public API ──────────────────────────────────────────
@@ -315,6 +289,9 @@ export class LeaveRequestsService {
 
         // Resolve approver
         const approverUserId = await this.resolveApproverUserId(employeeId)
+        if (!approverUserId) {
+            throw new BadRequestException('No suitable approver could be resolved for this request. Please contact HR.')
+        }
 
         return this.db.withTransaction(async (tx) => {
             const [request] = await tx
@@ -332,14 +309,13 @@ export class LeaveRequestsService {
                 })
                 .returning()
 
-            if (approverUserId) {
-                await tx.insert(leaveRequestApprovals).values({
-                    leaveRequestId: request.id,
-                    approverUserId,
-                    level: 1,
-                    status: 'PENDING',
-                })
-            }
+            // Always insert an approval row. We know approverUserId is not null here.
+            await tx.insert(leaveRequestApprovals).values({
+                leaveRequestId: request.id,
+                approverUserId: approverUserId,
+                level: 1,
+                status: 'PENDING',
+            })
 
             return request
         })
@@ -765,31 +741,7 @@ export class LeaveRequestsService {
      * Approve a leave request. Creates CONSUMPTION ledger entry.
      */
     async approve(userId: string, requestId: string, dto: ActOnLeaveRequestDto) {
-        const [approval] = await this.db.db
-            .select()
-            .from(leaveRequestApprovals)
-            .where(
-                and(
-                    eq(leaveRequestApprovals.leaveRequestId, requestId),
-                    eq(leaveRequestApprovals.approverUserId, userId),
-                    eq(leaveRequestApprovals.status, 'PENDING'),
-                ),
-            )
-            .limit(1)
-
-        if (!approval) {
-            throw new ForbiddenException('No pending approval found for this request')
-        }
-
-        const [request] = await this.db.db
-            .select()
-            .from(leaveRequests)
-            .where(and(eq(leaveRequests.id, requestId), eq(leaveRequests.status, 'PENDING')))
-            .limit(1)
-
-        if (!request) {
-            throw new NotFoundException('Leave request not found or not in PENDING status')
-        }
+        const { approval, request } = await this.getValidatedApprovalAuthority(userId, requestId);
 
         const days = parseFloat(request.days as unknown as string)
         const currentBalance = await this.getBalance(request.employeeId, request.leaveTypeId)
@@ -800,6 +752,7 @@ export class LeaveRequestsService {
                 .update(leaveRequestApprovals)
                 .set({
                     status: 'APPROVED',
+                    approverUserId: userId, // Ensure we record who actually acted
                     actedAt: new Date(),
                     remarks: dto.remarks ?? null,
                 })
@@ -835,27 +788,14 @@ export class LeaveRequestsService {
      * Reject a leave request.
      */
     async reject(userId: string, requestId: string, dto: ActOnLeaveRequestDto) {
-        const [approval] = await this.db.db
-            .select()
-            .from(leaveRequestApprovals)
-            .where(
-                and(
-                    eq(leaveRequestApprovals.leaveRequestId, requestId),
-                    eq(leaveRequestApprovals.approverUserId, userId),
-                    eq(leaveRequestApprovals.status, 'PENDING'),
-                ),
-            )
-            .limit(1)
-
-        if (!approval) {
-            throw new ForbiddenException('No pending approval found for this request')
-        }
+        const { approval } = await this.getValidatedApprovalAuthority(userId, requestId);
 
         return this.db.withTransaction(async (tx) => {
             await tx
                 .update(leaveRequestApprovals)
                 .set({
                     status: 'REJECTED',
+                    approverUserId: userId, // Record who acted
                     actedAt: new Date(),
                     remarks: dto.remarks ?? null,
                 })
@@ -869,5 +809,82 @@ export class LeaveRequestsService {
 
             return updated
         })
+    }
+
+    /**
+     * Internal helper to validate if a user has authority to act on a pending leave request.
+     * Authority is granted if:
+     * 1. User is the specifically assigned approver
+     * 2. User has ADMIN/HR_ADMIN roles
+     * 3. User is an Org Lead of the requester's hierarchy
+     */
+    private async getValidatedApprovalAuthority(userId: string, requestId: string) {
+        const [request] = await this.db.db
+            .select()
+            .from(leaveRequests)
+            .where(and(eq(leaveRequests.id, requestId), eq(leaveRequests.status, 'PENDING')))
+            .limit(1)
+
+        if (!request) {
+            throw new NotFoundException('Leave request not found or not in PENDING status')
+        }
+
+        // Fetch current user profile for role and lead status
+        const user = await this.usersService.getUserFullProfile(userId);
+        if (!user) throw new ForbiddenException('User profile not found');
+
+        const isAdmin = user.roles.includes('ADMIN') || user.roles.includes('HR_ADMIN');
+        const isRoot = user.isRootLeader;
+
+        // Find the pending approval record for this request
+        const [approval] = await this.db.db
+            .select()
+            .from(leaveRequestApprovals)
+            .where(and(
+                eq(leaveRequestApprovals.leaveRequestId, requestId),
+                eq(leaveRequestApprovals.status, 'PENDING')
+            ))
+            .limit(1);
+
+        if (!approval) {
+            throw new ForbiddenException('No pending approval record found for this request');
+        }
+
+        // Authority Check
+        let hasAuthority = false;
+
+        if (isAdmin || isRoot) {
+            hasAuthority = true;
+        } else if (approval.approverUserId === userId) {
+            hasAuthority = true;
+        } else if (user.ledOrgUnitIds.length > 0) {
+            const [requester] = await this.db.db
+                .select({ orgUnitId: employees.orgUnitId })
+                .from(employees)
+                .where(eq(employees.id, request.employeeId))
+                .limit(1);
+
+            if (requester) {
+                // Case 1: In direct team
+                if (user.ledOrgUnitIds.includes(requester.orgUnitId)) {
+                    hasAuthority = true;
+                } else {
+                    // Case 2: In child team AND requester is a leader there
+                    const childIds = await this.orgUnitsService.getDescendantOrgUnitIds(user.ledOrgUnitIds);
+                    if (childIds.includes(requester.orgUnitId)) {
+                        const childLeadEmployeeIds = await this.orgUnitsService.getOrgUnitLeaderEmployeeIds([requester.orgUnitId]);
+                        if (childLeadEmployeeIds.includes(request.employeeId)) {
+                            hasAuthority = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!hasAuthority) {
+            throw new ForbiddenException('You do not have authority to act on this request');
+        }
+
+        return { request, approval };
     }
 }

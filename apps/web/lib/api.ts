@@ -46,7 +46,6 @@ async function parseError(res: Response): Promise<string> {
     }
 
     if (body) {
-        console.error('API error:', res.status, body)
         try {
             const json = JSON.parse(body) as { message?: string }
             if (json?.message) return json.message

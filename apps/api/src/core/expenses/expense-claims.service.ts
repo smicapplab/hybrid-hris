@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { expenseClaims, expenseClaimApprovals, employees, orgUnitLeaders, roles, userRoles, orgUnits } from '@hybrid-hris/db/schema';
 import { ExpenseClaim } from '@hybrid-hris/db/types';
@@ -54,18 +54,9 @@ export class ExpenseClaimsService {
     }
 
     async approveClaim(claimId: string, approverUserId: string, level: number, remarks?: string): Promise<{ success: boolean }> {
+        const claim = await this.getValidatedApprovalAuthority(approverUserId, claimId);
+
         return this.db.withTransaction(async (tx) => {
-            const [claim] = await tx
-                .select()
-                .from(expenseClaims)
-                .where(eq(expenseClaims.id, claimId))
-                .limit(1);
-
-            if (!claim) throw new NotFoundException('Expense claim not found');
-            if (claim.status !== ExpenseClaimStatus.SUBMITTED) {
-                throw new BadRequestException('Claim is not in SUBMITTED status');
-            }
-
             // 1. Record the approval
             await tx.insert(expenseClaimApprovals).values({
                 expenseClaimId: claimId,
@@ -101,6 +92,56 @@ export class ExpenseClaimsService {
 
             return { success: true };
         });
+    }
+
+    /**
+     * Internal helper to validate if a user has authority to act on a pending expense claim.
+     */
+    private async getValidatedApprovalAuthority(userId: string, claimId: string) {
+        const [claim] = await this.db.db
+            .select()
+            .from(expenseClaims)
+            .where(eq(expenseClaims.id, claimId))
+            .limit(1);
+
+        if (!claim) throw new NotFoundException('Expense claim not found');
+        if (claim.status !== ExpenseClaimStatus.SUBMITTED) {
+            throw new BadRequestException('Claim is not in SUBMITTED status');
+        }
+
+        // Fetch current user profile for role and lead status
+        const user = await this.usersService.getUserFullProfile(userId);
+        if (!user) throw new ForbiddenException('User profile not found');
+
+        const isAdmin = user.roles.includes('ADMIN') || user.roles.includes('HR_ADMIN');
+        const isRoot = user.isRootLeader;
+
+        // Authority Check
+        let hasAuthority = false;
+
+        if (isAdmin || isRoot) {
+            hasAuthority = true;
+        } else if (user.ledOrgUnitIds.length > 0) {
+            // Case 1: In direct team
+            if (user.ledOrgUnitIds.includes(claim.orgUnitId)) {
+                hasAuthority = true;
+            } else {
+                // Case 2: In child team AND requester is a leader there
+                const childIds = await this.orgUnitsService.getDescendantOrgUnitIds(user.ledOrgUnitIds);
+                if (childIds.includes(claim.orgUnitId)) {
+                    const childLeadEmployeeIds = await this.orgUnitsService.getOrgUnitLeaderEmployeeIds([claim.orgUnitId]);
+                    if (childLeadEmployeeIds.includes(claim.employeeId)) {
+                        hasAuthority = true;
+                    }
+                }
+            }
+        }
+
+        if (!hasAuthority) {
+            throw new ForbiddenException('You do not have authority to act on this expense claim');
+        }
+
+        return claim;
     }
 
     async getMyClaims(employeeId: string): Promise<ExpenseClaim[]> {

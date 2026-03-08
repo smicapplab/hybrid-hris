@@ -28,6 +28,12 @@ export class AttendanceEventsController {
         return this.attendanceEventsService.findAllByEmployee(employeeId)
     }
 
+    @UseGuards(AuthGuard('jwt'))
+    @Get('status')
+    async getTodayStatus(@Req() req: Request & { user: { employeeId: string } }) {
+        return this.attendanceEventsService.getTodayStatus(req.user.employeeId)
+    }
+
     @Get('employee-prefix')
     async getEmployeePrefix() {
         const prefix = await this.attendanceEventsService.getEmployeePrefix()
