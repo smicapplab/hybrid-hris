@@ -4,13 +4,17 @@ import { AuthService } from './auth.service';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
+import { MicrosoftStrategy } from './strategies/microsoft.strategy';
 import { DatabaseModule } from 'src/database/database.module';
 import { IdentityModule } from 'src/identity/identity.module';
+import { HrSettingsModule } from 'src/core/hr-settings/hr-settings.module';
 
 @Module({
   imports: [
     DatabaseModule,
     IdentityModule,
+    HrSettingsModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: () => ({
@@ -22,7 +26,7 @@ import { IdentityModule } from 'src/identity/identity.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAccessStrategy],
+  providers: [AuthService, JwtAccessStrategy, GoogleStrategy, MicrosoftStrategy],
   exports: [AuthService],
 })
 export class AuthModule { }

@@ -141,6 +141,12 @@ export const navigation: NavCategory[] = [
                 url: "/admin/budgets",
                 icon: Calculator,
             },
+            {
+                title: "Organization Settings",
+                url: "/admin/settings",
+                icon: Settings,
+                roles: ['ADMIN'],
+            },
         ]
     },
 ];

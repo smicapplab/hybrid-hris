@@ -10,6 +10,7 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { AuthGuard } from '@nestjs/passport';
 
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -55,6 +56,47 @@ export class AuthController {
         res.cookie(this.refreshCookieName(), refreshToken, this.cookieOptions());
 
         return { accessToken };
+    }
+
+    @Get('config')
+    async getConfig() {
+        return this.auth.getAuthConfig();
+    }
+
+    // --- Google OAuth ---
+    @Get('google')
+    @UseGuards(AuthGuard('google'))
+    async googleAuth(@Req() req: Request) {
+        // Initiates the Google OAuth flow
+    }
+
+    @Get('google/callback')
+    @UseGuards(AuthGuard('google'))
+    async googleAuthRedirect(@Req() req: Request, @Res() res: Response) {
+        return this.handleOAuthSuccess(req, res);
+    }
+
+    // --- Microsoft OAuth ---
+    @Get('microsoft')
+    @UseGuards(AuthGuard('microsoft'))
+    async microsoftAuth(@Req() req: Request) {
+        // Initiates the Microsoft OAuth flow
+    }
+
+    @Get('microsoft/callback')
+    @UseGuards(AuthGuard('microsoft'))
+    async microsoftAuthRedirect(@Req() req: Request, @Res() res: Response) {
+        return this.handleOAuthSuccess(req, res);
+    }
+
+    private async handleOAuthSuccess(req: any, res: Response) {
+        const { accessToken, refreshToken } = await this.auth.login(req.user);
+
+        res.cookie(this.refreshCookieName(), refreshToken, this.cookieOptions());
+
+        // Redirect to frontend with access token in URL fragment or similar
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        return res.redirect(`${frontendUrl}/auth/callback?token=${accessToken}`);
     }
 
     @Post('refresh')

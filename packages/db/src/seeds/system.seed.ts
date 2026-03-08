@@ -258,6 +258,10 @@ export async function seedSystem() {
             employeeNoPrefix: 'EMP-',
             employeeNoNext: 1005,
             employeeNoPadding: 6,
+            passwordLoginEnabled: true,
+            googleLoginEnabled: true,
+            microsoftLoginEnabled: true,
+            allowedWorkspaceDomains: ['hybrid-hris.local', 'company.com'],
         })
         .onConflictDoUpdate({
             target: hrSettings.singleton,

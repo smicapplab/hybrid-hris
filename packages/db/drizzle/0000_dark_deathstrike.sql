@@ -2,6 +2,7 @@ CREATE TYPE "public"."employee_status" AS ENUM('ACTIVE', 'PROBATION', 'SUSPENDED
 CREATE TYPE "public"."employment_type" AS ENUM('REGULAR', 'PROBATIONARY', 'CONTRACTUAL', 'CONSULTANT', 'INTERN');--> statement-breakpoint
 CREATE TYPE "public"."civil_status" AS ENUM('SINGLE', 'MARRIED', 'SEPARATED', 'WIDOWED', 'ANNULLED');--> statement-breakpoint
 CREATE TYPE "public"."gender" AS ENUM('MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY');--> statement-breakpoint
+CREATE TYPE "public"."auth_provider" AS ENUM('GOOGLE', 'MICROSOFT');--> statement-breakpoint
 CREATE TYPE "public"."org_unit_leader_role" AS ENUM('HEAD', 'CO_HEAD', 'ACTING_HEAD');--> statement-breakpoint
 CREATE TYPE "public"."accrual_method" AS ENUM('MONTHLY', 'ANNUAL_GRANT', 'NONE');--> statement-breakpoint
 CREATE TYPE "public"."leave_day_type" AS ENUM('FULL', 'HALF');--> statement-breakpoint
@@ -132,6 +133,15 @@ CREATE TABLE "user_refresh_tokens" (
 	"user_agent" varchar(512),
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "user_refresh_tokens_not_expired_check" CHECK (expires_at > created_at)
+);
+--> statement-breakpoint
+CREATE TABLE "user_identities" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"provider" "auth_provider" NOT NULL,
+	"provider_id" varchar(255) NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "positions" (
@@ -306,6 +316,10 @@ CREATE TABLE "hr_settings" (
 	"employee_no_padding" integer DEFAULT 6 NOT NULL,
 	"email_domain" varchar(253),
 	"timezone" varchar(50) DEFAULT 'UTC' NOT NULL,
+	"password_login_enabled" boolean DEFAULT true NOT NULL,
+	"google_login_enabled" boolean DEFAULT false NOT NULL,
+	"microsoft_login_enabled" boolean DEFAULT false NOT NULL,
+	"allowed_workspace_domains" varchar(255)[],
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -501,6 +515,7 @@ ALTER TABLE "users" ADD CONSTRAINT "users_employee_id_employees_id_fk" FOREIGN K
 ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_refresh_tokens" ADD CONSTRAINT "user_refresh_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_identities" ADD CONSTRAINT "user_identities_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "org_units" ADD CONSTRAINT "org_units_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."org_units"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "org_unit_positions" ADD CONSTRAINT "org_unit_positions_org_unit_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "org_unit_positions" ADD CONSTRAINT "org_unit_positions_position_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -579,6 +594,7 @@ CREATE INDEX "user_roles_role_idx" ON "user_roles" USING btree ("role_id");--> s
 CREATE INDEX "user_refresh_tokens_user_idx" ON "user_refresh_tokens" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_refresh_tokens_jti_uq" ON "user_refresh_tokens" USING btree ("jti");--> statement-breakpoint
 CREATE INDEX "user_refresh_tokens_token_hash_idx" ON "user_refresh_tokens" USING btree ("token_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "user_identities_provider_id_uq" ON "user_identities" USING btree ("provider","provider_id");--> statement-breakpoint
 CREATE INDEX "positions_title_idx" ON "positions" USING btree ("title");--> statement-breakpoint
 CREATE INDEX "org_units_parent_idx" ON "org_units" USING btree ("parent_id");--> statement-breakpoint
 CREATE INDEX "org_unit_leaders_org_unit_idx" ON "org_unit_leaders" USING btree ("org_unit_id");--> statement-breakpoint

@@ -117,6 +117,16 @@ The system uses JWT-based authentication with **Refresh Token Rotation**.
 - **RBAC:** Roles are verified via `RolesGuard` in the API. 
 - **Security Hardening:** Critical data visibility (Approvals, Budgets) is scoped using live database lookups of user roles and leadership assignments rather than trusting JWT claims.
 
+### Hybrid Authentication & Workspace Integration
+
+The system supports a hybrid identity model, allowing organizations to bridge internal credentials with corporate workspaces:
+
+- **Google Workspace & Microsoft 365:** Seamless OAuth2 integration for corporate sign-in.
+- **Domain Locking:** Administrators can restrict OAuth access to specific corporate domains (e.g., `yourcompany.com`).
+- **Dynamic Configuration:** Authentication methods can be toggled in real-time via the **Organization Settings** dashboard.
+- **Fail-Safe Mechanism:** Internal Email/Password login remains available as a fallback to prevent system lockouts if third-party providers are unconfigured.
+- **Self-Provisioning:** The system supports auto-creation of employee profiles for recognized corporate emails, putting them in an "Incomplete Setup" state for HR to finalize (department/position assignment).
+
 ### Default Admin (Development)
 
 Email: `admin@hybrid-hris.local`  

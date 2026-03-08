@@ -6,6 +6,7 @@ export * from './users';
 export * from './roles';
 export * from './user-roles';
 export * from './user-refresh-tokens';
+export * from './user-identities';
 export * from './positions';
 export * from './org-units';
 export * from './org-unit-positions';

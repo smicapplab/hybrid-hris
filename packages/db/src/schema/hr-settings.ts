@@ -37,6 +37,12 @@ export const hrSettings = pgTable(
         // Used as fallback when employee.timezone is not set.
         timezone: varchar('timezone', { length: 50 }).notNull().default('UTC'),
 
+        // Authentication Settings
+        passwordLoginEnabled: boolean('password_login_enabled').default(true).notNull(),
+        googleLoginEnabled: boolean('google_login_enabled').default(false).notNull(),
+        microsoftLoginEnabled: boolean('microsoft_login_enabled').default(false).notNull(),
+        allowedWorkspaceDomains: varchar('allowed_workspace_domains', { length: 255 }).array(),
+
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
             .notNull(),
