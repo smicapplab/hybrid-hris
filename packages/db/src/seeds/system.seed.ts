@@ -10,7 +10,7 @@ import { orgUnits } from '../schema/org-units';
 import { positions } from '../schema/positions';
 import { orgUnitPositions } from '../schema/org-unit-positions';
 import { orgUnitLeaders } from '../schema/org-unit-leaders';
-import { eq, InferSelectModel } from 'drizzle-orm';
+import { eq, and, sql, InferSelectModel } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
 import { hrSettings } from '../schema/hr-settings';
 import { employeeProfiles } from '../schema/employee-profiles';
@@ -137,7 +137,14 @@ export async function seedSystem() {
             description: 'Basic self-service access',
             isSystem: true,
         },
-    ]).onConflictDoNothing();
+    ]).onConflictDoUpdate({
+        target: roles.code,
+        set: {
+            name: sql`excluded.name`,
+            description: sql`excluded.description`,
+            updatedAt: new Date(),
+        },
+    });
 
     // ---- Default Leave Types ----
     const leaveTypesData = [
@@ -545,37 +552,35 @@ export async function seedSystem() {
             });
     }
 
-    // Fetch roles
-    const [adminRole] = await db.select().from(roles).where(eq(roles.code, 'HR_ADMIN'));
-    const [managerRole] = await db.select().from(roles).where(eq(roles.code, 'MANAGER'));
-    const [employeeRole] = await db.select().from(roles).where(eq(roles.code, 'EMPLOYEE'));
-
-    // ---- Initial Admin User ----
-    let adminUserId: string | undefined;
-
-    const insertedUsers = await db.insert(users)
-        .values({
-            employeeId: adminEmployeeId,
-            email: 'admin@hybrid-hris.local',
-            passwordHash,
-            attendancePinHash: pinHash,
-            isActive: true,
-        })
-        .onConflictDoNothing()
-        .returning();
-
-    if (insertedUsers.length > 0) {
-        adminUserId = insertedUsers[0].id;
+    // ---- Initial Admin User (System Administrator) ----
+    let adminUserObj: any;
+    const existingAdminUsers = await db.select().from(users).where(sql`lower(email) = lower('admin@hybrid-hris.local')`);
+    
+    if (existingAdminUsers.length > 0) {
+        [adminUserObj] = await db.update(users)
+            .set({ 
+                employeeId: adminEmployeeId, 
+                passwordHash,
+                attendancePinHash: pinHash,
+                updatedAt: new Date() 
+            })
+            .where(eq(users.id, existingAdminUsers[0].id))
+            .returning();
     } else {
-        const existing = await db.select()
-            .from(users)
-            .where(eq(users.email, 'admin@hybrid-hris.local'));
-        adminUserId = existing[0]?.id;
+        [adminUserObj] = await db.insert(users)
+            .values({
+                employeeId: adminEmployeeId,
+                email: 'admin@hybrid-hris.local',
+                passwordHash,
+                attendancePinHash: pinHash,
+                isActive: true,
+            })
+            .returning();
     }
 
     // ---- Initial HR Employee & User ----
     let hrEmployeeId: string | undefined;
-    const [hrEmp] = await db.insert(employees)
+    const [insertedHrEmp] = await db.insert(employees)
         .values({
             employeeNo: 'EMP-000002',
             firstName: 'HR',
@@ -590,39 +595,52 @@ export async function seedSystem() {
         .onConflictDoNothing()
         .returning();
 
-    if (hrEmp) {
-        hrEmployeeId = hrEmp.id;
-        await ensureEmployeeProfile(hrEmployeeId, 'EMP-000002');
-        await ensureEmployeeIdentifiers(hrEmployeeId, 'EMP-000002');
-    } else {
-        const existing = await db.select().from(employees).where(eq(employees.employeeNo, 'EMP-000002'));
-        hrEmployeeId = existing[0]?.id;
-    }
+    hrEmployeeId = insertedHrEmp?.id || (await db.select().from(employees).where(eq(employees.employeeNo, 'EMP-000002')))[0]?.id;
 
     if (hrEmployeeId) {
-        const [hrUser] = await db.insert(users)
+        await ensureEmployeeProfile(hrEmployeeId, 'EMP-000002');
+        await ensureEmployeeIdentifiers(hrEmployeeId, 'EMP-000002');
+    }
+
+    let hrUserObj: any;
+    const existingHrUsers = await db.select().from(users).where(sql`lower(email) = lower('hr@hybrid-hris.local')`);
+
+    if (existingHrUsers.length > 0) {
+        [hrUserObj] = await db.update(users)
+            .set({ 
+                employeeId: hrEmployeeId, 
+                passwordHash,
+                updatedAt: new Date() 
+            })
+            .where(eq(users.id, existingHrUsers[0].id))
+            .returning();
+    } else {
+        [hrUserObj] = await db.insert(users)
             .values({
                 employeeId: hrEmployeeId,
                 email: 'hr@hybrid-hris.local',
                 passwordHash,
                 isActive: true,
             })
-            .onConflictDoNothing()
             .returning();
-
-        if (hrUser && adminRole) {
-            await db.insert(userRoles).values({ userId: hrUser.id, roleId: adminRole.id }).onConflictDoNothing();
-        }
     }
 
-    // Attach ADMIN role to admin user
-    if (adminUserId && adminRole) {
-        await db.insert(userRoles)
-            .values({
-                userId: adminUserId,
-                roleId: adminRole.id,
-            })
-            .onConflictDoNothing();
+    // --- Identity & Access Management: Final Role Assignments ---
+    const rolesInDb = await db.select().from(roles);
+    const adminRoleObj = rolesInDb.find(r => r.code === 'ADMIN');
+    const hrAdminRoleObj = rolesInDb.find(r => r.code === 'HR_ADMIN');
+    const employeeRole = rolesInDb.find(r => r.code === 'EMPLOYEE');
+
+    if (adminUserObj && adminRoleObj) {
+        await db.delete(userRoles).where(eq(userRoles.userId, adminUserObj.id));
+        await db.insert(userRoles).values({ userId: adminUserObj.id, roleId: adminRoleObj.id });
+        console.log(`Verified: ${adminUserObj.email} is ADMIN`);
+    }
+
+    if (hrUserObj && hrAdminRoleObj) {
+        await db.delete(userRoles).where(eq(userRoles.userId, hrUserObj.id));
+        await db.insert(userRoles).values({ userId: hrUserObj.id, roleId: hrAdminRoleObj.id });
+        console.log(`Verified: ${hrUserObj.email} is HR_ADMIN`);
     }
 
     // ---- Assign System Admin as Leader of System Administration ----
@@ -751,7 +769,7 @@ export async function seedSystem() {
         }
 
         // Create various leave requests for these team members
-        if (adminUserId && vlType && slType) {
+        if (adminUserObj?.id && vlType && slType) {
             for (let i = 0; i < teamMembers.length; i++) {
                 const emp = teamMembers[i];
                 const isPending = i < 8; // First 8 are pending
@@ -772,7 +790,7 @@ export async function seedSystem() {
                         days: '2.0000',
                         status: isPending ? 'PENDING' : (isApproved ? 'APPROVED' : 'REJECTED'),
                         notes: `Sample request from team member ${i + 1}`,
-                        approvedBy: (isApproved || isRejected) ? adminUserId : null,
+                        approvedBy: (isApproved || isRejected) ? adminUserObj.id : null,
                         approvedAt: (isApproved || isRejected) ? new Date() : null,
                     })
                     .returning();
@@ -782,7 +800,7 @@ export async function seedSystem() {
                     await db.insert(leaveRequestApprovals)
                         .values({
                             leaveRequestId: req.id,
-                            approverUserId: adminUserId,
+                            approverUserId: adminUserObj.id,
                             level: 1,
                             status: isPending ? 'PENDING' : (isApproved ? 'APPROVED' : 'REJECTED'),
                             actedAt: (isApproved || isRejected) ? new Date() : null,
@@ -824,8 +842,20 @@ export async function seedSystem() {
                         actualOutAt: new Date(`${workDateStr}T17:05:00Z`),
                         sourceIn: 'WEB',
                         sourceOut: 'WEB',
-                    }).returning();
-                    logId = log.id;
+                    }).onConflictDoNothing().returning();
+                    
+                    if (log) {
+                        logId = log.id;
+                    } else {
+                        const [existing] = await db.select()
+                            .from(attendanceLogs)
+                            .where(and(
+                                eq(attendanceLogs.employeeId, emp.id),
+                                eq(attendanceLogs.workDate, workDateStr)
+                            ))
+                            .limit(1);
+                        logId = existing?.id || null;
+                    }
                 }
 
                 // Create a pending adjustment
@@ -839,7 +869,7 @@ export async function seedSystem() {
                     previousActualOutAt: logId ? new Date(`${workDateStr}T17:05:00Z`) : null,
                     remarks: i === 0 ? "Forgot to punch out correctly" : `Adjustment request ${i + 1}`,
                     status: 'PENDING',
-                    requestedBy: (await db.select().from(users).where(eq(users.employeeId, emp.id)))[0]?.id || adminUserId!,
+                    requestedBy: (await db.select().from(users).where(eq(users.employeeId, emp.id)))[0]?.id || adminUserObj.id,
                 }).onConflictDoNothing();
             }
         }

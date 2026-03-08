@@ -68,7 +68,7 @@ export class LeaveRequestsController {
 
     /** Pending requests awaiting my approval */
     @UseGuards(RolesGuard)
-    //@Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.MANAGER)
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.MANAGER)
     @Get('pending-approval')
     async getPendingForApproval(@Req() req: AuthRequest, @Query() query: LeaveRequestFilterDto) {
         return this.service.getPendingForApproval(req.user.id, query)
@@ -76,7 +76,7 @@ export class LeaveRequestsController {
 
     /** All requests (past and pending) for my team */
     @UseGuards(RolesGuard)
-    //@Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.MANAGER)
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.MANAGER)
     @Get('team-history')
     async getTeamHistory(@Req() req: AuthRequest, @Query() query: LeaveRequestFilterDto) {
         return this.service.getTeamHistory(req.user.id, query)

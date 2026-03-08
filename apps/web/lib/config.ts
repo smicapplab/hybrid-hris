@@ -14,6 +14,8 @@ import {
     Settings,
     Receipt,
     Calculator,
+    ClipboardCheck,
+    ReceiptText,
 } from "lucide-react";
 
 export const navigation: NavCategory[] = [
@@ -43,16 +45,6 @@ export const navigation: NavCategory[] = [
                 title: "Account Security",
                 url: "/me/security",
                 icon: Shield,
-            },
-            {
-                title: "Work Schedule",
-                url: "/me/work-schedule",
-                icon: Clock,
-            },
-            {
-                title: "Attendance History",
-                url: "/me/attendance-history",
-                icon: ClipboardList,
             },
         ]
     },
@@ -89,13 +81,28 @@ export const navigation: NavCategory[] = [
                 title: "Leave Approvals",
                 url: "/leave/approvals",
                 icon: CheckCircle2,
-                roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR'],
+                roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR', 'MANAGER'],
+            },
+        ]
+    },
+    {
+        title: "Attendance",
+        elements: [
+            {
+                title: "Work Schedule",
+                url: "/me/work-schedule",
+                icon: Clock,
+            },
+            {
+                title: "Attendance History",
+                url: "/me/attendance-history",
+                icon: ClipboardList,
             },
             {
                 title: "Attendance Approvals",
                 url: "/attendance/approvals",
-                icon: ClipboardList,
-                roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR'],
+                icon: ClipboardCheck,
+                roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR', 'MANAGER'],
             },
         ]
     },
@@ -110,8 +117,8 @@ export const navigation: NavCategory[] = [
             {
                 title: "Expense Approvals",
                 url: "/expenses/approvals",
-                icon: CheckCircle2,
-                roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR'],
+                icon: ReceiptText,
+                roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR', 'MANAGER'],
             },
         ]
     },

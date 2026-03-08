@@ -207,21 +207,14 @@ export class EmployeesRepository {
 
         if (!row) return null;
 
-        // Fetch roles if user exists
-        let roleIds: string[] = [];
-        const userResult = await db
-            .select({ id: users.id })
-            .from(users)
-            .where(eq(users.employeeId, employeeId))
-            .limit(1);
+        // Fetch roles explicitly for the user linked to this employee
+        const rolesRows = await db
+            .select({ roleId: userRoles.roleId })
+            .from(userRoles)
+            .innerJoin(users, eq(userRoles.userId, users.id))
+            .where(eq(users.employeeId, employeeId));
         
-        if (userResult[0]) {
-            const rolesRows = await db
-                .select({ roleId: userRoles.roleId })
-                .from(userRoles)
-                .where(eq(userRoles.userId, userResult[0].id));
-            roleIds = rolesRows.map(r => r.roleId);
-        }
+        const roleIds = rolesRows.map(r => r.roleId);
 
         return { ...row, roleIds }
     }

@@ -8,13 +8,12 @@ import { RequiredInput } from '@/components/ui/required-input'
 import { DatePickerField } from '@/components/ui/date-picker-field'
 import { BirthdayPickerField } from '@/components/ui/birthday-picker-field'
 import { RequiredSelect } from '@/components/ui/required-select'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { apiFetch } from '@/lib/api'
 import { AsyncSearchSelect } from '@/components/ui/async-search-select'
 import { SelectItem } from '@/components/ui/select'
 import { removeUndefined, normalizeEmail } from '@/lib/helpers'
+import { useAuth } from '@/context/AuthContext'
 import type {
     Employee,
     StatusOptionsResponse,
@@ -41,6 +40,7 @@ export default function EmployeeDetailPage() {
     const { id } = useParams<{ id: string }>()
     const router = useRouter()
     const { toast } = useToast();
+    const { user: currentUser } = useAuth()
     const [employee, setEmployee] = useState<Employee | null>(null)
     const [originalStatus, setOriginalStatus] = useState<string | null>(null)
     const [allowedNextStatuses, setAllowedNextStatuses] = useState<string[]>([])
@@ -77,6 +77,10 @@ export default function EmployeeDetailPage() {
                     apiFetch<LeavePolicy[]>('/leave-policies?active=true'),
                     apiFetch<Role[]>('/roles'),
                 ])
+
+                console.log({
+                    data, orgUnit, positionsData, policiesData, rolesData
+                })
 
                 setCurrentOrgUnit(orgUnit)
                 setPositions(positionsData)
@@ -236,6 +240,10 @@ export default function EmployeeDetailPage() {
     const avatarColor = getBackgroundColor(employee.firstName)
     const initials = `${employee.firstName[0] ?? ''}${employee.lastName[0] ?? ''}`.toUpperCase()
     const positionTitle = positions.find((p) => p.id === employee.positionId)?.title
+
+    const isSystemAdmin = currentUser?.roles.includes('ADMIN')
+    const currentRoleId = employee.roleIds?.[0]
+    const currentRoleName = roles.find(r => r.id === currentRoleId)?.name || 'No System Access'
 
     return (
         <div className="p-6 space-y-6">
@@ -619,26 +627,37 @@ export default function EmployeeDetailPage() {
                         <SectionHeading>System Access</SectionHeading>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <RequiredSelect
-                                    label="System Role"
-                                    value={employee.roleIds?.[0] ?? 'none'}
-                                    onChangeAction={(v) => {
-                                        setEmployee((prev) => {
-                                            if (!prev) return prev;
-                                            const roleIds = v === 'none' ? [] : [v];
-                                            return { ...prev, roleIds };
-                                        });
-                                    }}
-                                >
-                                    <SelectItem value="none">No System Access</SelectItem>
-                                    {roles.map((role) => (
-                                        <SelectItem key={role.id} value={role.id}>
-                                            {role.name}
-                                        </SelectItem>
-                                    ))}
-                                </RequiredSelect>
+                                {isSystemAdmin ? (
+                                    <RequiredSelect
+                                        label="System Role"
+                                        value={employee.roleIds?.[0] ?? 'none'}
+                                        onChangeAction={(v) => {
+                                            setEmployee((prev) => {
+                                                if (!prev) return prev;
+                                                const roleIds = v === 'none' ? [] : [v];
+                                                return { ...prev, roleIds };
+                                            });
+                                        }}
+                                    >
+                                        <SelectItem value="none">No System Access</SelectItem>
+                                        {roles.map((role) => (
+                                            <SelectItem key={role.id} value={role.id}>
+                                                {role.name}
+                                            </SelectItem>
+                                        ))}
+                                    </RequiredSelect>
+                                ) : (
+                                    <RequiredInput
+                                        label="System Role"
+                                        value={currentRoleName}
+                                        onChangeAction={() => { }}
+                                        disabled
+                                    />
+                                )}
                                 <p className="text-[10px] text-muted-foreground italic">
-                                    Determines the user's permission level in the system.
+                                    {isSystemAdmin 
+                                        ? "Determines the user's permission level in the system."
+                                        : "Only System Administrators can modify roles."}
                                 </p>
                             </div>
                         </div>

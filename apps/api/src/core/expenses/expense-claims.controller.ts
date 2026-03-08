@@ -36,7 +36,7 @@ export class ExpenseClaimsController {
     }
 
     @UseGuards(RolesGuard)
-    //@Roles(SystemRole.MANAGER, SystemRole.ADMIN, SystemRole.HR_ADMIN)
+    @Roles(SystemRole.MANAGER, SystemRole.ADMIN, SystemRole.HR_ADMIN)
     @Get('pending')
     async getPending(@Req() req: AuthenticatedRequest) {
         return this.service.getPendingForApproval(req.user.id);
