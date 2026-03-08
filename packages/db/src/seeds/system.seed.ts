@@ -27,6 +27,8 @@ import { expenseCategories } from '../schema/expense-categories';
 import { budgetPeriods } from '../schema/budget-periods';
 import { orgUnitBudgets } from '../schema/org-unit-budgets';
 import { budgetLedger } from '../schema/budget-ledger';
+import { attendanceAdjustments } from '../schema/attendance-adjustments';
+import { attendanceLogs } from '../schema/attendance-logs';
 
 
 const pool = new Pool({
@@ -802,6 +804,43 @@ export async function seedSystem() {
                             });
                     }
                 }
+            }
+
+            // Create sample attendance adjustments for the team
+            console.log('Seeding sample attendance adjustments...');
+            for (let i = 0; i < 5; i++) {
+                const emp = teamMembers[i];
+                const workDate = new Date(today);
+                workDate.setDate(today.getDate() - (i + 1));
+                const workDateStr = workDate.toISOString().slice(0, 10);
+
+                // Create a basic log first for some of them
+                let logId: string | null = null;
+                if (i % 2 === 0) {
+                    const [log] = await db.insert(attendanceLogs).values({
+                        employeeId: emp.id,
+                        workDate: workDateStr,
+                        actualInAt: new Date(`${workDateStr}T08:15:00Z`),
+                        actualOutAt: new Date(`${workDateStr}T17:05:00Z`),
+                        sourceIn: 'WEB',
+                        sourceOut: 'WEB',
+                    }).returning();
+                    logId = log.id;
+                }
+
+                // Create a pending adjustment
+                await db.insert(attendanceAdjustments).values({
+                    employeeId: emp.id,
+                    attendanceLogId: logId,
+                    workDate: workDateStr,
+                    requestedActualInAt: new Date(`${workDateStr}T09:00:00Z`),
+                    requestedActualOutAt: new Date(`${workDateStr}T18:00:00Z`),
+                    previousActualInAt: logId ? new Date(`${workDateStr}T08:15:00Z`) : null,
+                    previousActualOutAt: logId ? new Date(`${workDateStr}T17:05:00Z`) : null,
+                    remarks: i === 0 ? "Forgot to punch out correctly" : `Adjustment request ${i + 1}`,
+                    status: 'PENDING',
+                    requestedBy: (await db.select().from(users).where(eq(users.employeeId, emp.id)))[0]?.id || adminUserId!,
+                }).onConflictDoNothing();
             }
         }
     }
