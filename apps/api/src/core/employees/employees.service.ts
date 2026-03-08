@@ -4,7 +4,7 @@ import { EmployeesRepository } from './employees.repository'
 import { EmployeeFilterDto } from './dto/employee-filter.dto'
 import { CreateEmployeeDto } from './dto/create-employee.dto'
 import { UpdateEmployeeDto } from './dto/update-employee-dto'
-import { employees, leavePolicies, employeeLeavePolicies } from '@hybrid-hris/db/schema'
+import { employees, leavePolicies, employeeLeavePolicies, userRoles, users } from '@hybrid-hris/db/schema'
 import { InferSelectModel, eq, and, isNull } from 'drizzle-orm'
 import { DatabaseService } from 'src/database/database.service'
 import { Tx } from 'src/database/database.types'
@@ -99,6 +99,7 @@ export class EmployeesService {
             profile: result.profile ?? null,
             identifiers: result.identifiers ?? null,
             policyId: result.policyId ?? null,
+            roleIds: result.roleIds,
         }
     }
 
@@ -392,6 +393,28 @@ export class EmployeesService {
                                     effectiveFrom: today,
                                 });
                         }
+                    }
+                }
+            }
+
+            if (dto.roleIds !== undefined) {
+                const [userRecord] = await tx
+                    .select({ id: users.id })
+                    .from(users)
+                    .where(eq(users.employeeId, id))
+                    .limit(1);
+                
+                if (userRecord) {
+                    // Sync roles: delete current and insert new
+                    await tx.delete(userRoles).where(eq(userRoles.userId, userRecord.id));
+                    
+                    if (dto.roleIds.length > 0) {
+                        await tx.insert(userRoles).values(
+                            dto.roleIds.map(roleId => ({
+                                userId: userRecord.id,
+                                roleId
+                            }))
+                        );
                     }
                 }
             }

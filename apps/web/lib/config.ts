@@ -74,7 +74,8 @@ export const navigation: NavCategory[] = [
                 url: "/people/positions",
                 icon: Briefcase,
             },
-        ]
+        ],
+        roles: ['ADMIN', 'HR_ADMIN'],
     },
     {
         title: "Leave",
@@ -88,7 +89,7 @@ export const navigation: NavCategory[] = [
                 title: "Leave Approvals",
                 url: "/leave/approvals",
                 icon: CheckCircle2,
-                roles: ['ADMIN', 'HR_ADMIN', 'MANAGER'],
+                roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR'],
             },
         ]
     },
@@ -104,7 +105,7 @@ export const navigation: NavCategory[] = [
                 title: "Expense Approvals",
                 url: "/expenses/approvals",
                 icon: CheckCircle2,
-                roles: ['ADMIN', 'HR_ADMIN', 'MANAGER'],
+                roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR'],
             },
         ]
     },

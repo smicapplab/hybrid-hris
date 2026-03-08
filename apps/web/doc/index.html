@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid HRIS - User Manual</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; scroll-behavior: smooth; }
+        .sidebar-link:hover { background-color: #f3f4f6; }
+        .sidebar-link.active { background-color: #eff6ff; color: #1e40af; border-right: 4px solid #1e40af; }
+        .screenshot-placeholder { 
+            background: #f9fafb; 
+            border: 2px dashed #d1d5db; 
+            border-radius: 0.75rem; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            min-height: 300px;
+            margin: 1.5rem 0;
+            color: #9ca3af;
+            flex-direction: column;
+        }
+        pre { background: #1f2937; color: #f9fafb; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Mobile Nav -->
+    <div class="lg:hidden bg-white border-b p-4 sticky top-0 z-50 flex justify-between items-center">
+        <span class="font-bold text-blue-900 uppercase tracking-wider">Hybrid HRIS Manual</span>
+        <button onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="text-gray-600">
+            <i class="fas fa-bars text-xl"></i>
+        </button>
+    </div>
+
+    <div class="flex">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-white border-r h-screen sticky top-0 overflow-y-auto transition-transform duration-300 transform -translate-x-full lg:translate-x-0 fixed lg:static z-40">
+            <div class="p-6">
+                <div class="flex items-center gap-2 font-bold text-xl text-blue-900 mb-8">
+                    <i class="fas fa-microchip"></i> Hybrid HRIS
+                </div>
+                
+                <nav class="space-y-1">
+                    <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Introduction</p>
+                    <a href="#overview" class="sidebar-link block px-3 py-2 text-sm font-medium rounded-md transition-colors">Overview</a>
+                    <a href="#getting-started" class="sidebar-link block px-3 py-2 text-sm font-medium rounded-md transition-colors">Getting Started</a>
+                    
+                    <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-6 mb-2">Core Modules</p>
+                    <a href="#leave-management" class="sidebar-link block px-3 py-2 text-sm font-medium rounded-md transition-colors">Leave Management</a>
+                    <a href="#expense-filing" class="sidebar-link block px-3 py-2 text-sm font-medium rounded-md transition-colors">Expense Filing</a>
+                    <a href="#team-budgets" class="sidebar-link block px-3 py-2 text-sm font-medium rounded-md transition-colors">Team Budgets</a>
+                    
+                    <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-6 mb-2">Administration</p>
+                    <a href="#policy-config" class="sidebar-link block px-3 py-2 text-sm font-medium rounded-md transition-colors">Policy Configuration</a>
+                    <a href="#approvals" class="sidebar-link block px-3 py-2 text-sm font-medium rounded-md transition-colors">Approval Workflows</a>
+                    
+                    <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-6 mb-2">Technical</p>
+                    <a href="#security" class="sidebar-link block px-3 py-2 text-sm font-medium rounded-md transition-colors">Security & Architecture</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 min-w-0 bg-white">
+            <div class="max-w-4xl mx-auto px-6 py-12 lg:px-12">
+                
+                <!-- Overview -->
+                <section id="overview" class="mb-20">
+                    <h1 class="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">System Overview</h1>
+                    <p class="text-lg text-gray-600 leading-relaxed mb-6">
+                        Hybrid HRIS is a specialized Human Resource Information System designed for organizations that require both flexibility and rigorous financial-grade integrity. Built on a modular NestJS and Next.js foundation, the system ensures that every employee action—from filing a leave to claiming an expense—is tracked via immutable ledgers.
+                    </p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                        <div class="p-6 bg-blue-50 rounded-xl border border-blue-100">
+                            <i class="fas fa-shield-halved text-blue-600 text-2xl mb-4"></i>
+                            <h3 class="font-bold text-gray-900 mb-2">Immutable Audit Trail</h3>
+                            <p class="text-sm text-gray-600">Balances for leaves and budgets are derived from append-only ledgers, making the system tamper-proof.</p>
+                        </div>
+                        <div class="p-6 bg-emerald-50 rounded-xl border border-emerald-100">
+                            <i class="fas fa-layer-group text-emerald-600 text-2xl mb-4"></i>
+                            <h3 class="font-bold text-gray-900 mb-2">Modular Architecture</h3>
+                            <p class="text-sm text-gray-600">Clean separation between business domains allows for rapid scaling and easy maintenance.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <hr class="mb-20">
+
+                <!-- Getting Started -->
+                <section id="getting-started" class="mb-20">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-6">Getting Started</h2>
+                    <p class="text-gray-600 mb-6">Log in to the system using your organizational credentials. For development and testing, use the following default administrator account:</p>
+                    
+                    <div class="bg-gray-900 text-gray-100 p-6 rounded-xl shadow-lg mb-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-xs font-mono text-gray-400 uppercase tracking-widest">Demo Credentials</span>
+                            <span class="text-emerald-400 text-xs font-bold px-2 py-1 bg-emerald-400/10 rounded">Live Demo</span>
+                        </div>
+                        <div class="space-y-2 font-mono text-sm">
+                            <p><span class="text-blue-400">Email:</span> admin@hybrid-hris.local</p>
+                            <p><span class="text-blue-400">Password:</span> Admin123!</p>
+                        </div>
+                    </div>
+
+                    <div class="screenshot-placeholder">
+                        <i class="fas fa-image text-4xl mb-2"></i>
+                        <p class="font-medium text-gray-500 italic text-sm">Take a screenshot of the Login Page</p>
+                        <p class="text-xs text-gray-400 mt-1">File: screenshots/login.png</p>
+                        <!-- <img src="screenshots/login.png" class="rounded-lg shadow-md mt-4 border" alt="Login Page"> -->
+                    </div>
+                </section>
+
+                <!-- Leave Management -->
+                <section id="leave-management" class="mb-20">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                        <i class="fas fa-calendar-check text-blue-600"></i> Leave Management
+                    </h2>
+                    <p class="text-gray-600 mb-6 leading-relaxed">
+                        The Leave module handles time-off requests with real-time balance verification. When a user submits a request, the system checks their current ledger balance before allowing the submission.
+                    </p>
+                    
+                    <div class="space-y-4 mb-8">
+                        <div class="flex gap-4 items-start">
+                            <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 text-xs font-bold">1</div>
+                            <p class="text-sm text-gray-700"><strong>Self-Service:</strong> Employees can view their VL/SL balances and file requests.</p>
+                        </div>
+                        <div class="flex gap-4 items-start">
+                            <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 text-xs font-bold">2</div>
+                            <p class="text-sm text-gray-700"><strong>Automatic Accrual:</strong> Admins can run monthly accruals to credit leaves based on assigned policy rules.</p>
+                        </div>
+                    </div>
+
+                    <div class="screenshot-placeholder">
+                        <i class="fas fa-image text-4xl mb-2"></i>
+                        <p class="font-medium text-gray-500 italic text-sm">Take a screenshot of the My Leave Requests page</p>
+                        <p class="text-xs text-gray-400 mt-1">File: screenshots/leave-requests.png</p>
+                        <!-- <img src="screenshots/leave-requests.png" class="rounded-lg shadow-md mt-4 border" alt="Leave Dashboard"> -->
+                    </div>
+                </section>
+
+                <!-- Expense Filing -->
+                <section id="expense-filing" class="mb-20">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                        <i class="fas fa-receipt text-blue-600"></i> Expense Filing
+                    </h2>
+                    <p class="text-gray-600 mb-6 leading-relaxed">
+                        The Expense module allows employees to charge business costs directly to their specific team's budget. The filing process is transparent, showing the user exactly how much budget is remaining for the selected category.
+                    </p>
+
+                    <div class="screenshot-placeholder">
+                        <i class="fas fa-image text-4xl mb-2"></i>
+                        <p class="font-medium text-gray-500 italic text-sm">Take a screenshot of the File Expense Dialog</p>
+                        <p class="text-xs text-gray-400 mt-1">File: screenshots/expense-dialog.png</p>
+                        <!-- <img src="screenshots/expense-dialog.png" class="rounded-lg shadow-md mt-4 border" alt="Expense Filing"> -->
+                    </div>
+                </section>
+
+                <!-- Team Budgets -->
+                <section id="team-budgets" class="mb-20">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                        <i class="fas fa-wallet text-blue-600"></i> Team Budgets
+                    </h2>
+                    <p class="text-gray-600 mb-6 leading-relaxed">
+                        Administrators can manage the **Budget Matrix**, allocating specific amounts to "Leaf" Organizational Units. This hierarchical view ensures that spend is controlled at the team level while allowing global roll-ups.
+                    </p>
+
+                    <div class="screenshot-placeholder">
+                        <i class="fas fa-image text-4xl mb-2"></i>
+                        <p class="font-medium text-gray-500 italic text-sm">Take a screenshot of the Team Budgets Admin Page</p>
+                        <p class="text-xs text-gray-400 mt-1">File: screenshots/budget-matrix.png</p>
+                        <!-- <img src="screenshots/budget-matrix.png" class="rounded-lg shadow-md mt-4 border" alt="Budget Matrix"> -->
+                    </div>
+                </section>
+
+                <!-- Security -->
+                <section id="security" class="mb-20">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                        <i class="fas fa-lock text-blue-600"></i> Hardened Security
+                    </h2>
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-8">
+                        <h4 class="font-bold text-amber-900 mb-2">Database-First Authorization</h4>
+                        <p class="text-sm text-amber-800 leading-relaxed">
+                            Unlike traditional systems that trust JWT roles, Hybrid HRIS re-verifies user roles and leadership assignments directly from the database for every critical action. This prevents "Stale Token" vulnerabilities and ensures immediate revocation of access.
+                        </p>
+                    </div>
+                    
+                    <h4 class="text-lg font-bold text-gray-900 mb-4 tracking-tight">Temporal Integrity</h4>
+                    <p class="text-gray-600 mb-6 leading-relaxed">
+                        Using Postgres `EXCLUDE` constraints with the `btree_gist` extension, the system ensures that an employee can never have overlapping leave policies or shift assignments, effectively preventing data corruption at the database level.
+                    </p>
+                </section>
+
+                <!-- Footer -->
+                <footer class="border-t pt-8 text-center text-gray-400 text-xs">
+                    <p>&copy; 2026 Hybrid HRIS Project. Licensed under MIT.</p>
+                </footer>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Simple active link tracker
+        window.addEventListener('scroll', () => {
+            let current = "";
+            const sections = document.querySelectorAll("section");
+            const navLinks = document.querySelectorAll(".sidebar-link");
+
+            sections.forEach((section) => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= sectionTop - 100) {
+                    current = section.getAttribute("id");
+                }
+            });
+
+            navLinks.forEach((link) => {
+                link.classList.remove("active");
+                if (link.getAttribute("href").includes(current)) {
+                    link.classList.add("active");
+                }
+            });
+        });
+    </script>
+</body>
+</html>

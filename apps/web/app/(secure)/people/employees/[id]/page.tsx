@@ -8,6 +8,8 @@ import { RequiredInput } from '@/components/ui/required-input'
 import { DatePickerField } from '@/components/ui/date-picker-field'
 import { BirthdayPickerField } from '@/components/ui/birthday-picker-field'
 import { RequiredSelect } from '@/components/ui/required-select'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { apiFetch } from '@/lib/api'
 import { AsyncSearchSelect } from '@/components/ui/async-search-select'
@@ -21,6 +23,7 @@ import type {
 import type { OrgUnitOption } from '@/types/org-unit.type'
 import type { PositionOption } from '@/types/position.types'
 import type { LeavePolicy } from '@/types/leave.types'
+import type { Role } from '@/lib/auth-types'
 import {
     isEmployeeStatus,
     isEmploymentType,
@@ -43,6 +46,7 @@ export default function EmployeeDetailPage() {
     const [allowedNextStatuses, setAllowedNextStatuses] = useState<string[]>([])
     const [positions, setPositions] = useState<PositionOption[]>([])
     const [policies, setPolicies] = useState<LeavePolicy[]>([])
+    const [roles, setRoles] = useState<Role[]>([])
     const [currentOrgUnit, setCurrentOrgUnit] = useState<OrgUnitOption | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -66,16 +70,18 @@ export default function EmployeeDetailPage() {
                 setEmployee(data)
                 setOriginalStatus(data.status)
 
-                const [, orgUnit, positionsData, policiesData] = await Promise.all([
+                const [, orgUnit, positionsData, policiesData, rolesData] = await Promise.all([
                     refreshStatusOptions(),
                     apiFetch<OrgUnitOption>(`/org-units/${data.orgUnitId}`),
                     apiFetch<PositionOption[]>(`/org-units/${data.orgUnitId}/positions`),
                     apiFetch<LeavePolicy[]>('/leave-policies?active=true'),
+                    apiFetch<Role[]>('/roles'),
                 ])
 
                 setCurrentOrgUnit(orgUnit)
                 setPositions(positionsData)
                 setPolicies(policiesData)
+                setRoles(rolesData)
 
                 if (positionsData.length > 0 && !positionsData.some((p) => p.id === data.positionId)) {
                     setEmployee((prev) => prev ? { ...prev, positionId: positionsData[0]!.id } : prev)
@@ -161,6 +167,7 @@ export default function EmployeeDetailPage() {
                 firstName, lastName, middleName, alternateEmail, email,
                 hireDate, employmentType, orgUnitId, positionId, supervisorId,
                 policyId,
+                roleIds,
                 addressLine1, addressLine2, city, province, postalCode, countryCode,
                 profile, identifiers,
             } = employee
@@ -179,6 +186,7 @@ export default function EmployeeDetailPage() {
                     positionId,
                     supervisorId: supervisorId ?? null,
                     policyId: policyId ?? null,
+                    roleIds: roleIds ?? [],
                     addressLine1: addressLine1 ?? null,
                     addressLine2: addressLine2 ?? null,
                     city: city ?? null,
@@ -601,6 +609,38 @@ export default function EmployeeDetailPage() {
                                     }
                                 />
                             ))}
+                        </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* System Access */}
+                    <div className="space-y-4">
+                        <SectionHeading>System Access</SectionHeading>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <RequiredSelect
+                                    label="System Role"
+                                    value={employee.roleIds?.[0] ?? 'none'}
+                                    onChangeAction={(v) => {
+                                        setEmployee((prev) => {
+                                            if (!prev) return prev;
+                                            const roleIds = v === 'none' ? [] : [v];
+                                            return { ...prev, roleIds };
+                                        });
+                                    }}
+                                >
+                                    <SelectItem value="none">No System Access</SelectItem>
+                                    {roles.map((role) => (
+                                        <SelectItem key={role.id} value={role.id}>
+                                            {role.name}
+                                        </SelectItem>
+                                    ))}
+                                </RequiredSelect>
+                                <p className="text-[10px] text-muted-foreground italic">
+                                    Determines the user's permission level in the system.
+                                </p>
+                            </div>
                         </div>
                     </div>
 

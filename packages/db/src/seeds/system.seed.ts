@@ -43,6 +43,9 @@ export async function seedSystem() {
     const today = new Date();
     const todayIso = today.toISOString().slice(0, 10);
 
+    const passwordHash = await bcrypt.hash('Admin123!', 10);
+    const pinHash = await bcrypt.hash('123456', 10);
+
     function digitsOnly(value: string): string {
         return value.replace(/\D/g, '');
     }
@@ -118,6 +121,12 @@ export async function seedSystem() {
             code: SystemRole.MANAGER,
             name: 'Manager',
             description: 'Department-level management access',
+            isSystem: true,
+        },
+        {
+            code: SystemRole.SUPERVISOR,
+            name: 'Supervisor',
+            description: 'Team-level supervision access',
             isSystem: true,
         },
         {
@@ -352,8 +361,70 @@ export async function seedSystem() {
         isActive: true,
     }).onConflictDoNothing().returning())[0] || (await db.select().from(positions).where(eq(positions.code, 'HR_MGR')))[0];
 
+    const ceoPos = (await db.insert(positions).values({
+        code: 'CEO',
+        title: 'Chief Executive Officer',
+        isActive: true,
+    }).onConflictDoNothing().returning())[0] || (await db.select().from(positions).where(eq(positions.code, 'CEO')))[0];
+
     if (hrOrg && hrMgrPos) {
         await db.insert(orgUnitPositions).values({ orgUnitId: hrOrg.id, positionId: hrMgrPos.id }).onConflictDoNothing();
+    }
+    if (rootOrg && ceoPos) {
+        await db.insert(orgUnitPositions).values({ orgUnitId: rootOrg.id, positionId: ceoPos.id }).onConflictDoNothing();
+    }
+
+    // ---- Create CEO Employee first ----
+    let [ceoEmployee] = await db.insert(employees)
+        .values({
+            employeeNo: 'EMP-000000',
+            firstName: 'Chief',
+            lastName: 'Executive',
+            orgUnitId: rootOrg?.id,
+            positionId: ceoPos?.id,
+            hireDate: '2020-01-01',
+            status: 'ACTIVE',
+            employmentType: 'REGULAR',
+        })
+        .onConflictDoNothing()
+        .returning();
+
+    if (!ceoEmployee) {
+        ceoEmployee = (await db.select().from(employees).where(eq(employees.employeeNo, 'EMP-000000')))[0];
+    }
+
+    if (ceoEmployee) {
+        await ensureEmployeeProfile(ceoEmployee.id, 'EMP-000000');
+        await ensureEmployeeIdentifiers(ceoEmployee.id, 'EMP-000000');
+
+        // CEO as Leader of Head Office
+        if (rootOrg) {
+            await db.insert(orgUnitLeaders)
+                .values({
+                    orgUnitId: rootOrg.id,
+                    employeeId: ceoEmployee.id,
+                    role: 'HEAD',
+                    effectiveFrom: '2020-01-01',
+                })
+                .onConflictDoNothing();
+        }
+
+        // CEO User Account
+        const [ceoUser] = await db.insert(users)
+            .values({
+                employeeId: ceoEmployee.id,
+                email: 'ceo@hybrid-hris.local',
+                passwordHash,
+                isActive: true,
+            })
+            .onConflictDoNothing()
+            .returning();
+
+        // CEO just gets basic Employee system role (will be dynamically upgraded)
+        const [empRole] = await db.select().from(roles).where(eq(roles.code, 'EMPLOYEE'));
+        if (ceoUser && empRole) {
+            await db.insert(userRoles).values({ userId: ceoUser.id, roleId: empRole.id }).onConflictDoNothing();
+        }
     }
 
     // ---- Default Shift Templates ----
@@ -387,6 +458,7 @@ export async function seedSystem() {
             status: 'ACTIVE',
             orgUnitId: defaultOrg?.id,
             positionId: defaultPosition?.id,
+            supervisorId: ceoEmployee?.id,
         })
         .onConflictDoNothing()
         .returning();
@@ -449,9 +521,6 @@ export async function seedSystem() {
             });
     }
 
-    const passwordHash = await bcrypt.hash('Admin123!', 10);
-    const pinHash = await bcrypt.hash('123456', 10);
-
     // Fetch roles
     const [adminRole] = await db.select().from(roles).where(eq(roles.code, 'HR_ADMIN'));
     const [managerRole] = await db.select().from(roles).where(eq(roles.code, 'MANAGER'));
@@ -480,7 +549,49 @@ export async function seedSystem() {
         adminUserId = existing[0]?.id;
     }
 
-    // Attach ADMIN role
+    // ---- Initial HR Employee & User ----
+    let hrEmployeeId: string | undefined;
+    const [hrEmp] = await db.insert(employees)
+        .values({
+            employeeNo: 'EMP-000002',
+            firstName: 'HR',
+            lastName: 'User',
+            orgUnitId: hrOrg?.id,
+            positionId: hrMgrPos?.id,
+            supervisorId: ceoEmployee?.id,
+            hireDate: todayIso,
+            status: 'ACTIVE',
+            employmentType: 'REGULAR',
+        })
+        .onConflictDoNothing()
+        .returning();
+
+    if (hrEmp) {
+        hrEmployeeId = hrEmp.id;
+        await ensureEmployeeProfile(hrEmployeeId, 'EMP-000002');
+        await ensureEmployeeIdentifiers(hrEmployeeId, 'EMP-000002');
+    } else {
+        const existing = await db.select().from(employees).where(eq(employees.employeeNo, 'EMP-000002'));
+        hrEmployeeId = existing[0]?.id;
+    }
+
+    if (hrEmployeeId) {
+        const [hrUser] = await db.insert(users)
+            .values({
+                employeeId: hrEmployeeId,
+                email: 'hr@hybrid-hris.local',
+                passwordHash,
+                isActive: true,
+            })
+            .onConflictDoNothing()
+            .returning();
+
+        if (hrUser && adminRole) {
+            await db.insert(userRoles).values({ userId: hrUser.id, roleId: adminRole.id }).onConflictDoNothing();
+        }
+    }
+
+    // Attach ADMIN role to admin user
     if (adminUserId && adminRole) {
         await db.insert(userRoles)
             .values({
@@ -549,9 +660,9 @@ export async function seedSystem() {
                     hireDate: todayIso,
                     employmentType: 'REGULAR',
                     status: 'ACTIVE',
-                    orgUnitId: resolvedTeamOrg?.id,
-                    positionId: devPosition?.id,
-                    supervisorId: adminEmployeeId, // Reports to Admin
+                    orgUnitId: resolvedTeamOrg.id,
+                    positionId: devPosition.id,
+                    supervisorId: ceoEmployee?.id, // Everyone reports to CEO for this test
                 })
                 .onConflictDoNothing()
                 .returning();

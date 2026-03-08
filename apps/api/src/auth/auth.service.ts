@@ -38,16 +38,20 @@ export class AuthService {
             lastName?: string | null
         },
     ) {
-        const roles = await this.usersService.getUserRoles(user.id)
-        let orgUnitId: string | null = null;
+        const profile = await this.usersService.getUserFullProfile(user.id);
+        if (!profile) throw new UnauthorizedException();
 
-        if (user.employeeId) {
-            const [emp] = await this.db.db
-                .select({ orgUnitId: employees.orgUnitId })
-                .from(employees)
-                .where(eq(employees.id, user.employeeId))
-                .limit(1);
-            orgUnitId = emp?.orgUnitId ?? null;
+        const { roles, isSupervisor, isOrgLead, isRootLeader, orgUnitId } = profile;
+        
+        // Dynamic Role Injection
+        if (isRootLeader && !roles.includes('ADMIN')) {
+            roles.push('ADMIN');
+        }
+        if (isOrgLead && !roles.includes('MANAGER')) {
+            roles.push('MANAGER');
+        }
+        if (isSupervisor && !roles.includes('SUPERVISOR')) {
+            roles.push('SUPERVISOR');
         }
 
         const payload = {
@@ -55,6 +59,9 @@ export class AuthService {
             email: user.email,
             employeeId: user.employeeId ?? null,
             orgUnitId,
+            isSupervisor,
+            isOrgLead,
+            isRootLeader,
             firstName: user.firstName ?? null,
             lastName: user.lastName ?? null,
             roles,

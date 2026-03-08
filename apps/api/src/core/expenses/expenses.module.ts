@@ -6,9 +6,11 @@ import { ExpenseClaimsService } from './expense-claims.service';
 import { BudgetsController } from './budgets.controller';
 import { ExpenseClaimsController } from './expense-claims.controller';
 import { ExpensesMetadataController } from './metadata.controller';
+import { UsersModule } from 'src/identity/users/users.module';
+import { OrgUnitsModule } from '../org-units/org-units.module';
 
 @Module({
-    imports: [DatabaseModule],
+    imports: [DatabaseModule, UsersModule, OrgUnitsModule],
     providers: [BudgetLedgerService, BudgetsService, ExpenseClaimsService],
     controllers: [BudgetsController, ExpenseClaimsController, ExpensesMetadataController],
     exports: [BudgetsService, ExpenseClaimsService, BudgetLedgerService],

@@ -21,6 +21,7 @@ import { apiFetch } from '@/lib/api'
 import type { OrgUnitOption } from '@/types/org-unit.type'
 import type { PositionOption } from '@/types/position.types'
 import type { SupervisorOption } from '@/types/employee.type'
+import type { Role } from '@/lib/auth-types'
 import { useToast } from "@/hooks/use-toast";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -45,6 +46,7 @@ type Form = {
     positionId: string
     supervisorId: string | null
     hireDate: string
+    roleId: string
 }
 
 type FieldErrors = Partial<Record<keyof Form, string>>
@@ -69,6 +71,7 @@ const EMPTY_FORM: Form = {
     positionId: '',
     supervisorId: null,
     hireDate: '',
+    roleId: '',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -177,6 +180,7 @@ function validate(form: Form, emailDomain: string | null): FieldErrors {
     if (!form.orgUnitId) errors.orgUnitId = 'Required'
     if (!form.positionId) errors.positionId = 'Required'
     if (!form.hireDate) errors.hireDate = 'Required'
+    if (!form.roleId) errors.roleId = 'Required'
 
     return errors
 }
@@ -192,6 +196,7 @@ export function CreateEmployeeDialog({ open, onOpenChangeAction }: Props) {
     const [copied, setCopied] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
     const [positions, setPositions] = useState<PositionOption[]>([])
+    const [roles, setRoles] = useState<Role[]>([])
     const [currentOrgUnit, setCurrentOrgUnit] = useState<OrgUnitOption | null>(null)
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
     const [formError, setFormError] = useState<string | null>(null)
@@ -202,9 +207,24 @@ export function CreateEmployeeDialog({ open, onOpenChangeAction }: Props) {
     useEffect(() => {
         if (open) {
             setForm((prev) => ({ ...prev, password: generatePassword() }))
-            apiFetch<HrConfig>('/employees/config')
-                .then(setHrConfig)
-                .catch(() => setHrConfig(null))
+            
+            // Fetch HR config and roles
+            Promise.all([
+                apiFetch<HrConfig>('/employees/config'),
+                apiFetch<Role[]>('/roles')
+            ]).then(([config, allRoles]) => {
+                setHrConfig(config)
+                setRoles(allRoles)
+                
+                // Auto-set the role to EMPLOYEE if found
+                const employeeRole = allRoles.find(r => r.code === 'EMPLOYEE')
+                if (employeeRole) {
+                    setForm(prev => ({ ...prev, roleId: employeeRole.id }))
+                }
+            }).catch(() => {
+                setHrConfig(null)
+                setRoles([])
+            })
         } else {
             setForm(EMPTY_FORM)
             setHrConfig(null)
@@ -212,6 +232,7 @@ export function CreateEmployeeDialog({ open, onOpenChangeAction }: Props) {
             setCopied(false)
             setShowPassword(false)
             setPositions([])
+            setRoles([])
             setCurrentOrgUnit(null)
             setFieldErrors({})
             setFormError(null)
@@ -311,6 +332,7 @@ export function CreateEmployeeDialog({ open, onOpenChangeAction }: Props) {
                     positionId: form.positionId,
                     supervisorId: form.supervisorId ?? undefined,
                     hireDate: form.hireDate,
+                    roleIds: form.roleId ? [form.roleId] : [],
                 }),
             })
 
@@ -618,6 +640,22 @@ export function CreateEmployeeDialog({ open, onOpenChangeAction }: Props) {
                             getOptionLabel={(o) => `${o.firstName} ${o.lastName}`}
                             placeholder="Search supervisor..."
                         />
+
+                        <RequiredSelect
+                            label="System Role"
+                            value={form.roleId}
+                            required
+                            touched={!!fieldErrors.roleId}
+                            errorMessage={fieldErrors.roleId}
+                            onChangeAction={(v) => set('roleId', v)}
+                        >
+                            {roles.length === 0
+                                ? <SelectItem value="_none" disabled>Loading roles...</SelectItem>
+                                : roles.map((r) => (
+                                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                                ))
+                            }
+                        </RequiredSelect>
                     </div>
 
                     {formError && (

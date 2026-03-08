@@ -5,6 +5,8 @@ import {
     ForbiddenException,
 } from '@nestjs/common'
 import { DatabaseService } from 'src/database/database.service'
+import { SystemRole } from '@hybrid-hris/domain'
+import { UsersService } from 'src/identity/users/users.service'
 import {
     leaveRequests,
     leaveRequestApprovals,
@@ -14,6 +16,8 @@ import {
     users,
     userRoles,
     roles,
+    orgUnits,
+    orgUnitLeaders,
 } from '@hybrid-hris/db/schema'
 import {
     eq,
@@ -24,6 +28,8 @@ import {
     desc,
     gte,
     lte,
+    ne,
+    isNull,
     inArray,
     SQL,
 } from 'drizzle-orm'
@@ -50,9 +56,17 @@ export interface LeaveRequestFilterDto {
     search?: string
 }
 
+import { OrgUnitsService } from '../org-units/org-units.service'
+
+// ... (keep DTOs)
+
 @Injectable()
 export class LeaveRequestsService {
-    constructor(private readonly db: DatabaseService) { }
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly usersService: UsersService,
+        private readonly orgUnitsService: OrgUnitsService,
+    ) { }
 
     // ─── helpers ────────────────────────────────────────────
 
@@ -93,23 +107,77 @@ export class LeaveRequestsService {
         return row ? parseFloat(row.balance) : 0
     }
 
-    /** Resolve the approver userId — first active HR_ADMIN user */
-    private async resolveApproverUserId(): Promise<string | null> {
-        // Prefer HR_ADMIN, fall back to ADMIN
-        const [approver] = await this.db.db
+    /** Resolve the approver userId — priorities: 1. Direct Supervisor, 2. Root Self-Approval, 3. HR_ADMIN */
+    private async resolveApproverUserId(requesterEmployeeId: string): Promise<string | null> {
+        // 1. Try to get the userId of the requester's supervisor
+        const [supervisor] = await this.db.db
+            .select({ userId: users.id })
+            .from(employees)
+            .innerJoin(users, eq(users.employeeId, employees.supervisorId))
+            .where(and(
+                eq(employees.id, requesterEmployeeId),
+                eq(users.isActive, true)
+            ))
+            .limit(1);
+
+        if (supervisor?.userId) {
+            return supervisor.userId;
+        }
+
+        // 2. Special case: Root Org Leader approves their own
+        const isRoot = await this.orgUnitsService.isRootLeader(requesterEmployeeId);
+        if (isRoot) {
+            const [rootUser] = await this.db.db
+                .select({ userId: users.id })
+                .from(users)
+                .where(eq(users.employeeId, requesterEmployeeId))
+                .limit(1);
+            if (rootUser) return rootUser.userId;
+        }
+
+        // 3. Fallback: Prefer HR_ADMIN, then ADMIN
+        const [hrApprover] = await this.db.db
             .select({ userId: userRoles.userId })
             .from(userRoles)
             .innerJoin(roles, eq(roles.id, userRoles.roleId))
             .innerJoin(users, eq(users.id, userRoles.userId))
             .where(
                 and(
-                    inArray(roles.name, ['HR_ADMIN', 'ADMIN']),
+                    inArray(roles.code, [SystemRole.HR_ADMIN, SystemRole.ADMIN]),
                     eq(users.isActive, true),
+                    // If fallback is needed, still ensure it's not the requester (unless they are root)
+                    ne(users.employeeId, requesterEmployeeId)
                 ),
             )
             .limit(1)
 
-        return approver?.userId ?? null
+        if (hrApprover?.userId) {
+            return hrApprover.userId;
+        }
+
+        // 4. Ultimate Fallback: The Root Org Leader
+        const [rootOrg] = await this.db.db
+            .select({ id: orgUnits.id })
+            .from(orgUnits)
+            .where(isNull(orgUnits.parentId))
+            .limit(1);
+        
+        if (rootOrg) {
+            const [rootLeader] = await this.db.db
+                .select({ userId: users.id })
+                .from(orgUnitLeaders)
+                .innerJoin(users, eq(users.employeeId, orgUnitLeaders.employeeId))
+                .where(and(
+                    eq(orgUnitLeaders.orgUnitId, rootOrg.id),
+                    isNull(orgUnitLeaders.deletedAt),
+                    eq(users.isActive, true)
+                ))
+                .limit(1);
+            
+            if (rootLeader) return rootLeader.userId;
+        }
+
+        return null;
     }
 
     // ─── public API ──────────────────────────────────────────
@@ -268,7 +336,7 @@ export class LeaveRequestsService {
         }
 
         // Resolve approver
-        const approverUserId = await this.resolveApproverUserId()
+        const approverUserId = await this.resolveApproverUserId(employeeId)
 
         return this.db.withTransaction(async (tx) => {
             const [request] = await tx
@@ -373,23 +441,62 @@ export class LeaveRequestsService {
         const limit = Number(filter.limit ?? 10)
         const offset = (page - 1) * limit
 
-        // Internal role lookup for security (don't trust JWT for data scoping)
-        const userRolesResult = await this.db.db
-            .select({ code: roles.code })
-            .from(userRoles)
-            .innerJoin(roles, eq(userRoles.roleId, roles.id))
-            .where(eq(userRoles.userId, userId));
-        
-        const currentRoles = userRolesResult.map(r => r.code);
-        const isAdmin = currentRoles.includes('ADMIN') || currentRoles.includes('HR_ADMIN');
+        // Internal user lookup for structural flags
+        const user = await this.usersService.getUserFullProfile(userId);
+        if (!user) return { items: [], total: 0, page, limit };
+
+        const isPowerUser = user.roles.includes('ADMIN') || user.roles.includes('HR_ADMIN');
+        const isRootLeader = user.isRootLeader;
+        const directIds = user.ledOrgUnitIds;
+        const isAnyLead = directIds.length > 0;
 
         const whereClauses: (SQL | undefined)[] = [
-            eq(leaveRequestApprovals.status, 'PENDING'),
             eq(leaveRequests.status, 'PENDING'),
         ]
 
-        if (!isAdmin) {
-            whereClauses.push(eq(leaveRequestApprovals.approverUserId, userId))
+        // Never allow self-approval EXCEPT for root leaders
+        if (!isRootLeader) {
+            whereClauses.push(ne(leaveRequests.employeeId, user.employeeId ?? ''));
+        }
+
+        if (!isPowerUser) {
+            // Managers/Leads see: 
+            // 1. Requests where they are the explicit approver
+            // 2. ALL requests from their direct Org Units
+            // 3. Only LEADER requests from child Org Units
+            if (isAnyLead) {
+                const childIds = await this.orgUnitsService.getDescendantOrgUnitIds(directIds);
+
+                const hierarchyConditions: (SQL | undefined)[] = [
+                    // Case 1: I am the explicit approver and it's still pending
+                    and(
+                        eq(leaveRequestApprovals.approverUserId, userId),
+                        eq(leaveRequestApprovals.status, 'PENDING')
+                    ),
+                    // Case 2: It's from my direct team (I see all)
+                    inArray(employees.orgUnitId, directIds)
+                ];
+
+                if (childIds.length > 0) {
+                    const childLeadEmployeeIds = await this.orgUnitsService.getOrgUnitLeaderEmployeeIds(childIds);
+                    if (childLeadEmployeeIds.length > 0) {
+                        // Case 3: It's from a child team lead
+                        hierarchyConditions.push(
+                            and(
+                                inArray(employees.orgUnitId, childIds),
+                                inArray(employees.id, childLeadEmployeeIds)
+                            )
+                        );
+                    }
+                }
+                whereClauses.push(or(...hierarchyConditions));
+            } else {
+                // If I'm not a lead of any unit, I only see things assigned to me
+                whereClauses.push(and(
+                    eq(leaveRequestApprovals.approverUserId, userId),
+                    eq(leaveRequestApprovals.status, 'PENDING')
+                ));
+            }
         }
 
         if (filter.search) {
@@ -406,7 +513,7 @@ export class LeaveRequestsService {
             .select({ count: sql<number>`cast(count(*) as int)` })
             .from(leaveRequests)
             .innerJoin(employees, eq(employees.id, leaveRequests.employeeId))
-            .innerJoin(
+            .leftJoin(
                 leaveRequestApprovals,
                 eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
             )
@@ -414,12 +521,7 @@ export class LeaveRequestsService {
 
         const approvalJoinCondition = [
             eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
-            eq(leaveRequestApprovals.status, 'PENDING'),
         ]
-
-        if (!isAdmin) {
-            approvalJoinCondition.push(eq(leaveRequestApprovals.approverUserId, userId))
-        }
 
         const rows = await this.db.db
             .select({
@@ -445,7 +547,7 @@ export class LeaveRequestsService {
             .from(leaveRequests)
             .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
             .innerJoin(employees, eq(employees.id, leaveRequests.employeeId))
-            .innerJoin(
+            .leftJoin(
                 leaveRequestApprovals,
                 and(...approvalJoinCondition),
             )
@@ -475,20 +577,60 @@ export class LeaveRequestsService {
         const limit = Number(filter.limit ?? 10)
         const offset = (page - 1) * limit
 
-        // Internal role lookup for security
-        const userRolesResult = await this.db.db
-            .select({ code: roles.code })
-            .from(userRoles)
-            .innerJoin(roles, eq(userRoles.roleId, roles.id))
-            .where(eq(userRoles.userId, userId));
-        
-        const currentRoles = userRolesResult.map(r => r.code);
-        const isAdmin = currentRoles.includes('ADMIN') || currentRoles.includes('HR_ADMIN');
+        // Internal user lookup for structural flags
+        const user = await this.usersService.getUserFullProfile(userId);
+        if (!user) return { items: [], total: 0, page, limit };
+
+        const isPowerUser = user.roles.includes('ADMIN') || user.roles.includes('HR_ADMIN');
+        const isRootLeader = user.isRootLeader;
+        const directIds = user.ledOrgUnitIds;
+        const isAnyLead = directIds.length > 0;
 
         const whereClauses: (SQL | undefined)[] = []
 
-        if (!isAdmin) {
-            whereClauses.push(eq(leaveRequestApprovals.approverUserId, userId))
+        if (!isRootLeader) {
+            whereClauses.push(ne(leaveRequests.employeeId, user.employeeId ?? ''));
+        }
+
+        if (!isPowerUser) {
+            // Managers/Leads see: 
+            // 1. Requests where they are the explicit approver
+            // 2. ALL requests from their direct Org Units
+            // 3. Only LEADER requests from child Org Units
+            if (isAnyLead) {
+                const childIds = await this.orgUnitsService.getDescendantOrgUnitIds(directIds);
+
+                const hierarchyConditions: (SQL | undefined)[] = [
+                    // Case 1: I am the explicit approver and it's still pending
+                    and(
+                        eq(leaveRequestApprovals.approverUserId, userId),
+                        eq(leaveRequestApprovals.status, 'PENDING')
+                    ),
+                    // Case 2: It's from my direct team (I see all)
+                    inArray(employees.orgUnitId, directIds)
+                ];
+
+                if (childIds.length > 0) {
+                    const childLeadEmployeeIds = await this.orgUnitsService.getOrgUnitLeaderEmployeeIds(childIds);
+
+                    if (childLeadEmployeeIds.length > 0) {
+                        // Case 3: It's from a child team lead
+                        hierarchyConditions.push(
+                            and(
+                                inArray(employees.orgUnitId, childIds),
+                                inArray(employees.id, childLeadEmployeeIds)
+                            )
+                        );
+                    }
+                }
+                whereClauses.push(or(...hierarchyConditions));
+            } else {
+                // If I'm not a lead of any unit, I only see things assigned to me
+                whereClauses.push(and(
+                    eq(leaveRequestApprovals.approverUserId, userId),
+                    eq(leaveRequestApprovals.status, 'PENDING')
+                ));
+            }
         }
 
         if (filter.search) {
@@ -505,7 +647,7 @@ export class LeaveRequestsService {
             .select({ count: sql<number>`cast(count(*) as int)` })
             .from(leaveRequests)
             .innerJoin(employees, eq(employees.id, leaveRequests.employeeId))
-            .innerJoin(
+            .leftJoin(
                 leaveRequestApprovals,
                 eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
             )
@@ -514,10 +656,6 @@ export class LeaveRequestsService {
         const approvalJoinCondition = [
             eq(leaveRequestApprovals.leaveRequestId, leaveRequests.id),
         ]
-
-        if (!isAdmin) {
-            approvalJoinCondition.push(eq(leaveRequestApprovals.approverUserId, userId))
-        }
 
         const rows = await this.db.db
             .select({
@@ -543,7 +681,7 @@ export class LeaveRequestsService {
             .from(leaveRequests)
             .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
             .innerJoin(employees, eq(employees.id, leaveRequests.employeeId))
-            .innerJoin(
+            .leftJoin(
                 leaveRequestApprovals,
                 and(...approvalJoinCondition),
             )

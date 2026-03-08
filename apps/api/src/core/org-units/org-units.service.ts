@@ -453,4 +453,65 @@ export class OrgUnitsService {
       supervisorLastName: m.supervisorId ? (supervisorMap.get(m.supervisorId)?.lastName ?? null) : null,
     }))
   }
-}
+
+  async isRootLeader(employeeId: string): Promise<boolean> {
+    // 1. Find root org (parentId is null)
+    const [root] = await this.db.db
+      .select({ id: orgUnits.id })
+      .from(orgUnits)
+      .where(isNull(orgUnits.parentId))
+      .limit(1);
+    
+    if (!root) return false;
+
+    // 2. Check if this employee is an active leader of that root org
+    const [leader] = await this.db.db
+      .select({ id: orgUnitLeaders.id })
+      .from(orgUnitLeaders)
+      .where(and(
+        eq(orgUnitLeaders.orgUnitId, root.id),
+        eq(orgUnitLeaders.employeeId, employeeId),
+        isNull(orgUnitLeaders.deletedAt)
+      ))
+      .limit(1);
+
+    return !!leader;
+    }
+
+    /**
+    * Recursively fetches all descendant Org Unit IDs for a given set of parent IDs using a recursive CTE.
+    */
+    async getDescendantOrgUnitIds(parentIds: string[]): Promise<string[]> {
+        if (parentIds.length === 0) return [];
+
+        const result = await this.db.db.execute(sql`
+            WITH RECURSIVE subordinates AS (
+                SELECT id FROM org_units WHERE id IN (${sql.join(parentIds.map(id => sql`${id}`), sql`, `)})
+                UNION ALL
+                SELECT ou.id FROM org_units ou
+                INNER JOIN subordinates s ON ou.parent_id = s.id
+                WHERE ou.deleted_at IS NULL
+            )
+            SELECT id FROM subordinates WHERE id NOT IN (${sql.join(parentIds.map(id => sql`${id}`), sql`, `)})
+        `);
+
+        return (result.rows as { id: string }[]).map(row => row.id);
+    }
+
+    /**
+    * Fetches all employee IDs who are leaders of the specified Org Units.
+    */
+    async getOrgUnitLeaderEmployeeIds(orgUnitIds: string[]): Promise<string[]> {
+    if (orgUnitIds.length === 0) return [];
+
+    const leaders = await this.db.db
+      .select({ employeeId: orgUnitLeaders.employeeId })
+      .from(orgUnitLeaders)
+      .where(and(
+        inArray(orgUnitLeaders.orgUnitId, orgUnitIds),
+        isNull(orgUnitLeaders.deletedAt)
+      ));
+
+    return leaders.map(l => l.employeeId);
+    }
+    }

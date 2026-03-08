@@ -171,7 +171,10 @@ export default function RequestLeaveDialog({ open, onOpenChange, balances, onSuc
                             <input
                                 type="date"
                                 value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
+                                onChange={(e) => {
+                                    setEndDate(e.target.value)
+                                    setError(null)
+                                }}
                                 min={startDate || new Date().toISOString().split('T')[0]}
                                 max={maxEndDate}
                                 disabled={!startDate}

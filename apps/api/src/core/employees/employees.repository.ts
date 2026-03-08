@@ -174,6 +174,7 @@ export class EmployeesRepository {
         profile: InferSelectModel<typeof employeeProfiles> | null
         identifiers: InferSelectModel<typeof employeeIdentifiers> | null
         policyId: string | null
+        roleIds: string[]
     } | null> {
         const includeDeleted = opts?.includeDeleted ?? false
 
@@ -204,7 +205,25 @@ export class EmployeesRepository {
             .where(whereClause)
             .limit(1)
 
-        return row ?? null
+        if (!row) return null;
+
+        // Fetch roles if user exists
+        let roleIds: string[] = [];
+        const userResult = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.employeeId, employeeId))
+            .limit(1);
+        
+        if (userResult[0]) {
+            const rolesRows = await db
+                .select({ roleId: userRoles.roleId })
+                .from(userRoles)
+                .where(eq(userRoles.userId, userResult[0].id));
+            roleIds = rolesRows.map(r => r.roleId);
+        }
+
+        return { ...row, roleIds }
     }
 
     // ─── Lookups ──────────────────────────────────────────────────────────────

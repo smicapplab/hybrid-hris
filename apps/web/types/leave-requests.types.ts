@@ -86,13 +86,13 @@ export function computeMaxEndDate(
     startDayType: DayType,
     balance: number,
 ): string {
-    // Start day costs 0.5 (HALF) or 1 (FULL).
-    // Max additional full days from startDate+1: balance - startCost, rounded down.
-    const startCost = startDayType === 'HALF' ? 0.5 : 1
-    const remainingAfterStart = balance - startCost
-    const extraDays = Math.max(0, Math.floor(remainingAfterStart + 0.5)) // allow one half-day end
+    // We allow an extra calendar day in the picker so the user can select it
+    // and then toggle "Half Day" to fit within their balance.
+    // Example: balance 1.5, start FULL (1.0).
+    // Permissive logic: ceil(1.5) = 2 calendar days allowed from start.
+    const calendarDaysAllowed = Math.ceil(balance + (startDayType === 'HALF' ? 0.5 : 0))
     const d = new Date(startDate)
-    d.setDate(d.getDate() + extraDays)
+    d.setDate(d.getDate() + Math.max(0, calendarDaysAllowed - 1))
     return d.toISOString().split('T')[0]
 }
 

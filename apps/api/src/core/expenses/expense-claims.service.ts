@@ -1,16 +1,20 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { expenseClaims, expenseClaimApprovals, employees, orgUnitLeaders, roles, userRoles } from '@hybrid-hris/db/schema';
+import { expenseClaims, expenseClaimApprovals, employees, orgUnitLeaders, roles, userRoles, orgUnits } from '@hybrid-hris/db/schema';
 import { ExpenseClaim } from '@hybrid-hris/db/types';
 import { ExpenseClaimStatus, ExpenseApprovalStatus, BudgetLedgerEntryType } from '@hybrid-hris/domain';
-import { eq, and, isNull, inArray, sql } from 'drizzle-orm';
+import { eq, and, isNull, inArray, sql, or, SQL, ne } from 'drizzle-orm';
 import { BudgetLedgerService } from './budget-ledger.service';
+import { UsersService } from 'src/identity/users/users.service';
+import { OrgUnitsService } from '../org-units/org-units.service';
 
 @Injectable()
 export class ExpenseClaimsService {
     constructor(
         private readonly db: DatabaseService,
         private readonly ledgerService: BudgetLedgerService,
+        private readonly usersService: UsersService,
+        private readonly orgUnitsService: OrgUnitsService,
     ) { }
 
     async submitClaim(data: {
@@ -107,36 +111,55 @@ export class ExpenseClaimsService {
     }
 
     async getPendingForApproval(userId: string): Promise<any[]> {
-        // Internal role lookup for security
-        const userRolesResult = await this.db.db
-            .select({ code: roles.code })
-            .from(userRoles)
-            .innerJoin(roles, eq(userRoles.roleId, roles.id))
-            .where(eq(userRoles.userId, userId));
-        
-        const currentRoles = userRolesResult.map(r => r.code);
-        const isAdmin = currentRoles.includes('ADMIN') || currentRoles.includes('HR_ADMIN');
-        
-        const conditions = [
+        // Internal user lookup for structural flags
+        const user = await this.usersService.getUserFullProfile(userId);
+        if (!user) return [];
+
+        const isPowerUser = user.roles.includes('ADMIN') || user.roles.includes('HR_ADMIN');
+        const isRootLeader = user.isRootLeader;
+        const directIds = user.ledOrgUnitIds;
+        const isAnyLead = directIds.length > 0;
+
+        const conditions: (SQL | undefined)[] = [
             eq(expenseClaims.status, ExpenseClaimStatus.SUBMITTED)
         ];
 
-        if (!isAdmin) {
-            // Managers see claims for org units they lead
-            const ledOrgUnits = await this.db.db
-                .select({ orgUnitId: orgUnitLeaders.orgUnitId })
-                .from(orgUnitLeaders)
-                .where(and(
-                    eq(orgUnitLeaders.employeeId, sql`(SELECT employee_id FROM users WHERE id = ${userId})`),
-                    isNull(orgUnitLeaders.deletedAt)
-                ));
-            
-            const orgUnitIds = ledOrgUnits.map(ou => ou.orgUnitId);
-            if (orgUnitIds.length === 0) return [];
-            
-            conditions.push(inArray(expenseClaims.orgUnitId, orgUnitIds));
+        // Never allow self-approval EXCEPT for root leaders
+        if (!isRootLeader) {
+            conditions.push(ne(expenseClaims.employeeId, user.employeeId ?? ''));
         }
 
+        if (!isPowerUser) {
+            // 1. Get child units recursively if user is a lead
+            if (isAnyLead) {
+                const childIds = await this.orgUnitsService.getDescendantOrgUnitIds(directIds);
+
+                // 2. Filter: (In direct unit) OR (In child unit AND is a leader)
+                if (childIds.length > 0) {
+                    const childLeadEmployeeIds = await this.orgUnitsService.getOrgUnitLeaderEmployeeIds(childIds);
+
+                    const hierarchyConditions: (SQL | undefined)[] = [
+                        inArray(expenseClaims.orgUnitId, directIds)
+                    ];
+
+                    if (childLeadEmployeeIds.length > 0) {
+                        hierarchyConditions.push(
+                            and(
+                                inArray(expenseClaims.orgUnitId, childIds),
+                                inArray(expenseClaims.employeeId, childLeadEmployeeIds)
+                            )
+                        );
+                    }
+
+                    conditions.push(or(...hierarchyConditions));
+                } else {
+                    conditions.push(inArray(expenseClaims.orgUnitId, directIds));
+                }
+            } else {
+                // Not a lead and not an admin -> can't see anything in the queue
+                return [];
+            }
+        }
         return this.db.db
             .select({
                 claim: expenseClaims,

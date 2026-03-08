@@ -14,10 +14,30 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar> & 
     const { state } = useSidebar();
     const { user } = useAuth();
 
-    const visibleNav = navigation.filter((nav) => {
-        if (!nav.roles || nav.roles.length === 0) return true;
-        if (!user) return false;
-        return nav.roles.some((role) => user.roles.includes(role));
+    const visibleNav = navigation.filter((category) => {
+        // Filter the category itself based on roles
+        const categoryRoles = category.roles || [];
+        const hasCategoryAccess = categoryRoles.length === 0 || 
+            categoryRoles.some((role) => user?.roles.includes(role));
+
+        if (!hasCategoryAccess) return false;
+
+        // Filter individual elements inside the category
+        const visibleElements = category.elements.filter((item) => {
+            const itemRoles = (item as any).roles || [];
+            if (itemRoles.length === 0) return true;
+            if (!user) return false;
+
+            const hasRole = itemRoles.some((role: string) => user.roles.includes(role));
+            const isSupervisorMatch = itemRoles.includes('SUPERVISOR') && user.isSupervisor;
+
+            return hasRole || isSupervisorMatch;
+        });
+
+        if (visibleElements.length === 0) return false;
+
+        // Return a copy of the category with filtered elements
+        return { ...category, elements: visibleElements };
     });
 
     return (
@@ -39,7 +59,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar> & 
             <Separator />
             <SidebarContent className="bg-white">
                 {visibleNav.map((nav, i) => (
-                    <NavMain key={i} navItem={nav} />
+                    <NavMain key={i} navItem={nav as any} />
                 ))}
             </SidebarContent>
             <SidebarFooter className="bg-blue-50">

@@ -3,11 +3,15 @@ import { and, eq, isNull, sql, getTableColumns } from 'drizzle-orm'
 import * as bcrypt from 'bcrypt'
 
 import { DatabaseService } from 'src/database/database.service'
-import { roles, userRoles, users, employees } from '@hybrid-hris/db/schema'
+import { roles, userRoles, users, employees, orgUnitLeaders, orgUnits } from '@hybrid-hris/db/schema'
+import { OrgUnitsService } from 'src/core/org-units/org-units.service'
 
 @Injectable()
 export class UsersService {
-    constructor(private readonly db: DatabaseService) { }
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly orgUnitsService: OrgUnitsService,
+    ) { }
 
     async findActiveByEmail(email: string) {
         const normalized = email.trim().toLowerCase()
@@ -18,6 +22,7 @@ export class UsersService {
                 ...userColumns,
                 firstName: employees.firstName,
                 lastName: employees.lastName,
+                orgUnitId: employees.orgUnitId,
             })
             .from(users)
             .leftJoin(employees, eq(users.employeeId, employees.id))
@@ -51,6 +56,7 @@ export class UsersService {
                 ...userColumns,
                 firstName: employees.firstName,
                 lastName: employees.lastName,
+                orgUnitId: employees.orgUnitId,
             })
             .from(users)
             .leftJoin(employees, eq(users.employeeId, employees.id))
@@ -102,5 +108,60 @@ export class UsersService {
             .where(eq(employees.id, employeeId))
             .limit(1);
         return emp?.orgUnitId ?? null;
+    }
+
+    /**
+     * Consolidates user profile data and structural flags (isSupervisor, isOrgLead, isRootLeader)
+     * in a single method to minimize redundant DB calls.
+     */
+    async getUserFullProfile(userId: string) {
+        const user = await this.findActiveById(userId);
+        if (!user) return null;
+
+        const roles = await this.getUserRoles(userId);
+
+        if (!user.employeeId) {
+            return {
+                ...user,
+                roles,
+                isSupervisor: false,
+                isOrgLead: false,
+                isRootLeader: false,
+                ledOrgUnitIds: [] as string[],
+            };
+        }
+
+        const [isSupervisorResult, leadStatus] = await Promise.all([
+            this.db.db
+                .select({ id: employees.id })
+                .from(employees)
+                .where(and(eq(employees.supervisorId, user.employeeId), isNull(employees.deletedAt)))
+                .limit(1),
+            this.db.db
+                .select({ 
+                    orgUnitId: orgUnitLeaders.orgUnitId,
+                    parentId: orgUnits.parentId 
+                })
+                .from(orgUnitLeaders)
+                .innerJoin(orgUnits, eq(orgUnitLeaders.orgUnitId, orgUnits.id))
+                .where(and(
+                    eq(orgUnitLeaders.employeeId, user.employeeId),
+                    isNull(orgUnitLeaders.deletedAt)
+                ))
+        ]);
+
+        const isSupervisor = isSupervisorResult.length > 0;
+        const ledOrgUnitIds = leadStatus.map(l => l.orgUnitId);
+        const isOrgLead = ledOrgUnitIds.length > 0;
+        const isRootLeader = leadStatus.some(l => l.parentId === null);
+
+        return {
+            ...user,
+            roles,
+            isSupervisor,
+            isOrgLead,
+            isRootLeader,
+            ledOrgUnitIds,
+        };
     }
 }

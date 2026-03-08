@@ -18,25 +18,43 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt') {
     sub: string;
     email: string;
     employeeId?: string | null;
+    isSupervisor?: boolean;
+    isOrgLead?: boolean;
     roles: string[];
     firstName?: string | null;
     lastName?: string | null;
   }) {
-    const user = await this.usersService.findActiveById(payload.sub);
+    const user = await this.usersService.getUserFullProfile(payload.sub);
 
     if (!user) {
       throw new UnauthorizedException();
     }
 
+    const { isOrgLead, isSupervisor, isRootLeader } = user;
+    
+    // Dynamically inject roles based on structural status
+    const dynamicRoles = [...payload.roles];
+    if (isRootLeader && !dynamicRoles.includes('ADMIN')) {
+        dynamicRoles.push('ADMIN');
+    }
+    if (isOrgLead && !dynamicRoles.includes('MANAGER')) {
+        dynamicRoles.push('MANAGER');
+    }
+    if (isSupervisor && !dynamicRoles.includes('SUPERVISOR')) {
+        dynamicRoles.push('SUPERVISOR');
+    }
+
     return {
       id: user.id,
       email: user.email,
-      // Re-fetch employeeId and orgUnitId from the DB rather than trusting the token
       employeeId: user.employeeId ?? null,
-      orgUnitId: user.employeeId ? (await this.usersService.getEmployeeOrgUnitId(user.employeeId)) : null,
+      orgUnitId: user.orgUnitId ?? null,
+      isSupervisor,
+      isOrgLead,
+      isRootLeader,
       firstName: payload.firstName ?? null,
       lastName: payload.lastName ?? null,
-      roles: payload.roles,
+      roles: dynamicRoles,
     };
   }
 }

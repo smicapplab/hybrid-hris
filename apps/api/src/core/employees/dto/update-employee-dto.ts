@@ -126,6 +126,10 @@ export class UpdateEmployeeDto {
     @IsUUID()
     policyId?: string
 
+    @IsOptional()
+    @IsUUID('4', { each: true })
+    roleIds?: string[]
+
     // Optional nested updates (handled in service layer)
     @IsOptional()
     @ValidateNested()
