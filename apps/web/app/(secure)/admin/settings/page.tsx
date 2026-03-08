@@ -49,7 +49,30 @@ export default function AdminSettingsPage() {
         setSaving(true);
         try {
             // Sanitize payload to remove read-only/internal fields forbidden by API
-            const { singleton, createdAt, updatedAt, ...payload } = settings as any;
+            // We use destructuring to pick only the fields defined in the Update DTO
+            const { 
+                employeeNoPrefix, 
+                employeeNoNext, 
+                employeeNoPadding, 
+                emailDomain, 
+                timezone, 
+                passwordLoginEnabled, 
+                googleLoginEnabled, 
+                microsoftLoginEnabled, 
+                allowedWorkspaceDomains 
+            } = settings;
+
+            const payload = {
+                employeeNoPrefix,
+                employeeNoNext,
+                employeeNoPadding,
+                emailDomain,
+                timezone,
+                passwordLoginEnabled,
+                googleLoginEnabled,
+                microsoftLoginEnabled,
+                allowedWorkspaceDomains
+            };
             
             await apiFetch('/hr-settings', {
                 method: 'PATCH',
