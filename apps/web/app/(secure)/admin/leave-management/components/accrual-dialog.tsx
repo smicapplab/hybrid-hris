@@ -24,10 +24,10 @@ import { Loader2, Calculator } from 'lucide-react'
 
 type Props = {
     open: boolean
-    onOpenChange: (open: boolean) => void
+    onOpenChangeAction: (open: boolean) => void
 }
 
-export function AccrualDialog({ open, onOpenChange }: Props) {
+export function AccrualDialog({ open, onOpenChangeAction }: Props) {
     const { toast } = useToast()
     const [loading, setLoading] = useState(false)
 
@@ -67,7 +67,7 @@ export function AccrualDialog({ open, onOpenChange }: Props) {
                 description: `Successfully processed ${result.processedCount} leave accruals for ${months.find(m => m.value === month)?.label} ${year}.`,
                 variant: 'success'
             })
-            onOpenChange(false)
+            onOpenChangeAction(false)
         } catch (err) {
             toast({
                 title: 'Accrual Failed',
@@ -80,7 +80,7 @@ export function AccrualDialog({ open, onOpenChange }: Props) {
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={onOpenChangeAction}>
             <DialogContent className="sm:max-w-[400px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
@@ -126,7 +126,7 @@ export function AccrualDialog({ open, onOpenChange }: Props) {
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+                    <Button variant="outline" onClick={() => onOpenChangeAction(false)} disabled={loading}>
                         Cancel
                     </Button>
                     <Button onClick={handleProcess} disabled={loading} className="bg-violet-600 hover:bg-violet-700">

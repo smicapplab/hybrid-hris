@@ -310,7 +310,7 @@ export function OrgMembersTable({ orgId, onChangeAction }: Props) {
                         <AsyncSearchSelect<SupervisorOption>
                             label="Employee"
                             value={selectedEmployeeId}
-                            onChange={setSelectedEmployeeId}
+                            onChangeAction={setSelectedEmployeeId}
                             fetchOptions={async (search) => {
                                 const res = await apiFetch<{ data: SupervisorOption[] }>(
                                     `/employees?search=${encodeURIComponent(search)}&pageSize=20`,
@@ -363,7 +363,7 @@ export function OrgMembersTable({ orgId, onChangeAction }: Props) {
                         <AsyncSearchSelect<SupervisorOption>
                             label="Supervisor"
                             value={newSupervisorId}
-                            onChange={setNewSupervisorId}
+                            onChangeAction={setNewSupervisorId}
                             fetchOptions={async (search) => {
                                 const res = await apiFetch<{ data: SupervisorOption[] }>(
                                     `/employees?status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`,

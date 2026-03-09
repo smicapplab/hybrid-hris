@@ -16,6 +16,11 @@ CREATE TYPE "public"."budget_period_type" AS ENUM('MONTHLY', 'QUARTERLY', 'ANNUA
 CREATE TYPE "public"."expense_claim_status" AS ENUM('DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'CANCELLED', 'REIMBURSED');--> statement-breakpoint
 CREATE TYPE "public"."expense_approval_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
 CREATE TYPE "public"."budget_ledger_entry_type" AS ENUM('ALLOCATION', 'CONSUMPTION', 'ADJUSTMENT', 'REVERSAL', 'RESERVATION', 'RELEASE');--> statement-breakpoint
+CREATE TYPE "public"."manpower_request_status" AS ENUM('DRAFT', 'SUBMITTED', 'SUBMITTED_TO_ROOT', 'APPROVED', 'REJECTED', 'CANCELLED', 'CLOSED');--> statement-breakpoint
+CREATE TYPE "public"."manpower_request_type" AS ENUM('NEW_HEADCOUNT', 'REPLACEMENT', 'PROJECT_BASED');--> statement-breakpoint
+CREATE TYPE "public"."request_priority" AS ENUM('LOW', 'NORMAL', 'HIGH', 'URGENT');--> statement-breakpoint
+CREATE TYPE "public"."manpower_approval_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
+CREATE TYPE "public"."job_posting_status" AS ENUM('DRAFT', 'OPEN', 'CLOSED');--> statement-breakpoint
 CREATE TABLE "employees" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"employee_no" varchar(50) NOT NULL,
@@ -504,6 +509,63 @@ CREATE TABLE "expense_receipts" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "manpower_requests" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_unit_id" uuid NOT NULL,
+	"position_id" uuid,
+	"requested_by" uuid NOT NULL,
+	"request_type" "manpower_request_type" NOT NULL,
+	"quantity" integer DEFAULT 1 NOT NULL,
+	"employment_type" "employment_type" NOT NULL,
+	"priority" "request_priority" DEFAULT 'NORMAL' NOT NULL,
+	"job_title" varchar(200) NOT NULL,
+	"job_summary" text,
+	"job_description" text,
+	"responsibilities" text,
+	"qualifications" text,
+	"status" "manpower_request_status" DEFAULT 'DRAFT' NOT NULL,
+	"target_hire_date" date,
+	"deleted_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "manpower_request_approvals" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"manpower_request_id" uuid NOT NULL,
+	"approver_user_id" uuid NOT NULL,
+	"level" integer NOT NULL,
+	"status" "manpower_approval_status" DEFAULT 'PENDING' NOT NULL,
+	"acted_at" timestamp with time zone,
+	"remarks" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "manpower_request_approvals_status_acted_at_consistency_check" CHECK (
+                (status = 'PENDING' AND acted_at IS NULL)
+                OR
+                (status <> 'PENDING' AND acted_at IS NOT NULL)
+            )
+);
+--> statement-breakpoint
+CREATE TABLE "job_postings" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"manpower_request_id" uuid NOT NULL,
+	"title" varchar(200) NOT NULL,
+	"slug" varchar(255) NOT NULL,
+	"employment_type" "employment_type" NOT NULL,
+	"location" varchar(200),
+	"remote_type" varchar(50),
+	"description" text NOT NULL,
+	"responsibilities" text,
+	"qualifications" text,
+	"salary_min" numeric(12, 2),
+	"salary_max" numeric(12, 2),
+	"currency" varchar(3) DEFAULT 'PHP' NOT NULL,
+	"status" "job_posting_status" DEFAULT 'DRAFT' NOT NULL,
+	"external_sync_status" varchar(50) DEFAULT 'NOT_SYNCED' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_positions_id_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_supervisor_fk" FOREIGN KEY ("supervisor_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -557,6 +619,12 @@ ALTER TABLE "budget_ledger" ADD CONSTRAINT "budget_ledger_reference_expense_clai
 ALTER TABLE "budget_ledger" ADD CONSTRAINT "budget_ledger_reference_budget_id_org_unit_budgets_id_fk" FOREIGN KEY ("reference_budget_id") REFERENCES "public"."org_unit_budgets"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "expense_receipts" ADD CONSTRAINT "expense_receipts_expense_claim_id_expense_claims_id_fk" FOREIGN KEY ("expense_claim_id") REFERENCES "public"."expense_claims"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "expense_receipts" ADD CONSTRAINT "expense_receipts_uploaded_by_users_id_fk" FOREIGN KEY ("uploaded_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "manpower_requests" ADD CONSTRAINT "manpower_requests_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "manpower_requests" ADD CONSTRAINT "manpower_requests_position_id_positions_id_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "manpower_requests" ADD CONSTRAINT "manpower_requests_requested_by_users_id_fk" FOREIGN KEY ("requested_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "manpower_request_approvals" ADD CONSTRAINT "manpower_request_approvals_manpower_request_id_manpower_requests_id_fk" FOREIGN KEY ("manpower_request_id") REFERENCES "public"."manpower_requests"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "manpower_request_approvals" ADD CONSTRAINT "manpower_request_approvals_approver_user_id_users_id_fk" FOREIGN KEY ("approver_user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "job_postings" ADD CONSTRAINT "job_postings_manpower_request_id_manpower_requests_id_fk" FOREIGN KEY ("manpower_request_id") REFERENCES "public"."manpower_requests"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "employees_employee_no_uq" ON "employees" USING btree ("employee_no");--> statement-breakpoint
 CREATE INDEX "employees_hire_date_idx" ON "employees" USING btree ("hire_date");--> statement-breakpoint
 CREATE INDEX "employees_last_name_idx" ON "employees" USING btree ("last_name");--> statement-breakpoint
@@ -646,4 +714,13 @@ CREATE INDEX "expense_claim_approvals_claim_idx" ON "expense_claim_approvals" US
 CREATE INDEX "expense_claim_approvals_approver_idx" ON "expense_claim_approvals" USING btree ("approver_user_id");--> statement-breakpoint
 CREATE INDEX "budget_ledger_org_unit_idx" ON "budget_ledger" USING btree ("org_unit_id");--> statement-breakpoint
 CREATE INDEX "budget_ledger_period_idx" ON "budget_ledger" USING btree ("budget_period_id");--> statement-breakpoint
-CREATE INDEX "budget_ledger_category_idx" ON "budget_ledger" USING btree ("expense_category_id");
+CREATE INDEX "budget_ledger_category_idx" ON "budget_ledger" USING btree ("expense_category_id");--> statement-breakpoint
+CREATE INDEX "manpower_requests_org_unit_idx" ON "manpower_requests" USING btree ("org_unit_id");--> statement-breakpoint
+CREATE INDEX "manpower_requests_status_idx" ON "manpower_requests" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "manpower_requests_requested_by_idx" ON "manpower_requests" USING btree ("requested_by");--> statement-breakpoint
+CREATE INDEX "manpower_request_approvals_request_idx" ON "manpower_request_approvals" USING btree ("manpower_request_id");--> statement-breakpoint
+CREATE INDEX "manpower_request_approvals_approver_idx" ON "manpower_request_approvals" USING btree ("approver_user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "manpower_request_approvals_request_level_uq" ON "manpower_request_approvals" USING btree ("manpower_request_id","level");--> statement-breakpoint
+CREATE INDEX "job_postings_request_idx" ON "job_postings" USING btree ("manpower_request_id");--> statement-breakpoint
+CREATE INDEX "job_postings_slug_idx" ON "job_postings" USING btree ("slug");--> statement-breakpoint
+CREATE INDEX "job_postings_status_idx" ON "job_postings" USING btree ("status");

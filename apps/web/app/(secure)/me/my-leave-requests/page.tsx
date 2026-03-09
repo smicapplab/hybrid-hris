@@ -286,9 +286,9 @@ export default function MyLeaveRequestsPage() {
             {/* Request dialog */}
             <RequestLeaveDialog
                 open={dialogOpen}
-                onOpenChange={setDialogOpen}
+                onOpenChangeAction={setDialogOpen}
                 balances={balances}
-                onSuccess={load}
+                onSuccessAction={load}
             />
         </div>
     )

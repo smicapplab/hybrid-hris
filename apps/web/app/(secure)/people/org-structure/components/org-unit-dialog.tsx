@@ -18,12 +18,12 @@ import { RequiredInput } from "@/components/ui/required-input"
 export function OrgUnitDialog({
     parentId,
     open,
-    onClose,
+    onCloseAction,
     initialData,
 }: {
     parentId: string | null
     open: boolean
-    onClose: () => void,
+    onCloseAction: () => void,
     initialData?: OrgUnit | null
 }) {
     const { toast } = useToast()
@@ -49,7 +49,7 @@ export function OrgUnitDialog({
                 })
                 toast({ title: 'Unit created', variant: 'success' })
             }
-            onClose()
+            onCloseAction()
         } catch (err) {
             toast({
                 title: isEdit ? 'Failed to update unit' : 'Failed to create unit',
@@ -60,7 +60,7 @@ export function OrgUnitDialog({
     }
 
     return (
-        <Dialog open={open} onOpenChange={onClose}>
+        <Dialog open={open} onOpenChange={onCloseAction}>
             <DialogContent key={initialData?.id ?? "create"}>
                 <DialogHeader>
                     <DialogTitle>

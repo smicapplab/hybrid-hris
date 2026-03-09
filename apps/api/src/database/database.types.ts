@@ -5,6 +5,6 @@ export type Db = NodePgDatabase<typeof schema>
 
 export type Tx = Parameters<Db['transaction']>[0] extends (
     tx: infer T,
-) => any ? T : never
+) => unknown ? T : never
 
 export type DbOrTx = Db | Tx

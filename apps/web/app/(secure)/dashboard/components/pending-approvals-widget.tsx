@@ -108,10 +108,10 @@ export default function PendingApprovalsWidget() {
 
             <ActOnRequestDialog
                 open={dialogOpen}
-                onOpenChange={setDialogOpen}
+                onOpenChangeAction={setDialogOpen}
                 request={selected}
                 action={action}
-                onSuccess={load}
+                onSuccessAction={load}
             />
         </>
     )

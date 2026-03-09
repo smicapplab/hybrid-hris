@@ -589,7 +589,7 @@ export function CreateEmployeeDialog({ open, onOpenChangeAction }: Props) {
                         <AsyncSearchSelect
                             label="Org Unit"
                             value={form.orgUnitId}
-                            onChange={handleOrgUnitChange}
+                            onChangeAction={handleOrgUnitChange}
                             fetchOptions={async (search) => {
                                 const list = await apiFetch<OrgUnitOption[]>(
                                     `/org-units/search?leavesOnly=true&showDeleted=false&limit=20&query=${encodeURIComponent(search)}`,
@@ -629,7 +629,7 @@ export function CreateEmployeeDialog({ open, onOpenChangeAction }: Props) {
                         <AsyncSearchSelect
                             label="Supervisor (optional)"
                             value={form.supervisorId}
-                            onChange={(v) => set('supervisorId', v)}
+                            onChangeAction={(v) => set('supervisorId', v)}
                             fetchOptions={async (search) => {
                                 const res = await apiFetch<{ data: SupervisorOption[] }>(
                                     `/employees?status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`,

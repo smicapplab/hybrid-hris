@@ -19,10 +19,8 @@ import {
     Calendar,
     Clock,
     CheckCircle2,
-    XCircle,
     History,
     MessageSquare,
-    User,
     Search,
     ChevronLeft,
     ChevronRight,
@@ -413,10 +411,10 @@ export default function LeaveApprovalsPage() {
 
             <ActOnRequestDialog
                 open={dialogOpen}
-                onOpenChange={setDialogOpen}
+                onOpenChangeAction={setDialogOpen}
                 request={selected}
                 action={action}
-                onSuccess={() => {
+                onSuccessAction={() => {
                     loadPending(pendingPage, pendingSearch)
                     loadHistory(historyPage, historySearch)
                 }}

@@ -317,7 +317,7 @@ export default function LeaveManagmentPage() {
             {/* Accrual process dialog */}
             <AccrualDialog
                 open={accrualDialogOpen}
-                onOpenChange={setAccrualDialogOpen}
+                onOpenChangeAction={setAccrualDialogOpen}
             />
         </div>
     )

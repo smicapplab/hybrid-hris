@@ -16,16 +16,16 @@ import { apiFetch } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { AttendanceLog } from '@/types/attendance.types'
-import { format, parseISO, startOfDay, addDays } from 'date-fns'
+import { format } from 'date-fns'
 
 type Props = {
     open: boolean
-    onOpenChange: (open: boolean) => void
+    onOpenChangeAction: (open: boolean) => void
     initialLog?: AttendanceLog | null
-    onSuccess: () => void
+    onSuccessAction: () => void
 }
 
-export function AttendanceAdjustmentDialog({ open, onOpenChange, initialLog, onSuccess }: Props) {
+export function AttendanceAdjustmentDialog({ open, onOpenChangeAction, initialLog, onSuccessAction }: Props) {
     const { toast } = useToast()
     const [loading, setLoading] = useState(false)
 
@@ -118,17 +118,18 @@ export function AttendanceAdjustmentDialog({ open, onOpenChange, initialLog, onS
                     : 'Your attendance adjustment has been sent for approval.', 
                 variant: 'success' 
             })
-            onSuccess()
-            onOpenChange(false)
-        } catch (err: any) {
-            toast({ title: 'Submission failed', description: err.message, variant: 'destructive' })
+            onSuccessAction()
+            onOpenChangeAction(false)
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Submission failed';
+            toast({ title: 'Submission failed', description: message, variant: 'destructive' })
         } finally {
             setLoading(false)
         }
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={onOpenChangeAction}>
             <DialogContent className="sm:max-w-[450px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
@@ -195,7 +196,7 @@ export function AttendanceAdjustmentDialog({ open, onOpenChange, initialLog, onS
                     </div>
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+                        <Button type="button" variant="outline" onClick={() => onOpenChangeAction(false)} disabled={loading}>
                             Cancel
                         </Button>
                         <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700">

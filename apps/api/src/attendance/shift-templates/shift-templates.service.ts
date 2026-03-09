@@ -62,7 +62,7 @@ export class ShiftTemplatesService {
                 .returning()
                 
             return created
-        } catch (err: any) {
+        } catch (err) {
             const pgError = err as { code?: string }
             if (pgError?.code === '23505') {
                 throw new ConflictException(

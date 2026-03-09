@@ -18,20 +18,21 @@ The system focuses on deterministic background processing, clean domain separati
 ### Core Modules
 
 - **Employee Management** – Master records, employment type, status, and organizational assignment.
-- **Organizational Structure** – Hierarchical Org Units (multi-level), shared Positions, OrgUnit-Position mapping, and Org Unit Leaders (HEAD / CO_HEAD / ACTING_HEAD).
+- **Organizational Structure** – Hierarchical Org Units (3-level depth), shared Positions, and Org Unit Leaders (HEAD / CO_HEAD / ACTING_HEAD).
+- **Manpower Request Workflow** – Formalized hiring requests with multi-level approval (HR Admin → Root Leader).
+- **Plantilla & Headcount Inventory** – Real-time tracking of authorized vs. filled vs. vacant slots across the entire organization.
 - **Leave Management (Ledger-Based)** – Robust leave tracking using an append-only financial-style ledger. Supports accrual, consumption, and manual adjustments.
-- **Leave Policies & Rules** – Flexible policy engine supporting Monthly Accrual, Annual Grants, Max Balance caps, and Carry-over limits.
 - **Expense & Team Budgets** – Hierarchical budget allocation per Org Unit and category. Append-only budget ledger for consumption tracking.
-- **Attendance & Shift Management** – Shift templates, employee shift assignments (flexible/fixed), and attendance logging.
+- **Attendance & Shift Management** – Shift templates, employee shift assignments, and attendance logging with 30-day historical tracking.
 - **Identity & RBAC** – Users, roles, and user-role mappings with hardened database-first authorization.
 
 ### Design Philosophy
 
-- **Immutable Ledgers:** Both Leave and Budget balances are derived from append-only ledgers, ensuring a perfect audit trail and preventing data corruption.
-- **Database-First Authorization:** Security is enforced at the service level by re-fetching user roles and leadership status directly from the database, preventing "stale" token access.
-- **Deterministic Accruals:** Monthly accruals use idempotent deterministic keys to prevent duplicate credits during retries or job restarts.
-- **Temporal Integrity:** Policy and shift assignments use Postgres `EXCLUDE` constraints to prevent overlapping records for the same employee.
-- **Monorepo Architecture:** Clean package boundaries with shared domain logic between frontend and backend.
+- **Immutable Ledgers:** Both Leave and Budget balances are derived from append-only ledgers, ensuring a perfect audit trail.
+- **Real-time Plantilla Integrity:** Authorized headcount limits are strictly enforced; expansion is only possible through approved "New Headcount" workflows.
+- **Database-First Authorization:** Security is enforced at the service level by re-fetching user roles and leadership status directly from the database.
+- **Deterministic Accruals:** Monthly accruals use idempotent deterministic keys to prevent duplicate credits.
+- **Monorepo Architecture:** Clean package boundaries using pnpm workspaces.
 
 ---
 
@@ -39,25 +40,10 @@ The system focuses on deterministic background processing, clean domain separati
 
 - **Frontend:** Next.js 15 (App Router) – `apps/web`
 - **API:** NestJS 11 – `apps/api`
-- **Database:** PostgreSQL (with `btree_gist` and `pgcrypto` extensions)
-- **ORM:** Drizzle ORM – `packages/db`
-- **Domain Layer:** `packages/domain` (Shared enums, types, and logic)
-- **Package Manager:** pnpm (workspace)
-
----
-
-## Monorepo Structure
-
-```
-hybrid-hris/
-  apps/
-    web/        # Next.js frontend
-    api/        # NestJS backend
-  packages/
-    db/         # Drizzle schema, migrations & seed scripts
-    domain/     # Pure business logic, enums & shared types
-  scripts/      # DevOps and maintenance scripts
-```
+- **Database:** PostgreSQL (Drizzle ORM) – `packages/db`
+- **Rich Text:** Tiptap (WYSIWYG) for job postings
+- **Domain Layer:** `packages/domain` (Shared business logic & enums)
+- **Data Mocking:** Faker.js for enterprise-grade seeding
 
 ---
 
@@ -76,80 +62,45 @@ Copy `.env.sample` to `.env` in the root and in `apps/api`.
 ### 3. Build Shared Packages
 
 ```bash
-pnpm --filter @hybrid-hris/db run build
-pnpm --filter @hybrid-hris/domain run build
+pnpm --filter "@hybrid-hris/*" run build
 ```
 
 ### 4. Database Setup
 
-Ensure Docker is running, then use the reset script for a fresh start:
+Ensure Docker is running, then run migrations and seed the **Enterprise Environment**:
 
 ```bash
-./scripts/reset-db.sh
+pnpm --filter @hybrid-hris/db run db:migrate
+LOAD_TEST_DATA=true pnpm --filter @hybrid-hris/db run seed
 ```
-
-Alternatively, to load the full testing environment (15+ employees, org tree, leave history, and team budgets):
-
-```bash
-LOAD_TEST_DATA=true pnpm --filter @hybrid-hris/db seed
-```
+*The seed generates ~90 realistic employees, a 3-level org tree, 30 days of attendance, and full budget/leave history.*
 
 ### 5. Start Applications
 
-**API (NestJS):**
-```bash
-pnpm --filter api start:dev # Runs on http://localhost:4000
-```
-
-**Web (Next.js):**
-```bash
-pnpm --filter web dev # Runs on http://localhost:3000
-```
-
----
-
-## Authentication & Security
-
-The system uses JWT-based authentication with **Refresh Token Rotation**.
-
-- **Access Token:** Short-lived (15m default), stored in memory/header.
-- **Refresh Token:** Long-lived (7d default), stored in an `httpOnly` cookie.
-- **RBAC:** Roles are verified via `RolesGuard` in the API. 
-- **Security Hardening:** Critical data visibility (Approvals, Budgets) is scoped using live database lookups of user roles and leadership assignments rather than trusting JWT claims.
-
-### Hybrid Authentication & Workspace Integration
-
-The system supports a hybrid identity model, allowing organizations to bridge internal credentials with corporate workspaces:
-
-- **Google Workspace & Microsoft 365:** Seamless OAuth2 integration for corporate sign-in.
-- **Domain Locking:** Administrators can restrict OAuth access to specific corporate domains (e.g., `yourcompany.com`).
-- **Dynamic Configuration:** Authentication methods can be toggled in real-time via the **Organization Settings** dashboard.
-- **Fail-Safe Mechanism:** Internal Email/Password login remains available as a fallback to prevent system lockouts if third-party providers are unconfigured.
-- **Self-Provisioning:** The system supports auto-creation of employee profiles for recognized corporate emails, putting them in an "Incomplete Setup" state for HR to finalize (department/position assignment).
-
-### Default Admin (Development)
-
-Email: `admin@hybrid-hris.local`  
-Password: `Admin123!`
+**API:** `pnpm --filter api start:dev` (http://localhost:4000)  
+**Web:** `pnpm --filter web dev` (http://localhost:3000)
 
 ---
 
 ## Management Features
 
-### Leave Policy Management
-Administrators can define different leave policies (e.g., Standard, Intern) and assign them to employees.
-- **Process Accruals:** A dedicated UI tool allows admins to trigger monthly leave credits organization-wide.
-- **Employee Visibility:** View all employees assigned to a specific policy directly from the policy dashboard.
+### Recruitment & Plantilla
+- **Operational Vacancy Detection:** Managers can see "Available" slots in their Org Unit and trigger hiring requests directly from the Org Structure view.
+- **Approval Workflow:** Strict **HR Admin → Root Leader** chain for all recruitment needs.
+- **Automated Headcount Expansion:** Final approval of a "New Headcount" request automatically increments the authorized Plantilla limit for that unit.
+- **Rich Text Job Postings:** Integrated WYSIWYG editor for drafting professional job descriptions (Summary, Responsibilities, Qualifications) compatible with external boards like LinkedIn.
+
+### Leave & Accrual
+- **Policy Engine:** Define different leave policies (e.g., Standard, Intern) with specific monthly accrual rates and carry-over limits.
+- **Process Accruals:** Trigger organization-wide monthly credits with a single click.
 
 ### Expense & Budget Matrix
-- **Budget Matrix:** Global view of allocations across all Organizational Units and Expense Categories (Travel, Meals, Hardware, etc.).
-- **Expense Filing:** Employees can file claims directly against their team's budget with real-time remaining balance checks.
-- **Approval Workflow:** Hierarchical approval (Supervisor -> Org Head -> Finance) with automated ledger consumption.
+- **Budget Matrix:** Global view of allocations across all Organizational Units and Categories.
+- **Real-time Consumption:** Expense filing includes immediate balance validation against the team's allocated budget.
 
 ### Employee Lifecycle
-- Full management from Probation to Regular/Resigned.
-- Dynamic supervisor assignment and organizational mapping.
-- Tracking of Government IDs (PH-centric: TIN, SSS, PhilHealth, Pag-IBIG).
+- PH-centric tracking (TIN, SSS, PhilHealth, Pag-IBIG).
+- Full movement tracking from Probation to Regular/Resigned.
 
 ---
 
@@ -158,7 +109,7 @@ Administrators can define different leave policies (e.g., Standard, Intern) and 
 - [ ] Add Receipt File Upload support (S3/Local strategy).
 - [ ] Implement multi-level approval logic for Leaves (currently single-level).
 - [ ] Add hybrid background job execution (BullMQ + Lambda/EventBridge).
-- [ ] Finalize attendance compute engine (late/undertime/overtime calculation).
+- [ ] Integrate external Job Boards API (LinkedIn/Indeed/Jobstreet).
 
 ---
 

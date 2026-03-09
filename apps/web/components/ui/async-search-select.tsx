@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 export interface AsyncSearchSelectProps<T> {
     label?: string
     value: string | null | undefined
-    onChange: (value: string | null) => void
+    onChangeAction: (value: string | null) => void
     fetchOptions: (search: string) => Promise<T[]>
     getOptionValue: (option: T) => string
     getOptionLabel: (option: T) => string
@@ -20,7 +20,7 @@ export interface AsyncSearchSelectProps<T> {
 export function AsyncSearchSelect<T>({
     label,
     value,
-    onChange,
+    onChangeAction,
     fetchOptions,
     getOptionValue,
     getOptionLabel,
@@ -123,7 +123,7 @@ export function AsyncSearchSelect<T>({
                                     <CommandItem
                                         key={optionValue}
                                         onSelect={() => {
-                                            onChange(optionValue)
+                                            onChangeAction(optionValue)
                                             setOpen(false)
                                         }}
                                     >

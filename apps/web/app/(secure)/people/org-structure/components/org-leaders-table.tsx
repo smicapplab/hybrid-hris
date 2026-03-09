@@ -255,9 +255,9 @@ export function OrgLeadersTable({ orgId, onChangeAction }: Props) {
                     <div className="space-y-4 py-2">
                         {/* Employee search — same pattern as supervisor assignment */}
                         <AsyncSearchSelect<SupervisorOption>
-                            label="Employee"
+                            label="Search Employee"
                             value={selectedEmployeeId}
-                            onChange={setSelectedEmployeeId}
+                            onChangeAction={setSelectedEmployeeId}
                             fetchOptions={async (search) => {
                                 const res = await apiFetch<{ data: SupervisorOption[] }>(
                                     `/employees?status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`,

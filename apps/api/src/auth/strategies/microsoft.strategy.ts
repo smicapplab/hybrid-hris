@@ -18,9 +18,9 @@ export class MicrosoftStrategy extends PassportStrategy(Strategy, 'microsoft') {
   async validate(
     accessToken: string,
     refreshToken: string,
-    profile: any,
-    done: any,
-  ): Promise<any> {
+    profile: Record<string, any>,
+    done: (err: Error | null, user?: any) => void,
+  ): Promise<void> {
     const { name, emails, id } = profile;
     const userProfile = {
       provider: 'MICROSOFT' as const,
@@ -34,7 +34,7 @@ export class MicrosoftStrategy extends PassportStrategy(Strategy, 'microsoft') {
       const user = await this.authService.validateOAuthUser(userProfile);
       done(null, user);
     } catch (err) {
-      done(err, false);
+      done(err as Error, false);
     }
   }
 }

@@ -61,8 +61,9 @@ export default function PendingAttendanceApprovalsWidget() {
             toast({ title: `Adjustment ${action === 'approve' ? 'Approved' : 'Rejected'}`, variant: 'success' })
             setDialogOpen(false)
             load()
-        } catch (err: any) {
-            toast({ title: 'Action failed', description: err.message, variant: 'destructive' })
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Action failed';
+            toast({ title: 'Action failed', description: message, variant: 'destructive' })
         } finally {
             setSubmitting(false)
         }

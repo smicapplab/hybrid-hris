@@ -24,12 +24,12 @@ import { AlertCircle, CalendarDays, Info } from 'lucide-react'
 
 interface Props {
     open: boolean
-    onOpenChange: (open: boolean) => void
+    onOpenChangeAction: (open: boolean) => void
     balances: LeaveBalance[]
-    onSuccess: () => void
+    onSuccessAction: () => void
 }
 
-export default function RequestLeaveDialog({ open, onOpenChange, balances, onSuccess }: Props) {
+export default function RequestLeaveDialog({ open, onOpenChangeAction, balances, onSuccessAction }: Props) {
     const { toast } = useToast()
 
     const [leaveTypeId, setLeaveTypeId] = useState('')
@@ -99,8 +99,8 @@ export default function RequestLeaveDialog({ open, onOpenChange, balances, onSuc
                 }),
             })
             toast({ title: 'Leave request submitted', description: `${totalDays} day(s) pending approval`, variant: 'default' })
-            onSuccess()
-            onOpenChange(false)
+            onSuccessAction()
+            onOpenChangeAction(false)
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Failed to submit request'
             setError(msg)
@@ -110,7 +110,7 @@ export default function RequestLeaveDialog({ open, onOpenChange, balances, onSuc
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={onOpenChangeAction}>
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
@@ -256,7 +256,7 @@ export default function RequestLeaveDialog({ open, onOpenChange, balances, onSuc
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+                    <Button variant="outline" onClick={() => onOpenChangeAction(false)} disabled={submitting}>
                         Cancel
                     </Button>
                     <Button onClick={handleSubmit} disabled={submitting || overBalance}>

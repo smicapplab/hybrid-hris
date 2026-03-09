@@ -8,23 +8,24 @@ import { Separator } from "../ui/separator"
 import { navigation } from "@/lib/config"
 import { NavUser } from "./nav-user"
 import { useAuth } from "@/context/AuthContext"
+import { NavCategory } from "@/types/nav.type"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar> & {}) {
 
     const { state } = useSidebar();
     const { user } = useAuth();
 
-    const visibleNav = navigation.filter((category) => {
+    const visibleNav = navigation.reduce<NavCategory[]>((acc, category) => {
         // Filter the category itself based on roles
         const categoryRoles = category.roles || [];
         const hasCategoryAccess = categoryRoles.length === 0 || 
             categoryRoles.some((role) => user?.roles.includes(role));
 
-        if (!hasCategoryAccess) return false;
+        if (!hasCategoryAccess) return acc;
 
         // Filter individual elements inside the category
         const visibleElements = category.elements.filter((item) => {
-            const itemRoles = (item as any).roles || [];
+            const itemRoles = item.roles || [];
             if (itemRoles.length === 0) return true;
             if (!user) return false;
 
@@ -34,11 +35,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar> & 
             return hasRole || isSupervisorMatch;
         });
 
-        if (visibleElements.length === 0) return false;
+        if (visibleElements.length > 0) {
+            acc.push({ ...category, elements: visibleElements });
+        }
 
-        // Return a copy of the category with filtered elements
-        return { ...category, elements: visibleElements };
-    });
+        return acc;
+    }, []);
 
     return (
         <Sidebar collapsible="icon" {...props}>
@@ -59,7 +61,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar> & 
             <Separator />
             <SidebarContent className="bg-white">
                 {visibleNav.map((nav, i) => (
-                    <NavMain key={i} navItem={nav as any} />
+                    <NavMain key={i} navItem={nav} />
                 ))}
             </SidebarContent>
             <SidebarFooter className="bg-blue-50">

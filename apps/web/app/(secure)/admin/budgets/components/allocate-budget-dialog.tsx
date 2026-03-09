@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
+import { NumericInput } from '@/components/ui/numeric-input'
 import {
     Select,
     SelectContent,
@@ -26,25 +26,25 @@ import { OrgUnit } from '@hybrid-hris/db/types'
 
 type Props = {
     open: boolean
-    onOpenChange: (open: boolean) => void
+    onOpenChangeAction: (open: boolean) => void
     categories: ExpenseCategory[]
     periods: BudgetPeriod[]
     orgUnits: OrgUnit[]
-    onSuccess: () => void
+    onSuccessAction: () => void
 }
 
-export function AllocateBudgetDialog({ open, onOpenChange, categories, periods, orgUnits, onSuccess }: Props) {
+export function AllocateBudgetDialog({ open, onOpenChangeAction, categories, periods, orgUnits, onSuccessAction }: Props) {
     const { toast } = useToast()
     const [loading, setLoading] = useState(false)
 
     const [unitId, setUnitId] = useState('')
     const [categoryId, setCategoryId] = useState('')
     const [periodId, setPeriodId] = useState('')
-    const [amount, setAmount] = useState('')
+    const [amount, setAmount] = useState<number>(0)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!unitId || !categoryId || !periodId || !amount) {
+        if (!unitId || !categoryId || !periodId || amount <= 0) {
             toast({ title: 'Please fill in all required fields', variant: 'destructive' })
             return
         }
@@ -57,15 +57,15 @@ export function AllocateBudgetDialog({ open, onOpenChange, categories, periods, 
                     orgUnitId: unitId,
                     expenseCategoryId: categoryId,
                     budgetPeriodId: periodId,
-                    amount,
+                    amount: amount.toString(),
                 })
             })
 
             toast({ title: 'Budget allocated successfully', variant: 'success' })
-            onSuccess()
-            onOpenChange(false)
+            onSuccessAction()
+            onOpenChangeAction(false)
             // Reset form partially
-            setAmount('')
+            setAmount(0)
         } catch (err) {
             toast({
                 title: 'Allocation failed',
@@ -78,7 +78,7 @@ export function AllocateBudgetDialog({ open, onOpenChange, categories, periods, 
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={onOpenChangeAction}>
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
@@ -130,20 +130,19 @@ export function AllocateBudgetDialog({ open, onOpenChange, categories, periods, 
 
                         <div className="grid gap-2">
                             <Label htmlFor="amount">Budget Amount</Label>
-                            <Input
+                            <NumericInput
                                 id="amount"
-                                type="number"
-                                step="0.01"
+                                mode="float"
                                 placeholder="0.00"
                                 value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
+                                onChangeAction={setAmount}
                                 required
                             />
                         </div>
                     </div>
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+                        <Button type="button" variant="outline" onClick={() => onOpenChangeAction(false)} disabled={loading}>
                             Cancel
                         </Button>
                         <Button type="submit" disabled={loading}>

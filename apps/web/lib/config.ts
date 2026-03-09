@@ -16,6 +16,7 @@ import {
     Calculator,
     ClipboardCheck,
     ReceiptText,
+    UserPlus,
 } from "lucide-react";
 
 export const navigation: NavCategory[] = [
@@ -65,6 +66,11 @@ export const navigation: NavCategory[] = [
                 title: "Positions",
                 url: "/people/positions",
                 icon: Briefcase,
+            },
+            {
+                title: "Plantilla & Recruitment",
+                url: "/people/plantilla",
+                icon: UserPlus,
             },
         ],
         roles: ['ADMIN', 'HR_ADMIN'],

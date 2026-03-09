@@ -79,7 +79,7 @@ export class AttendanceAdjustmentsService {
         if (dto.requestedActualInAt !== undefined) updateData.requestedActualInAt = dto.requestedActualInAt ? new Date(dto.requestedActualInAt) : null;
         if (dto.requestedActualOutAt !== undefined) updateData.requestedActualOutAt = dto.requestedActualOutAt ? new Date(dto.requestedActualOutAt) : null;
         if (dto.remarks !== undefined) updateData.remarks = dto.remarks;
-        if (dto.status !== undefined) updateData.status = dto.status as any; // Cast status since Drizzle types for enums can be strict
+        if (dto.status !== undefined) updateData.status = dto.status as "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 
         const [updated] = await this.db.db
             .update(attendanceAdjustments)
@@ -90,7 +90,7 @@ export class AttendanceAdjustmentsService {
         return updated;
     }
 
-    async getPendingForApproval(userId: string): Promise<any[]> {
+    async getPendingForApproval(userId: string): Promise<Record<string, unknown>[]> {
         const user = await this.usersService.getUserFullProfile(userId);
         if (!user) return [];
 

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ShieldCheck, Mail, Globe, Hash } from 'lucide-react';
 
@@ -132,11 +133,11 @@ export default function AdminSettingsPage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="padding">Padding Length</Label>
-                            <Input
+                            <NumericInput
                                 id="padding"
-                                type="number"
+                                mode="int"
                                 value={settings.employeeNoPadding}
-                                onChange={(e) => setSettings({ ...settings, employeeNoPadding: parseInt(e.target.value) })}
+                                onChangeAction={(val) => setSettings({ ...settings, employeeNoPadding: val })}
                                 min={1}
                                 max={10}
                             />

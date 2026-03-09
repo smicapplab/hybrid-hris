@@ -24,14 +24,14 @@ export class OrgUnitsController {
     getFlat(
         @Query('showDeleted') showDeleted?: string,
         @Query('leavesOnly') leavesOnly?: string,
-    ): Promise<any> {
+    ) {
         const includeDeleted = showDeleted === 'true';
         const onlyLeaves = leavesOnly === 'true';
         return this.service.getFlat(includeDeleted, onlyLeaves);
     }
 
     @Get('tree')
-    getTree(@Query('showDeleted') showDeleted?: string): Promise<any> {
+    getTree(@Query('showDeleted') showDeleted?: string) {
         const includeDeleted = showDeleted === 'true';
         return this.service.getTree(includeDeleted);
     }
@@ -112,6 +112,17 @@ export class OrgUnitsController {
         return this.service.removePositionFromOrg(id, positionId);
     }
 
+    @Patch(':id/positions/:positionId/limit')
+    @UseGuards(RolesGuard)
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+    updateLimit(
+        @Param('id') id: string,
+        @Param('positionId') positionId: string,
+        @Body() body: { limit: number },
+    ) {
+        return this.service.updatePositionLimit(id, positionId, body.limit);
+    }
+
     /* ── Leaders ─────────────────────────────────────────────────────────────── */
 
     @Get(':id/leaders')
@@ -149,5 +160,10 @@ export class OrgUnitsController {
     @Get(':id/members')
     getMembers(@Param('id') id: string) {
         return this.service.getMembers(id);
+    }
+
+    @Get(':id/plantilla')
+    getPlantilla(@Param('id') id: string) {
+        return this.service.getPlantillaInventory(id);
     }
 }

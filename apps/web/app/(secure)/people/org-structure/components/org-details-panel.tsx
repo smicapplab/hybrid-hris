@@ -4,9 +4,13 @@ import { OrgUnitNode } from "@/types/org-unit.type"
 import { OrgPositionsTable } from "./org-positions-table"
 import { OrgLeadersTable } from "./org-leaders-table"
 import { OrgMembersTable } from "./org-members-table"
+import { OrgPlantillaTable } from "./org-plantilla-table"
+import { OrgPlantillaSummary } from "./org-plantilla-summary"
+import { OrgManpowerRequestsTable } from "./org-manpower-requests-table"
 import { format } from "date-fns"
 import { Building2, Pencil, Plus, Trash2, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useState } from "react"
 
 interface OrgDetailsPanelProps {
     org: OrgUnitNode | null
@@ -45,6 +49,9 @@ export function OrgDetailsPanel({
     onRestoreAction,
     onAddChildAction,
 }: OrgDetailsPanelProps) {
+    const [refreshKey, setRefreshKey] = useState(0);
+    const triggerRefresh = () => setRefreshKey(prev => prev + 1);
+
     if (!org) {
         return (
             <div className="h-full flex flex-col items-center justify-center gap-3 text-center py-16">
@@ -164,6 +171,11 @@ export function OrgDetailsPanel({
                 )}
             </div>
 
+            {/* ── Quick Summary ── */}
+            {!isDeleted && (
+                <OrgPlantillaSummary key={`summary-${refreshKey}`} orgId={org.id} />
+            )}
+
             {/* ── Leaders section ── */}
             {!isDeleted && (
                 <>
@@ -179,6 +191,30 @@ export function OrgDetailsPanel({
                 <>
                     <div className="rounded-xl border bg-card p-5 space-y-3">
                         <OrgPositionsTable orgId={org.id} />
+                    </div>
+                    <Separator />
+                </>
+            )}
+
+            {/* ── Plantilla section ── */}
+            {!isDeleted && (
+                <>
+                    <div className="rounded-xl border bg-card p-5 space-y-3">
+                        <OrgPlantillaTable org={org} />
+                    </div>
+                    <Separator />
+                </>
+            )}
+
+            {/* ── Requests section ── */}
+            {!isDeleted && (
+                <>
+                    <div className="rounded-xl border bg-card p-5 space-y-3">
+                        <OrgManpowerRequestsTable 
+                            key={`requests-${refreshKey}`} 
+                            orgId={org.id} 
+                            onChangeAction={triggerRefresh}
+                        />
                     </div>
                     <Separator />
                 </>

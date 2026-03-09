@@ -13,18 +13,27 @@ import {
     budgetLedger,
     expenseReceipts,
     attendanceAdjustments,
-} from './schema'
+    manpowerRequests,
+    manpowerRequestApprovals,
+    jobPostings,
+    users,
+    } from './schema'
 
-export type OrgUnit = InferSelectModel<typeof orgUnits>
-export type Position = InferSelectModel<typeof positions>
-export type Employee = InferSelectModel<typeof employees>
-export type EmployeeIdentifier = InferSelectModel<typeof employeeIdentifiers>
-export type EmployeeProfile = InferSelectModel<typeof employeeProfiles>
+    export type OrgUnit = InferSelectModel<typeof orgUnits>
+    export type Position = InferSelectModel<typeof positions>
+    export type Employee = InferSelectModel<typeof employees>
+    export type EmployeeIdentifier = InferSelectModel<typeof employeeIdentifiers>
+    export type EmployeeProfile = InferSelectModel<typeof employeeProfiles>
+    export type User = InferSelectModel<typeof users>
 
-export type ExpenseCategory = InferSelectModel<typeof expenseCategories>
-export type BudgetPeriod = InferSelectModel<typeof budgetPeriods>
-export type OrgUnitBudget = InferSelectModel<typeof orgUnitBudgets>
-export type ExpenseClaim = InferSelectModel<typeof expenseClaims>
-export type ExpenseClaimApproval = InferSelectModel<typeof expenseClaimApprovals>
-export type BudgetLedger = InferSelectModel<typeof budgetLedger>
-export type ExpenseReceipt = InferSelectModel<typeof expenseReceipts>
+    export type ExpenseCategory = InferSelectModel<typeof expenseCategories>
+    export type BudgetPeriod = InferSelectModel<typeof budgetPeriods>
+    export type OrgUnitBudget = InferSelectModel<typeof orgUnitBudgets>
+    export type ExpenseClaim = InferSelectModel<typeof expenseClaims>
+    export type ExpenseClaimApproval = InferSelectModel<typeof expenseClaimApprovals>
+    export type BudgetLedger = InferSelectModel<typeof budgetLedger>
+    export type ExpenseReceipt = InferSelectModel<typeof expenseReceipts>
+
+    export type ManpowerRequest = InferSelectModel<typeof manpowerRequests>
+    export type ManpowerRequestApproval = InferSelectModel<typeof manpowerRequestApprovals>
+    export type JobPosting = InferSelectModel<typeof jobPostings>

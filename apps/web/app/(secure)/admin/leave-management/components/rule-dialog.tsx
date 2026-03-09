@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { NumericInput } from '@/components/ui/numeric-input'
 import {
     Select,
     SelectContent,
@@ -34,10 +34,10 @@ export function RuleDialog({ open, onOpenChangeAction, policyId, initialData, on
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
     const [leaveTypeId, setLeaveTypeId] = useState('')
     const [accrualMethod, setAccrualMethod] = useState<AccrualMethod>('NONE')
-    const [accrualRatePerMonth, setAccrualRatePerMonth] = useState('')
-    const [annualGrantAmount, setAnnualGrantAmount] = useState('')
-    const [maxBalance, setMaxBalance] = useState('')
-    const [maxCarryOver, setMaxCarryOver] = useState('')
+    const [accrualRatePerMonth, setAccrualRatePerMonth] = useState<number>(0)
+    const [annualGrantAmount, setAnnualGrantAmount] = useState<number>(0)
+    const [maxBalance, setMaxBalance] = useState<number>(0)
+    const [maxCarryOver, setMaxCarryOver] = useState<number>(0)
     const [allowNegativeBalance, setAllowNegativeBalance] = useState(false)
     const [loading, setLoading] = useState(false)
     const [touched, setTouched] = useState(false)
@@ -54,26 +54,26 @@ export function RuleDialog({ open, onOpenChangeAction, policyId, initialData, on
         if (initialData) {
             setLeaveTypeId(initialData.leaveTypeId)
             setAccrualMethod(initialData.accrualMethod)
-            setAccrualRatePerMonth(initialData.accrualRatePerMonth ?? '')
-            setAnnualGrantAmount(initialData.annualGrantAmount ?? '')
-            setMaxBalance(initialData.maxBalance ?? '')
-            setMaxCarryOver(initialData.maxCarryOver ?? '')
+            setAccrualRatePerMonth(initialData.accrualRatePerMonth ? parseFloat(initialData.accrualRatePerMonth) : 0)
+            setAnnualGrantAmount(initialData.annualGrantAmount ? parseFloat(initialData.annualGrantAmount) : 0)
+            setMaxBalance(initialData.maxBalance ? parseFloat(initialData.maxBalance) : 0)
+            setMaxCarryOver(initialData.maxCarryOver ? parseFloat(initialData.maxCarryOver) : 0)
             setAllowNegativeBalance(initialData.allowNegativeBalance)
         } else {
             setLeaveTypeId('')
             setAccrualMethod('NONE')
-            setAccrualRatePerMonth('')
-            setAnnualGrantAmount('')
-            setMaxBalance('')
-            setMaxCarryOver('')
+            setAccrualRatePerMonth(0)
+            setAnnualGrantAmount(0)
+            setMaxBalance(0)
+            setMaxCarryOver(0)
             setAllowNegativeBalance(false)
         }
         setTouched(false)
     }, [initialData, open])
 
     const methodErrors = () => {
-        if (accrualMethod === 'MONTHLY' && !accrualRatePerMonth) return 'Monthly rate is required.'
-        if (accrualMethod === 'ANNUAL_GRANT' && !annualGrantAmount) return 'Annual grant amount is required.'
+        if (accrualMethod === 'MONTHLY' && accrualRatePerMonth <= 0) return 'Monthly rate is required.'
+        if (accrualMethod === 'ANNUAL_GRANT' && annualGrantAmount <= 0) return 'Annual grant amount is required.'
         return null
     }
 
@@ -88,10 +88,10 @@ export function RuleDialog({ open, onOpenChangeAction, policyId, initialData, on
 
             const body: Record<string, unknown> = {
                 accrualMethod,
-                accrualRatePerMonth: accrualMethod === 'MONTHLY' ? accrualRatePerMonth : null,
-                annualGrantAmount: accrualMethod === 'ANNUAL_GRANT' ? annualGrantAmount : null,
-                maxBalance: maxBalance || null,
-                maxCarryOver: maxCarryOver || null,
+                accrualRatePerMonth: accrualMethod === 'MONTHLY' ? accrualRatePerMonth.toString() : null,
+                annualGrantAmount: accrualMethod === 'ANNUAL_GRANT' ? annualGrantAmount.toString() : null,
+                maxBalance: maxBalance > 0 ? maxBalance.toString() : null,
+                maxCarryOver: maxCarryOver > 0 ? maxCarryOver.toString() : null,
                 allowNegativeBalance,
             }
 
@@ -170,34 +170,34 @@ export function RuleDialog({ open, onOpenChangeAction, policyId, initialData, on
                     {accrualMethod === 'MONTHLY' && (
                         <div className="space-y-1.5">
                             <Label htmlFor="rule-rate">Monthly Rate (days) <span className="text-destructive">*</span></Label>
-                            <Input
+                            <NumericInput
                                 id="rule-rate"
-                                type="number"
-                                step="0.25"
-                                min="0"
+                                mode="float"
+                                precision={2}
+                                min={0}
                                 placeholder="e.g. 1.25"
                                 value={accrualRatePerMonth}
-                                onChange={(e) => setAccrualRatePerMonth(e.target.value)}
-                                className={touched && !accrualRatePerMonth ? 'border-destructive' : ''}
+                                onChangeAction={setAccrualRatePerMonth}
+                                className={touched && accrualRatePerMonth <= 0 ? 'border-destructive' : ''}
                             />
-                            {touched && !accrualRatePerMonth && <p className="text-xs text-destructive">Required for monthly accrual.</p>}
+                            {touched && accrualRatePerMonth <= 0 && <p className="text-xs text-destructive">Required for monthly accrual.</p>}
                         </div>
                     )}
 
                     {accrualMethod === 'ANNUAL_GRANT' && (
                         <div className="space-y-1.5">
                             <Label htmlFor="rule-grant">Annual Grant (days) <span className="text-destructive">*</span></Label>
-                            <Input
+                            <NumericInput
                                 id="rule-grant"
-                                type="number"
-                                step="0.5"
-                                min="0"
+                                mode="float"
+                                precision={1}
+                                min={0}
                                 placeholder="e.g. 15"
                                 value={annualGrantAmount}
-                                onChange={(e) => setAnnualGrantAmount(e.target.value)}
-                                className={touched && !annualGrantAmount ? 'border-destructive' : ''}
+                                onChangeAction={setAnnualGrantAmount}
+                                className={touched && annualGrantAmount <= 0 ? 'border-destructive' : ''}
                             />
-                            {touched && !annualGrantAmount && <p className="text-xs text-destructive">Required for annual grant.</p>}
+                            {touched && annualGrantAmount <= 0 && <p className="text-xs text-destructive">Required for annual grant.</p>}
                         </div>
                     )}
 
@@ -205,27 +205,27 @@ export function RuleDialog({ open, onOpenChangeAction, policyId, initialData, on
                     <div className="grid grid-cols-2 gap-3 rounded-lg border border-dashed p-3">
                         <div className="space-y-1.5">
                             <Label htmlFor="rule-maxbal" className="text-xs">Max Balance (days)</Label>
-                            <Input
+                            <NumericInput
                                 id="rule-maxbal"
-                                type="number"
-                                step="0.5"
-                                min="0"
+                                mode="float"
+                                precision={1}
+                                min={0}
                                 placeholder="Unlimited"
                                 value={maxBalance}
-                                onChange={(e) => setMaxBalance(e.target.value)}
+                                onChangeAction={setMaxBalance}
                                 className="h-8 text-sm"
                             />
                         </div>
                         <div className="space-y-1.5">
                             <Label htmlFor="rule-carry" className="text-xs">Max Carry-Over (days)</Label>
-                            <Input
+                            <NumericInput
                                 id="rule-carry"
-                                type="number"
-                                step="0.5"
-                                min="0"
+                                mode="float"
+                                precision={1}
+                                min={0}
                                 placeholder="Unlimited"
                                 value={maxCarryOver}
-                                onChange={(e) => setMaxCarryOver(e.target.value)}
+                                onChangeAction={setMaxCarryOver}
                                 className="h-8 text-sm"
                             />
                         </div>

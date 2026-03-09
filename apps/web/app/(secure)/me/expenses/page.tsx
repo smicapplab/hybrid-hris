@@ -152,10 +152,10 @@ export default function MyExpensesPage() {
 
             <SubmitExpenseDialog
                 open={isDialogOpen}
-                onOpenChange={setIsDialogOpen}
+                onOpenChangeAction={setIsDialogOpen}
                 categories={categories}
                 periods={periods}
-                onSuccess={loadData}
+                onSuccessAction={loadData}
             />
         </div>
     )

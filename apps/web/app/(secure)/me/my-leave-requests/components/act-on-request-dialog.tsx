@@ -17,13 +17,13 @@ import { CheckCircle2, XCircle, CalendarDays, User } from 'lucide-react'
 
 interface Props {
     open: boolean
-    onOpenChange: (open: boolean) => void
+    onOpenChangeAction: (open: boolean) => void
     request: PendingApprovalItem | null
     action: 'approve' | 'reject'
-    onSuccess: () => void
+    onSuccessAction: () => void
 }
 
-export default function ActOnRequestDialog({ open, onOpenChange, request, action, onSuccess }: Props) {
+export default function ActOnRequestDialog({ open, onOpenChangeAction, request, action, onSuccessAction }: Props) {
     const { toast } = useToast()
     const [remarks, setRemarks] = useState('')
     const [submitting, setSubmitting] = useState(false)
@@ -44,8 +44,8 @@ export default function ActOnRequestDialog({ open, onOpenChange, request, action
                 title: isApprove ? 'Leave request approved' : 'Leave request rejected',
                 variant: 'default',
             })
-            onSuccess()
-            onOpenChange(false)
+            onSuccessAction()
+            onOpenChangeAction(false)
             setRemarks('')
         } catch (err: unknown) {
             toast({
@@ -59,7 +59,7 @@ export default function ActOnRequestDialog({ open, onOpenChange, request, action
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={onOpenChangeAction}>
             <DialogContent className="max-w-sm">
                 <DialogHeader>
                     <DialogTitle className={`flex items-center gap-2 ${isApprove ? 'text-green-700' : 'text-red-700'}`}>
@@ -105,7 +105,7 @@ export default function ActOnRequestDialog({ open, onOpenChange, request, action
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+                    <Button variant="outline" onClick={() => onOpenChangeAction(false)} disabled={submitting}>
                         Cancel
                     </Button>
                     <Button

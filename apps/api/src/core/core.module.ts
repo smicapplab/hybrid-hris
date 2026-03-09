@@ -8,10 +8,11 @@ import { LeaveRequestsModule } from './leave-requests/leave-requests.module';
 import { LeaveAccrualsModule } from './leave-accruals/leave-accruals.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { HrSettingsModule } from './hr-settings/hr-settings.module';
+import { ManpowerModule } from './manpower/manpower.module';
 
 @Module({
-    imports: [OrgUnitsModule, PositionsModule, EmployeesModule, LeaveTypesModule, LeavePoliciesModule, LeaveRequestsModule, LeaveAccrualsModule, ExpensesModule, HrSettingsModule],
-    exports: [OrgUnitsModule, PositionsModule, EmployeesModule, LeaveTypesModule, LeavePoliciesModule, LeaveRequestsModule, LeaveAccrualsModule, ExpensesModule, HrSettingsModule],
+    imports: [OrgUnitsModule, PositionsModule, EmployeesModule, LeaveTypesModule, LeavePoliciesModule, LeaveRequestsModule, LeaveAccrualsModule, ExpensesModule, HrSettingsModule, ManpowerModule],
+    exports: [OrgUnitsModule, PositionsModule, EmployeesModule, LeaveTypesModule, LeavePoliciesModule, LeaveRequestsModule, LeaveAccrualsModule, ExpensesModule, HrSettingsModule, ManpowerModule],
 })
 
 export class CoreModule { }

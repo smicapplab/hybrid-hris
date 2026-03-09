@@ -6,7 +6,7 @@ import { orgUnits, employees, positions, orgUnitPositions, orgUnitLeaders } from
 
 type OrgUnit = InferSelectModel<typeof orgUnits>
 
-interface OrgUnitNode extends OrgUnit {
+export interface OrgUnitNode extends OrgUnit {
   children: OrgUnitNode[]
   isDeletable: boolean
 }
@@ -294,8 +294,23 @@ export class OrgUnitsService {
 
   /* ── Leaders ─────────────────────────────────────────────────────────────── */
 
-  async getLeaders(orgUnitId: string) {
-    const [org] = await this.db.db
+  async updatePositionLimit(orgUnitId: string, positionId: string, limit: number) {
+      if (limit < 0) throw new BadRequestException('Limit cannot be negative');
+
+      await this.db.db
+          .update(orgUnitPositions)
+          .set({ 
+              headcountLimit: limit
+          })
+          .where(and(
+              eq(orgUnitPositions.orgUnitId, orgUnitId),
+              eq(orgUnitPositions.positionId, positionId)
+          ));
+
+      return { success: true };
+  }
+
+  async getLeaders(orgUnitId: string) {    const [org] = await this.db.db
       .select({ id: orgUnits.id })
       .from(orgUnits)
       .where(eq(orgUnits.id, orgUnitId))
@@ -513,5 +528,50 @@ export class OrgUnitsService {
       ));
 
     return leaders.map(l => l.employeeId);
+    }
+
+    async getPlantillaInventory(orgUnitId: string) {
+        // 1. Get all positions assigned to this org unit
+        const plantilla = await this.db.db
+            .select({
+                orgUnitId: orgUnitPositions.orgUnitId,
+                positionId: orgUnitPositions.positionId,
+                positionTitle: positions.title,
+                positionCode: positions.code,
+                headcountLimit: orgUnitPositions.headcountLimit,
+            })
+            .from(orgUnitPositions)
+            .innerJoin(positions, eq(orgUnitPositions.positionId, positions.id))
+            .where(and(
+                eq(orgUnitPositions.orgUnitId, orgUnitId),
+                eq(orgUnitPositions.isActive, true)
+            ));
+
+        // 2. Get active employee counts per position in this org unit
+        const filledCounts = await this.db.db
+            .select({
+                positionId: employees.positionId,
+                count: sql<number>`count(${employees.id})`,
+            })
+            .from(employees)
+            .where(and(
+                eq(employees.orgUnitId, orgUnitId),
+                isNull(employees.deletedAt),
+                eq(employees.status, 'ACTIVE')
+            ))
+            .groupBy(employees.positionId);
+
+        const filledMap = new Map(filledCounts.map(f => [f.positionId, Number(f.count)]));
+
+        // 3. Combine
+        return plantilla.map(p => {
+            const filled = filledMap.get(p.positionId) || 0;
+            const limit = p.headcountLimit || 0;
+            return {
+                ...p,
+                filledCount: filled,
+                vacantCount: Math.max(0, limit - filled),
+            };
+        });
     }
     }

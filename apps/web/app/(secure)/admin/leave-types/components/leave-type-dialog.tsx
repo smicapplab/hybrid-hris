@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { NumericInput } from '@/components/ui/numeric-input'
 import { apiFetch } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import type { LeaveType } from '@/types/leave.types'
@@ -26,8 +27,8 @@ export function LeaveTypeDialog({ open, onOpenChangeAction, initialData, onSucce
     const [description, setDescription] = useState('')
     const [isPaid, setIsPaid] = useState(true)
     const [isAccrualBased, setIsAccrualBased] = useState(true)
-    const [accrualRatePerMonth, setAccrualRatePerMonth] = useState('')
-    const [maxCarryOver, setMaxCarryOver] = useState('')
+    const [accrualRatePerMonth, setAccrualRatePerMonth] = useState<number>(0)
+    const [maxCarryOver, setMaxCarryOver] = useState<number>(0)
     const [loading, setLoading] = useState(false)
     const [touched, setTouched] = useState(false)
 
@@ -38,16 +39,16 @@ export function LeaveTypeDialog({ open, onOpenChangeAction, initialData, onSucce
             setDescription(initialData.description ?? '')
             setIsPaid(initialData.isPaid)
             setIsAccrualBased(initialData.isAccrualBased)
-            setAccrualRatePerMonth(initialData.accrualRatePerMonth ?? '')
-            setMaxCarryOver(initialData.maxCarryOver ?? '')
+            setAccrualRatePerMonth(initialData.accrualRatePerMonth ? parseFloat(initialData.accrualRatePerMonth) : 0)
+            setMaxCarryOver(initialData.maxCarryOver ? parseFloat(initialData.maxCarryOver) : 0)
         } else {
             setName('')
             setCode('')
             setDescription('')
             setIsPaid(true)
             setIsAccrualBased(true)
-            setAccrualRatePerMonth('')
-            setMaxCarryOver('')
+            setAccrualRatePerMonth(0)
+            setMaxCarryOver(0)
         }
         setTouched(false)
     }, [initialData, open])
@@ -70,8 +71,8 @@ export function LeaveTypeDialog({ open, onOpenChangeAction, initialData, onSucce
             }
 
             if (isAccrualBased) {
-                if (accrualRatePerMonth) body.accrualRatePerMonth = accrualRatePerMonth
-                if (maxCarryOver) body.maxCarryOver = maxCarryOver
+                if (accrualRatePerMonth > 0) body.accrualRatePerMonth = accrualRatePerMonth.toString()
+                if (maxCarryOver > 0) body.maxCarryOver = maxCarryOver.toString()
             } else {
                 body.accrualRatePerMonth = null
                 body.maxCarryOver = null
@@ -155,7 +156,7 @@ export function LeaveTypeDialog({ open, onOpenChangeAction, initialData, onSucce
                             id="lt-desc"
                             placeholder="Optional description…"
                             value={description}
-                            onChange={(e: { target: { value: string } }) => setDescription(e.target.value)}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
                             rows={2}
                             className="resize-none text-sm w-full rounded-md border border-input bg-background px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
                         />
@@ -178,27 +179,27 @@ export function LeaveTypeDialog({ open, onOpenChangeAction, initialData, onSucce
                         <div className="grid grid-cols-2 gap-3 rounded-lg border border-dashed p-3">
                             <div className="space-y-1.5">
                                 <Label htmlFor="lt-rate" className="text-xs">Monthly Rate (days)</Label>
-                                <Input
+                                <NumericInput
                                     id="lt-rate"
-                                    type="number"
-                                    step="0.25"
-                                    min="0"
+                                    mode="float"
+                                    precision={2}
+                                    min={0}
                                     placeholder="e.g. 1.25"
                                     value={accrualRatePerMonth}
-                                    onChange={(e) => setAccrualRatePerMonth(e.target.value)}
+                                    onChangeAction={setAccrualRatePerMonth}
                                     className="h-8 text-sm"
                                 />
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="lt-carry" className="text-xs">Max Carry-Over (days)</Label>
-                                <Input
+                                <NumericInput
                                     id="lt-carry"
-                                    type="number"
-                                    step="0.5"
-                                    min="0"
-                                    placeholder="Unlimited if blank"
+                                    mode="float"
+                                    precision={1}
+                                    min={0}
+                                    placeholder="Unlimited"
                                     value={maxCarryOver}
-                                    onChange={(e) => setMaxCarryOver(e.target.value)}
+                                    onChangeAction={setMaxCarryOver}
                                     className="h-8 text-sm"
                                 />
                             </div>

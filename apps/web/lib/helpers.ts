@@ -38,3 +38,19 @@ export function ensureNestedObject<T extends object>(
 ): T {
     return (parent ?? {}) as T
 }
+
+// Number Helpers
+export function formatNumber(val: number | string | null | undefined, precision = 0): string {
+    if (val === null || val === undefined || val === '') return '-'
+    const num = typeof val === 'string' ? parseFloat(val) : val
+    if (isNaN(num)) return '-'
+
+    return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision,
+    }).format(num)
+}
+
+export function formatAmount(val: number | string | null | undefined): string {
+    return formatNumber(val, 2)
+}

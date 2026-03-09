@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { NumericInput } from '@/components/ui/numeric-input'
 import {
     Select,
     SelectContent,
@@ -28,13 +29,13 @@ import { OrgUnit } from '@hybrid-hris/db/types'
 
 type Props = {
     open: boolean
-    onOpenChange: (open: boolean) => void
+    onOpenChangeAction: (open: boolean) => void
     categories: ExpenseCategory[]
     periods: BudgetPeriod[]
-    onSuccess: () => void
+    onSuccessAction: () => void
 }
 
-export function SubmitExpenseDialog({ open, onOpenChange, categories, periods, onSuccess }: Props) {
+export function SubmitExpenseDialog({ open, onOpenChangeAction, categories, periods, onSuccessAction }: Props) {
     const { user } = useAuth()
     const { toast } = useToast()
     const [loading, setLoading] = useState(false)
@@ -44,7 +45,7 @@ export function SubmitExpenseDialog({ open, onOpenChange, categories, periods, o
     const [categoryId, setCategoryId] = useState('')
     const [periodId, setPeriodId] = useState('')
     const [orgUnitId, setOrgUnitId] = useState('')
-    const [amount, setAmount] = useState('')
+    const [amount, setAmount] = useState<number>(0)
     const [description, setDescription] = useState('')
 
     useEffect(() => {
@@ -62,7 +63,7 @@ export function SubmitExpenseDialog({ open, onOpenChange, categories, periods, o
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!categoryId || !periodId || !amount || !description || !orgUnitId) {
+        if (!categoryId || !periodId || amount <= 0 || !description || !orgUnitId) {
             toast({ title: 'Please fill in all required fields', variant: 'destructive' })
             return
         }
@@ -76,18 +77,18 @@ export function SubmitExpenseDialog({ open, onOpenChange, categories, periods, o
                     expenseCategoryId: categoryId,
                     budgetPeriodId: periodId,
                     orgUnitId,
-                    amount,
+                    amount: amount.toString(),
                     description,
                 })
             })
 
             toast({ title: 'Expense claim submitted', variant: 'success' })
-            onSuccess()
-            onOpenChange(false)
+            onSuccessAction()
+            onOpenChangeAction(false)
             // Reset form
             setCategoryId('')
             setPeriodId('')
-            setAmount('')
+            setAmount(0)
             setDescription('')
         } catch (err) {
             toast({
@@ -101,7 +102,7 @@ export function SubmitExpenseDialog({ open, onOpenChange, categories, periods, o
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={onOpenChangeAction}>
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
@@ -164,13 +165,12 @@ export function SubmitExpenseDialog({ open, onOpenChange, categories, periods, o
 
                         <div className="grid gap-2">
                             <Label htmlFor="amount">Amount</Label>
-                            <Input
+                            <NumericInput
                                 id="amount"
-                                type="number"
-                                step="0.01"
+                                mode="float"
                                 placeholder="0.00"
                                 value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
+                                onChangeAction={setAmount}
                                 required
                             />
                         </div>
@@ -188,7 +188,7 @@ export function SubmitExpenseDialog({ open, onOpenChange, categories, periods, o
                     </div>
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+                        <Button type="button" variant="outline" onClick={() => onOpenChangeAction(false)} disabled={loading}>
                             Cancel
                         </Button>
                         <Button type="submit" disabled={loading}>

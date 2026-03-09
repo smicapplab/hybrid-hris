@@ -5,7 +5,7 @@ import { apiFetch } from '@/lib/api'
 import { PendingAdjustmentItem } from '@/types/attendance.types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Check, X, ClipboardList, User, Calendar, Clock, AlertCircle } from 'lucide-react'
+import { Check, X, ClipboardList, Calendar, Clock } from 'lucide-react'
 import {
     Table,
     TableBody,
@@ -48,8 +48,9 @@ export default function AttendanceApprovalsPage() {
             })
             toast({ title: `Adjustment ${action}d`, variant: 'success' })
             loadData()
-        } catch (err: any) {
-            toast({ title: 'Action failed', description: err.message, variant: 'destructive' })
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Action failed';
+            toast({ title: 'Action failed', description: message, variant: 'destructive' })
         } finally {
             setActionLoading(null)
         }

@@ -151,7 +151,7 @@ export class ExpenseClaimsService {
             .where(eq(expenseClaims.employeeId, employeeId));
     }
 
-    async getPendingForApproval(userId: string): Promise<any[]> {
+    async getPendingForApproval(userId: string): Promise<Record<string, unknown>[]> {
         // Internal user lookup for structural flags
         const user = await this.usersService.getUserFullProfile(userId);
         if (!user) return [];

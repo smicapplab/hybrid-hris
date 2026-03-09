@@ -160,8 +160,9 @@ export default function AttendanceHistoryPage() {
             setLoading(true)
             const data = await apiFetch<AttendanceLog[]>('/profile/me/attendance-history')
             setRecords(data ?? [])
-        } catch (err: any) {
-            setError(err?.message ?? 'Failed to load attendance history')
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to load attendance history';
+            setError(message)
         } finally {
             setLoading(false)
         }
@@ -187,8 +188,9 @@ export default function AttendanceHistoryPage() {
             })
             toast({ title: 'Request Cancelled', description: 'The adjustment request has been cancelled.', variant: 'success' })
             loadLogs()
-        } catch (err: any) {
-            toast({ title: 'Cancel failed', description: err.message, variant: 'destructive' })
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Cancel failed';
+            toast({ title: 'Cancel failed', description: message, variant: 'destructive' })
         }
     }
 
@@ -387,9 +389,9 @@ export default function AttendanceHistoryPage() {
 
             <AttendanceAdjustmentDialog
                 open={isAdjustOpen}
-                onOpenChange={setIsAdjustOpen}
+                onOpenChangeAction={setIsAdjustOpen}
                 initialLog={selectedLog}
-                onSuccess={loadLogs}
+                onSuccessAction={loadLogs}
             />
         </div>
     )

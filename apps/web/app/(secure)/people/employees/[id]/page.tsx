@@ -429,7 +429,7 @@ export default function EmployeeDetailPage() {
                                     <AsyncSearchSelect
                                         label="Org Unit"
                                         value={employee.orgUnitId}
-                                        onChange={async (value) => {
+                                        onChangeAction={async (value) => {
                                             if (!value) return
                                             setEmployee((prev) => prev ? { ...prev, orgUnitId: value } : prev)
                                             try {
@@ -478,7 +478,7 @@ export default function EmployeeDetailPage() {
                             <AsyncSearchSelect
                                 label="Supervisor"
                                 value={employee.supervisorId}
-                                onChange={(v) => setEmployee({ ...employee, supervisorId: v })}
+                                onChangeAction={(v) => setEmployee({ ...employee, supervisorId: v })}
                                 fetchOptions={async (search) => {
                                     const res = await apiFetch<{ data: SupervisorOption[] }>(
                                         `/employees?status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`,

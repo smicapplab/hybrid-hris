@@ -4,12 +4,11 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { Card, CardContent } from '@/components/ui/card'
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import type { AuthConfig } from '../page'
 import { Mail, Globe, Lock, Info, Loader2 } from 'lucide-react'
-import { Separator } from '@/components/ui/separator'
 
 export function LoginForm({ config }: { config: AuthConfig | null }) {
     const router = useRouter()
@@ -21,12 +20,8 @@ export function LoginForm({ config }: { config: AuthConfig | null }) {
     const [showPassword, setShowPassword] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    useEffect(() => {
-        const oauthError = searchParams.get('error')
-        if (oauthError === 'oauth_failed') {
-            setError('Social login failed. Please try again or use your password.')
-        }
-    }, [searchParams])
+    const oauthError = searchParams.get('error')
+    const displayError = error || (oauthError === 'oauth_failed' ? 'Social login failed. Please try again or use your password.' : null);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
@@ -63,9 +58,9 @@ export function LoginForm({ config }: { config: AuthConfig | null }) {
                     </p>
                 </div>
 
-                {error && (
+                {displayError && (
                     <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-md mb-6">
-                        {error}
+                        {displayError}
                     </div>
                 )}
 

@@ -171,11 +171,11 @@ export default function AdminBudgetsPage() {
 
             <AllocateBudgetDialog
                 open={isDialogOpen}
-                onOpenChange={setIsDialogOpen}
+                onOpenChangeAction={setIsDialogOpen}
                 categories={categories}
                 periods={periods}
                 orgUnits={orgUnits}
-                onSuccess={loadBudgets}
+                onSuccessAction={loadBudgets}
             />
         </div>
     )

@@ -31,3 +31,6 @@ export * from './expense-claims';
 export * from './expense-claim-approvals';
 export * from './budget-ledger';
 export * from './expense-receipts';
+export * from './manpower-requests';
+export * from './manpower-request-approvals';
+export * from './job-postings';

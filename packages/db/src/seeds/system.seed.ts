@@ -1,8 +1,9 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { roles } from '../schema/roles';
-import { SystemRole } from '@hybrid-hris/domain';
+import { SystemRole, BudgetPeriodType, BudgetLedgerEntryType } from '@hybrid-hris/domain';
 import { leaveTypes } from '../schema/leave-types';
+import { User } from '../types';
 import { employees } from '../schema/employees';
 import { users } from '../schema/users';
 import { userRoles } from '../schema/user-roles';
@@ -10,7 +11,7 @@ import { orgUnits } from '../schema/org-units';
 import { positions } from '../schema/positions';
 import { orgUnitPositions } from '../schema/org-unit-positions';
 import { orgUnitLeaders } from '../schema/org-unit-leaders';
-import { eq, and, sql, InferSelectModel } from 'drizzle-orm';
+import { eq, sql, isNull } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
 import { hrSettings } from '../schema/hr-settings';
 import { employeeProfiles } from '../schema/employee-profiles';
@@ -27,9 +28,11 @@ import { expenseCategories } from '../schema/expense-categories';
 import { budgetPeriods } from '../schema/budget-periods';
 import { orgUnitBudgets } from '../schema/org-unit-budgets';
 import { budgetLedger } from '../schema/budget-ledger';
-import { attendanceAdjustments } from '../schema/attendance-adjustments';
 import { attendanceLogs } from '../schema/attendance-logs';
-
+import { manpowerRequests } from '../schema/manpower-requests';
+import { manpowerRequestApprovals } from '../schema/manpower-request-approvals';
+import { jobPostings } from '../schema/job-postings';
+import { faker } from '@faker-js/faker';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -38,943 +41,540 @@ const pool = new Pool({
 const db = drizzle(pool);
 
 export async function seedSystem() {
-    console.log('Seeding system data...');
-    const loadTestData = process.env.LOAD_TEST_DATA === 'true';
-    console.log('LOAD_TEST_DATA:', process.env.LOAD_TEST_DATA);
-
+    console.log('🚀 Starting Enterprise Seed...');
+    
     const today = new Date();
     const todayIso = today.toISOString().slice(0, 10);
-
     const passwordHash = await bcrypt.hash('Admin123!', 10);
     const pinHash = await bcrypt.hash('123456', 10);
 
-    function digitsOnly(value: string): string {
-        return value.replace(/\D/g, '');
-    }
+    let adminUserObj: User | null = null;
+    let hrUserObj: User | null = null;
 
-    function padLeft(value: string, len: number, ch = '0'): string {
-        if (value.length >= len) return value;
-        return ch.repeat(len - value.length) + value;
-    }
-
-    function makeTin(employeeNo: string): string {
-        const base = padLeft(digitsOnly(employeeNo), 12);
-        return base.slice(0, 12);
-    }
-
-    function makeSss(employeeNo: string): string {
-        const base = padLeft(digitsOnly(employeeNo), 10);
-        return base.slice(0, 10);
-    }
-
-    function makePhilHealth(employeeNo: string): string {
-        const base = padLeft(digitsOnly(employeeNo), 12);
-        return base.slice(0, 12);
-    }
-
-    function makePagIbig(employeeNo: string): string {
-        const base = padLeft(digitsOnly(employeeNo), 12);
-        return base.slice(0, 12);
-    }
-
-    async function ensureEmployeeProfile(employeeId: string, employeeNo: string) {
-        await db.insert(employeeProfiles)
-            .values({
-                employeeId,
-                mobileNo: `09${padLeft(digitsOnly(employeeNo), 9).slice(0, 9)}`,
-                birthDate: '1990-01-01',
-                gender: 'MALE',
-                civilStatus: 'SINGLE',
-                emergencyContactName: 'Emergency Contact',
-                emergencyContactMobileNo: '09171234567',
-            })
-            .onConflictDoNothing();
-    }
-
-    async function ensureEmployeeIdentifiers(employeeId: string, employeeNo: string) {
-        const identifiers: typeof employeeIdentifiers.$inferInsert = {
-            employeeId,
-            tinNo: makeTin(employeeNo),
-            sssNo: makeSss(employeeNo),
-            philHealthNo: makePhilHealth(employeeNo),
-            pagIbigNo: makePagIbig(employeeNo),
-        };
-
-        await db.insert(employeeIdentifiers)
-            .values(identifiers)
-            .onConflictDoNothing();
-    }
-
-    // ---- Roles ----
-    await db.insert(roles).values([
-        {
-            code: SystemRole.HR_ADMIN,
-            name: 'HR Administrator',
-            description: 'Full HR system access including role management',
-            isSystem: true,
-        },
-        {
-            code: SystemRole.ADMIN,
-            name: 'Administrator',
-            description: 'General administrative access',
-            isSystem: true,
-        },
-        {
-            code: SystemRole.MANAGER,
-            name: 'Manager',
-            description: 'Department-level management access',
-            isSystem: true,
-        },
-        {
-            code: SystemRole.SUPERVISOR,
-            name: 'Supervisor',
-            description: 'Team-level supervision access',
-            isSystem: true,
-        },
-        {
-            code: SystemRole.EMPLOYEE,
-            name: 'Employee',
-            description: 'Basic self-service access',
-            isSystem: true,
-        },
-    ]).onConflictDoUpdate({
+    // --- 1. System Roles ---
+    console.log('  - Seeding roles...');
+    const systemRoles = [
+        { code: SystemRole.HR_ADMIN, name: 'HR Administrator', description: 'Full HR access', isSystem: true },
+        { code: SystemRole.ADMIN, name: 'Administrator', description: 'IT System access', isSystem: true },
+        { code: SystemRole.MANAGER, name: 'Manager', description: 'Dept leadership', isSystem: true },
+        { code: SystemRole.SUPERVISOR, name: 'Supervisor', description: 'Team lead', isSystem: true },
+        { code: SystemRole.EMPLOYEE, name: 'Employee', description: 'Self-service', isSystem: true },
+    ];
+    await db.insert(roles).values(systemRoles).onConflictDoUpdate({
         target: roles.code,
-        set: {
-            name: sql`excluded.name`,
-            description: sql`excluded.description`,
-            updatedAt: new Date(),
-        },
+        set: { name: sql`excluded.name`, updatedAt: new Date() }
     });
 
-    // ---- Default Leave Types ----
-    const leaveTypesData = [
-        {
-            code: 'VL',
-            name: 'Vacation Leave',
-            accrualRatePerMonth: '1.25',
-            maxCarryOver: '5',
-            isAccrualBased: true,
-            isPaid: true,
-        },
-        {
-            code: 'SL',
-            name: 'Sick Leave',
-            accrualRatePerMonth: '1.25',
-            maxCarryOver: '0',
-            isAccrualBased: true,
-            isPaid: true,
-        },
+    // --- 2. Leave Config ---
+    console.log('  - Seeding leave policies...');
+    await db.insert(leaveTypes).values([
+        { code: 'VL', name: 'Vacation Leave', accrualRatePerMonth: '1.25', maxCarryOver: '5', isAccrualBased: true, isPaid: true },
+        { code: 'SL', name: 'Sick Leave', accrualRatePerMonth: '1.25', maxCarryOver: '0', isAccrualBased: true, isPaid: true },
+    ]).onConflictDoNothing();
+
+    const [vlType] = await db.select().from(leaveTypes).where(eq(leaveTypes.code, 'VL')).limit(1);
+    const [slType] = await db.select().from(leaveTypes).where(eq(leaveTypes.code, 'SL')).limit(1);
+
+    const [stdPolicy] = await db.insert(leavePolicies).values({
+        code: 'STD_POLICY', name: 'Standard Leave Policy', isDefault: true, isActive: true, effectiveFrom: '2020-01-01'
+    }).onConflictDoNothing().returning();
+
+    const policyId = stdPolicy?.id || (await db.select().from(leavePolicies).where(eq(leavePolicies.code, 'STD_POLICY')))[0].id;
+
+    if (vlType && slType) {
+        await db.insert(leavePolicyRules).values([
+            { policyId, leaveTypeId: vlType.id, accrualMethod: 'MONTHLY', accrualRatePerMonth: '1.25', maxBalance: '30' },
+            { policyId, leaveTypeId: slType.id, accrualMethod: 'MONTHLY', accrualRatePerMonth: '1.25', maxBalance: '15' },
+        ]).onConflictDoNothing();
+    }
+
+    // --- 3. Shift Templates ---
+    console.log('  - Seeding shifts...');
+    const [dayShift] = await db.insert(shiftTemplates).values({
+        code: 'DAY_SHIFT', name: 'Standard Day (9AM-6PM)', startTime: '09:00', endTime: '18:00', breakMinutes: 60, isActive: true
+    }).onConflictDoNothing().returning();
+    const resolvedDayShift = dayShift || (await db.select().from(shiftTemplates).where(eq(shiftTemplates.code, 'DAY_SHIFT')))[0];
+
+    // --- 4. HR Settings ---
+    await db.insert(hrSettings).values({
+        singleton: true,
+        employeeNoPrefix: 'EMP-',
+        employeeNoNext: 1000,
+        employeeNoPadding: 6,
+        passwordLoginEnabled: true,
+        googleLoginEnabled: true,
+        microsoftLoginEnabled: true
+    }).onConflictDoUpdate({
+        target: hrSettings.singleton,
+        set: { 
+            googleLoginEnabled: true, 
+            microsoftLoginEnabled: true,
+            updatedAt: new Date() 
+        }
+    });
+
+    // --- 5. Organization Structure (3 Levels) ---
+    console.log('  - Seeding organization tree...');
+    
+    // Level 1: Root
+    const [rootOrg] = await db.insert(orgUnits).values({ name: 'Hybrid Corp Global', code: 'HQ', isActive: true }).onConflictDoNothing().returning();
+    const hqId = rootOrg?.id || (await db.select().from(orgUnits).where(eq(orgUnits.code, 'HQ')))[0].id;
+
+    // Level 2: Divisions
+    const divisions = [
+        { name: 'Corporate Services', code: 'CORP', parentId: hqId },
+        { name: 'Engineering & Technology', code: 'ENG', parentId: hqId },
+        { name: 'Operations & Logistics', code: 'OPS', parentId: hqId },
+        { name: 'Sales & Marketing', code: 'SALES', parentId: hqId },
+    ];
+    for (const div of divisions) {
+        await db.insert(orgUnits).values(div).onConflictDoNothing();
+    }
+    const allDivs = await db.select().from(orgUnits).where(eq(orgUnits.parentId, hqId));
+
+    // Level 3: Departments
+    const deptMap: Record<string, { name: string, code: string }[]> = {
+        'CORP': [
+            { name: 'Human Resources', code: 'HR' },
+            { name: 'Finance & Accounting', code: 'FIN' },
+            { name: 'Legal', code: 'LEGAL' }
+        ],
+        'ENG': [
+            { name: 'Platform Engineering', code: 'PLAT' },
+            { name: 'Product Development', code: 'PROD' },
+            { name: 'Quality Assurance', code: 'QA' },
+            { name: 'Data Science', code: 'DATA' }
+        ],
+        'OPS': [
+            { name: 'Supply Chain', code: 'LOG' },
+            { name: 'Customer Success', code: 'CS' }
+        ]
+    };
+
+    for (const div of allDivs) {
+        const depts = deptMap[div.code];
+        if (depts) {
+            for (const dept of depts) {
+                await db.insert(orgUnits).values({ ...dept, parentId: div.id }).onConflictDoNothing();
+            }
+        }
+    }
+
+    const allOrgUnits = await db.select().from(orgUnits);
+
+    // --- 6. Positions ---
+    console.log('  - Seeding positions...');
+    const posData = [
+        { code: 'CEO', title: 'Chief Executive Officer' },
+        { code: 'HR_MGR', title: 'HR Manager' },
+        { code: 'CTO', title: 'Chief Technology Officer' },
+        { code: 'CFO', title: 'Chief Financial Officer' },
+        { code: 'ENG_MGR', title: 'Engineering Manager' },
+        { code: 'SWE', title: 'Software Engineer' },
+        { code: 'QA_ENG', title: 'QA Engineer' },
+        { code: 'HR_GEN', title: 'HR Generalist' },
+        { code: 'ACC', title: 'Accountant' },
+    ];
+    for (const pos of posData) {
+        await db.insert(positions).values({ ...pos, isActive: true }).onConflictDoNothing();
+    }
+    const allPositions = await db.select().from(positions);
+
+    // --- 7. Employees & Users ---
+    console.log('  - Generating employees...');
+    
+    // Fixed Demo Users
+    const demoUsers = [
+        { email: 'ceo@hybrid-hris.local', role: 'MANAGER', pos: 'CEO', org: 'HQ', fname: 'Arthur', lname: 'Chief' },
+        { email: 'hr@hybrid-hris.local', role: 'HR_ADMIN', pos: 'HR_MGR', org: 'HR', fname: 'Sarah', lname: 'Human' },
+        { email: 'admin@hybrid-hris.local', role: 'ADMIN', pos: 'SYSTEM_ADMIN', org: 'HQ', fname: 'System', lname: 'Root' },
     ];
 
-    for (const lt of leaveTypesData) {
-        await db.insert(leaveTypes).values(lt).onConflictDoNothing();
-    }
+    const employeeList: any[] = [];
 
-    const allLeaveTypes = await db.select().from(leaveTypes);
-    const vlType = allLeaveTypes.find(t => t.code === 'VL');
-    const slType = allLeaveTypes.find(t => t.code === 'SL');
-
-    // ---- Standard Leave Policy ----
-    let [standardPolicy] = await db.insert(leavePolicies)
-        .values({
-            code: 'STD_POLICY',
-            name: 'Standard Leave Policy',
-            description: 'Standard leave policy with 15 days VL and 15 days SL per year',
-            isDefault: true,
-            isActive: true,
-            effectiveFrom: '2024-01-01',
-        })
-        .onConflictDoNothing()
-        .returning();
-
-    if (!standardPolicy) {
-        standardPolicy = (await db.select().from(leavePolicies).where(eq(leavePolicies.code, 'STD_POLICY')))[0];
-    }
-
-    if (standardPolicy) {
-        // Rules for Standard Policy
-        if (vlType) {
-            await db.insert(leavePolicyRules)
-                .values({
-                    policyId: standardPolicy.id,
-                    leaveTypeId: vlType.id,
-                    accrualMethod: 'MONTHLY',
-                    accrualRatePerMonth: '1.2500', // 15 days / 12 months
-                    maxBalance: '30.0000',
-                    maxCarryOver: '10.0000',
-                })
-                .onConflictDoNothing();
+    async function createEmployee(data: {
+        email: string, roleCode: string, posCode: string, orgCode: string, fname: string, lname: string, empNo: string
+    }) {
+        const org = (await db.select().from(orgUnits).where(eq(orgUnits.code, data.orgCode)).limit(1))[0];
+        let pos = allPositions.find(p => p.code === data.posCode);
+        if (!pos) {
+            [pos] = await db.insert(positions).values({ code: data.posCode, title: data.posCode.replace('_', ' '), isActive: true }).onConflictDoNothing().returning();
         }
-        if (slType) {
-            await db.insert(leavePolicyRules)
-                .values({
-                    policyId: standardPolicy.id,
-                    leaveTypeId: slType.id,
-                    accrualMethod: 'MONTHLY',
-                    accrualRatePerMonth: '1.2500',
-                    maxBalance: '15.0000',
-                    maxCarryOver: '0.0000',
-                })
-                .onConflictDoNothing();
-        }
-    }
 
-    // ---- Intern Leave Policy ----
-    let [internPolicy] = await db.insert(leavePolicies)
-        .values({
-            code: 'INTERN_POLICY',
-            name: 'Intern Leave Policy',
-            description: 'Reduced leave entitlements for interns (6 days VL/year)',
-            isDefault: false,
-            isActive: true,
-            effectiveFrom: '2024-01-01',
-        })
-        .onConflictDoNothing()
-        .returning();
-
-    if (!internPolicy) {
-        internPolicy = (await db.select().from(leavePolicies).where(eq(leavePolicies.code, 'INTERN_POLICY')))[0];
-    }
-
-    if (internPolicy) {
-        if (vlType) {
-            await db.insert(leavePolicyRules)
-                .values({
-                    policyId: internPolicy.id,
-                    leaveTypeId: vlType.id,
-                    accrualMethod: 'MONTHLY',
-                    accrualRatePerMonth: '0.5000', // 6 days / 12 months
-                    maxBalance: '6.0000',
-                    maxCarryOver: '0.0000',
-                })
-                .onConflictDoNothing();
-        }
-    }
-
-    // ---- HR Settings (Singleton) ----
-    await db.insert(hrSettings)
-        .values({
-            singleton: true,
-            employeeNoPrefix: 'EMP-',
-            employeeNoNext: 1005,
-            employeeNoPadding: 6,
-            passwordLoginEnabled: true,
-            googleLoginEnabled: true,
-            microsoftLoginEnabled: true,
-            allowedWorkspaceDomains: ['hybrid-hris.local', 'company.com'],
-        })
-        .onConflictDoUpdate({
-            target: hrSettings.singleton,
-            set: { employeeNoPadding: 6, updatedAt: new Date() },
-        });
-
-    // ---- Ensure Root Org ----
-    let rootOrg = (
-        await db.insert(orgUnits)
-            .values({
-                name: 'Head Office',
-                code: 'HO',
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning()
-    )[0];
-
-    if (!rootOrg) {
-        rootOrg = (
-            await db.select()
-                .from(orgUnits)
-                .where(eq(orgUnits.code, 'HO'))
-        )[0];
-    }
-
-    // ---- Ensure Default Org + Position for Admin ----
-    let defaultOrg = (
-        await db.insert(orgUnits)
-            .values({
-                name: 'System Administration',
-                code: 'SYS_ADMIN',
-                parentId: rootOrg?.id ?? null,
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning()
-    )[0];
-
-    if (!defaultOrg) {
-        defaultOrg = (
-            await db.select()
-                .from(orgUnits)
-                .where(eq(orgUnits.code, 'SYS_ADMIN'))
-        )[0];
-    }
-
-    let defaultPosition = (
-        await db.insert(positions)
-            .values({
-                code: 'SYSTEM_ADMIN',
-                title: 'System Administrator',
-                description: 'System administrative position',
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning()
-    )[0];
-
-    if (!defaultPosition) {
-        defaultPosition = (
-            await db.select()
-                .from(positions)
-                .where(eq(positions.code, 'SYSTEM_ADMIN'))
-        )[0];
-    }
-
-    // Ensure mapping exists so admin can be updated
-    if (defaultOrg && defaultPosition) {
-        await db.insert(orgUnitPositions)
-            .values({ orgUnitId: defaultOrg.id, positionId: defaultPosition.id })
-            .onConflictDoNothing();
-    }
-
-    // ---- More Org Units and Positions for testing ----
-    const engineeringOrg = (await db.insert(orgUnits).values({
-        name: 'Engineering',
-        code: 'ENG',
-        parentId: rootOrg?.id,
-        isActive: true,
-    }).onConflictDoNothing().returning())[0] || (await db.select().from(orgUnits).where(eq(orgUnits.code, 'ENG')))[0];
-
-    const ctoPos = (await db.insert(positions).values({
-        code: 'CTO',
-        title: 'Chief Technology Officer',
-        isActive: true,
-    }).onConflictDoNothing().returning())[0] || (await db.select().from(positions).where(eq(positions.code, 'CTO')))[0];
-
-    const leadEngPos = (await db.insert(positions).values({
-        code: 'LEAD_ENG',
-        title: 'Lead Engineer',
-        isActive: true,
-    }).onConflictDoNothing().returning())[0] || (await db.select().from(positions).where(eq(positions.code, 'LEAD_ENG')))[0];
-
-    if (engineeringOrg) {
-        if (ctoPos) await db.insert(orgUnitPositions).values({ orgUnitId: engineeringOrg.id, positionId: ctoPos.id }).onConflictDoNothing();
-        if (leadEngPos) await db.insert(orgUnitPositions).values({ orgUnitId: engineeringOrg.id, positionId: leadEngPos.id }).onConflictDoNothing();
-    }
-
-    const hrOrg = (await db.insert(orgUnits).values({
-        name: 'Human Resources',
-        code: 'HR',
-        parentId: rootOrg?.id,
-        isActive: true,
-    }).onConflictDoNothing().returning())[0] || (await db.select().from(orgUnits).where(eq(orgUnits.code, 'HR')))[0];
-
-    const hrMgrPos = (await db.insert(positions).values({
-        code: 'HR_MGR',
-        title: 'HR Manager',
-        isActive: true,
-    }).onConflictDoNothing().returning())[0] || (await db.select().from(positions).where(eq(positions.code, 'HR_MGR')))[0];
-
-    const ceoPos = (await db.insert(positions).values({
-        code: 'CEO',
-        title: 'Chief Executive Officer',
-        isActive: true,
-    }).onConflictDoNothing().returning())[0] || (await db.select().from(positions).where(eq(positions.code, 'CEO')))[0];
-
-    if (hrOrg && hrMgrPos) {
-        await db.insert(orgUnitPositions).values({ orgUnitId: hrOrg.id, positionId: hrMgrPos.id }).onConflictDoNothing();
-    }
-    if (rootOrg && ceoPos) {
-        await db.insert(orgUnitPositions).values({ orgUnitId: rootOrg.id, positionId: ceoPos.id }).onConflictDoNothing();
-    }
-
-    // ---- Create CEO Employee first ----
-    let [ceoEmployee] = await db.insert(employees)
-        .values({
-            employeeNo: 'EMP-000000',
-            firstName: 'Chief',
-            lastName: 'Executive',
-            orgUnitId: rootOrg?.id,
-            positionId: ceoPos?.id,
-            hireDate: '2020-01-01',
+        const [emp] = await db.insert(employees).values({
+            employeeNo: data.empNo,
+            firstName: data.fname,
+            lastName: data.lname,
+            orgUnitId: org?.id,
+            positionId: pos?.id,
+            hireDate: '2022-01-01',
             status: 'ACTIVE',
             employmentType: 'REGULAR',
-        })
-        .onConflictDoNothing()
-        .returning();
+        }).onConflictDoNothing().returning();
 
-    if (!ceoEmployee) {
-        ceoEmployee = (await db.select().from(employees).where(eq(employees.employeeNo, 'EMP-000000')))[0];
-    }
+        const resolvedEmp = emp || (await db.select().from(employees).where(eq(employees.employeeNo, data.empNo)))[0];
 
-    if (ceoEmployee) {
-        await ensureEmployeeProfile(ceoEmployee.id, 'EMP-000000');
-        await ensureEmployeeIdentifiers(ceoEmployee.id, 'EMP-000000');
+        // Profile & IDs
+        await db.insert(employeeProfiles).values({
+            employeeId: resolvedEmp.id,
+            mobileNo: faker.phone.number(),
+            birthDate: '1985-05-20',
+            gender: faker.helpers.arrayElement(['MALE', 'FEMALE']),
+            civilStatus: 'MARRIED'
+        }).onConflictDoNothing();
 
-        // CEO as Leader of Head Office
-        if (rootOrg) {
-            await db.insert(orgUnitLeaders)
-                .values({
-                    orgUnitId: rootOrg.id,
-                    employeeId: ceoEmployee.id,
-                    role: 'HEAD',
-                    effectiveFrom: '2020-01-01',
-                })
-                .onConflictDoNothing();
+        await db.insert(employeeIdentifiers).values({
+            employeeId: resolvedEmp.id,
+            tinNo: faker.string.numeric(12),
+            sssNo: faker.string.numeric(10),
+            philHealthNo: faker.string.numeric(12),
+            pagIbigNo: faker.string.numeric(12)
+        }).onConflictDoNothing();
+
+        // User Account
+        const [usr] = await db.insert(users).values({
+            employeeId: resolvedEmp.id,
+            email: data.email,
+            passwordHash,
+            attendancePinHash: pinHash,
+            isActive: true
+        }).onConflictDoNothing().returning();
+        const resolvedUsr = usr || (await db.select().from(users).where(eq(users.email, data.email)))[0];
+
+        // Role
+        const role = (await db.select().from(roles).where(eq(roles.code, data.roleCode)))[0];
+        if (resolvedUsr && role) {
+            await db.insert(userRoles).values({ userId: resolvedUsr.id, roleId: role.id }).onConflictDoNothing();
         }
 
-        // CEO User Account
-        const [ceoUser] = await db.insert(users)
-            .values({
-                employeeId: ceoEmployee.id,
-                email: 'ceo@hybrid-hris.local',
-                passwordHash,
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning();
-
-        // CEO gets Manager role
-        const [managerRoleRecord] = await db.select().from(roles).where(eq(roles.code, 'MANAGER'));
-        if (ceoUser && managerRoleRecord) {
-            await db.insert(userRoles).values({ userId: ceoUser.id, roleId: managerRoleRecord.id }).onConflictDoNothing();
+        // Leader?
+        if (data.roleCode === 'MANAGER' || data.roleCode === 'HR_ADMIN') {
+            await db.insert(orgUnitLeaders).values({
+                orgUnitId: org.id, employeeId: resolvedEmp.id, role: 'HEAD', effectiveFrom: '2022-01-01'
+            }).onConflictDoNothing();
         }
-    }
 
-    // ---- Default Shift Templates ----
-    const [dayShiftTemplate] = await db.insert(shiftTemplates)
-        .values({
-            code: 'DAY_SHIFT',
-            name: 'Day Shift (9AM-6PM)',
-            startTime: '09:00',
-            endTime: '18:00',
-            breakMinutes: 60,
+        // Shift
+        await db.insert(employeeShiftAssignments).values({
+            employeeId: resolvedEmp.id, shiftTemplateId: resolvedDayShift.id,
+            startTime: '09:00', endTime: '18:00', breakMinutes: 60,
             isFlexible: false,
-            isActive: true,
-        })
-        .onConflictDoNothing()
-        .returning();
+            isMon: true, isTue: true, isWed: true, isThu: true, isFri: true,
+            isSat: false, isSun: false,
+            effectiveFrom: '2022-01-01'
+        }).onConflictDoNothing();
 
-    const resolvedDayShift = dayShiftTemplate ?? (
-        await db.select().from(shiftTemplates).where(eq(shiftTemplates.code, 'DAY_SHIFT'))
-    )[0];
+        // Leave Policy
+        await db.insert(employeeLeavePolicies).values({
+            employeeId: resolvedEmp.id, policyId, effectiveFrom: '2022-01-01'
+        }).onConflictDoNothing();
 
-    // ---- Assign Day Shift to CEO ----
-    if (ceoEmployee && resolvedDayShift) {
-        await db.insert(employeeShiftAssignments)
-            .values({
-                employeeId: ceoEmployee.id,
-                shiftTemplateId: resolvedDayShift.id,
-                startTime: resolvedDayShift.startTime,
-                endTime: resolvedDayShift.endTime,
-                breakMinutes: resolvedDayShift.breakMinutes,
-                isFlexible: resolvedDayShift.isFlexible,
-                isMon: true,
-                isTue: true,
-                isWed: true,
-                isThu: true,
-                isFri: true,
-                isSat: false,
-                isSun: false,
-                effectiveFrom: '2020-01-01',
-            })
-            .onConflictDoNothing();
+        return { emp: resolvedEmp, usr: resolvedUsr };
     }
 
-    // ---- Initial Admin Employee ----
-    let adminEmployeeId: string | undefined;
-
-    const insertedEmployees = await db.insert(employees)
-        .values({
-            employeeNo: 'EMP-000001',
-            firstName: 'System',
-            lastName: 'Administrator',
-            hireDate: todayIso,
-            employmentType: 'REGULAR',
-            status: 'ACTIVE',
-            orgUnitId: defaultOrg?.id,
-            positionId: defaultPosition?.id,
-            supervisorId: ceoEmployee?.id,
-        })
-        .onConflictDoNothing()
-        .returning();
-
-    if (insertedEmployees.length > 0) {
-        adminEmployeeId = insertedEmployees[0].id;
-    } else {
-        const existingEmployee = await db.select()
-            .from(employees)
-            .where(eq(employees.employeeNo, 'EMP-000001'));
-        adminEmployeeId = existingEmployee[0]?.id;
-    }
-    if (adminEmployeeId) {
-        await ensureEmployeeProfile(adminEmployeeId, 'EMP-000001');
-        await ensureEmployeeIdentifiers(adminEmployeeId, 'EMP-000001');
-
-        // Assign Standard Leave Policy
-        if (standardPolicy) {
-            await db.insert(employeeLeavePolicies)
-                .values({
-                    employeeId: adminEmployeeId,
-                    policyId: standardPolicy.id,
-                    effectiveFrom: todayIso,
-                })
-                .onConflictDoNothing();
-        }
+    // 1. Create Demo Users
+    console.log('  - Seeding demo accounts...');
+    for (let i = 0; i < demoUsers.length; i++) {
+        const d = demoUsers[i];
+        const { emp, usr } = await createEmployee({
+            email: d.email, roleCode: d.role, posCode: d.pos, orgCode: d.org, fname: d.fname, lname: d.lname, empNo: `EMP-00000${i}`
+        });
+        
+        if (d.email === 'admin@hybrid-hris.local') adminUserObj = usr;
+        if (d.email === 'hr@hybrid-hris.local') hrUserObj = usr;
+        
+        employeeList.push(emp);
     }
 
-    // ---- Assign Day Shift to Admin Employee ----
-    if (adminEmployeeId && resolvedDayShift) {
-        await db.insert(employeeShiftAssignments)
-            .values({
-                employeeId: adminEmployeeId,
-                shiftTemplateId: resolvedDayShift.id,
-                startTime: resolvedDayShift.startTime,
-                endTime: resolvedDayShift.endTime,
-                breakMinutes: resolvedDayShift.breakMinutes,
-                isFlexible: resolvedDayShift.isFlexible,
-                isMon: true,
-                isTue: true,
-                isWed: true,
-                isThu: true,
-                isFri: true,
-                isSat: true,
-                isSun: true,
-                effectiveFrom: todayIso,
-            })
-            .onConflictDoUpdate({
-                target: employeeShiftAssignments.employeeId,
-                set: {
-                    isMon: true,
-                    isTue: true,
-                    isWed: true,
-                    isThu: true,
-                    isFri: true,
-                    isSat: true,
-                    isSun: true,
-                    updatedAt: new Date(),
-                },
-            });
+    // 2. Generate Randomized Bulk Employees (~80 more)
+    console.log('  - Seeding bulk enterprise data...');
+    for (let i = 10; i < 90; i++) {
+        const org = faker.helpers.arrayElement(allOrgUnits);
+        const pos = faker.helpers.arrayElement(allPositions);
+        const fname = faker.person.firstName();
+        const lname = faker.person.lastName();
+        const empNo = `EMP-${1000 + i}`;
+        
+        const { emp } = await createEmployee({
+            email: faker.internet.email({ firstName: fname, lastName: lname }).toLowerCase(),
+            roleCode: SystemRole.EMPLOYEE,
+            posCode: pos.code,
+            orgCode: org.code,
+            fname,
+            lname,
+            empNo
+        });
+        employeeList.push(emp);
     }
 
-    // ---- Initial Admin User (System Administrator) ----
-    let adminUserObj: any;
-    const existingAdminUsers = await db.select().from(users).where(sql`lower(email) = lower('admin@hybrid-hris.local')`);
-    
-    if (existingAdminUsers.length > 0) {
-        [adminUserObj] = await db.update(users)
-            .set({ 
-                employeeId: adminEmployeeId, 
-                passwordHash,
-                attendancePinHash: pinHash,
-                updatedAt: new Date() 
-            })
-            .where(eq(users.id, existingAdminUsers[0].id))
-            .returning();
-    } else {
-        [adminUserObj] = await db.insert(users)
-            .values({
-                employeeId: adminEmployeeId,
-                email: 'admin@hybrid-hris.local',
-                passwordHash,
-                attendancePinHash: pinHash,
-                isActive: true,
-            })
-            .returning();
-    }
-
-    // ---- Initial HR Employee & User ----
-    let hrEmployeeId: string | undefined;
-    const [insertedHrEmp] = await db.insert(employees)
-        .values({
-            employeeNo: 'EMP-000002',
-            firstName: 'HR',
-            lastName: 'User',
-            orgUnitId: hrOrg?.id,
-            positionId: hrMgrPos?.id,
-            supervisorId: ceoEmployee?.id,
-            hireDate: todayIso,
-            status: 'ACTIVE',
-            employmentType: 'REGULAR',
-        })
-        .onConflictDoNothing()
-        .returning();
-
-    hrEmployeeId = insertedHrEmp?.id || (await db.select().from(employees).where(eq(employees.employeeNo, 'EMP-000002')))[0]?.id;
-
-    if (hrEmployeeId) {
-        await ensureEmployeeProfile(hrEmployeeId, 'EMP-000002');
-        await ensureEmployeeIdentifiers(hrEmployeeId, 'EMP-000002');
-    }
-
-    let hrUserObj: any;
-    const existingHrUsers = await db.select().from(users).where(sql`lower(email) = lower('hr@hybrid-hris.local')`);
-
-    if (existingHrUsers.length > 0) {
-        [hrUserObj] = await db.update(users)
-            .set({ 
-                employeeId: hrEmployeeId, 
-                passwordHash,
-                updatedAt: new Date() 
-            })
-            .where(eq(users.id, existingHrUsers[0].id))
-            .returning();
-    } else {
-        [hrUserObj] = await db.insert(users)
-            .values({
-                employeeId: hrEmployeeId,
-                email: 'hr@hybrid-hris.local',
-                passwordHash,
-                isActive: true,
-            })
-            .returning();
-    }
-
-    // --- Identity & Access Management: Final Role Assignments ---
-    const rolesInDb = await db.select().from(roles);
-    const adminRoleObj = rolesInDb.find(r => r.code === 'ADMIN');
-    const hrAdminRoleObj = rolesInDb.find(r => r.code === 'HR_ADMIN');
-    const employeeRole = rolesInDb.find(r => r.code === 'EMPLOYEE');
-
-    if (adminUserObj && adminRoleObj) {
-        await db.delete(userRoles).where(eq(userRoles.userId, adminUserObj.id));
-        await db.insert(userRoles).values({ userId: adminUserObj.id, roleId: adminRoleObj.id });
-        console.log(`Verified: ${adminUserObj.email} is ADMIN`);
-    }
-
-    if (hrUserObj && hrAdminRoleObj) {
-        await db.delete(userRoles).where(eq(userRoles.userId, hrUserObj.id));
-        await db.insert(userRoles).values({ userId: hrUserObj.id, roleId: hrAdminRoleObj.id });
-        console.log(`Verified: ${hrUserObj.email} is HR_ADMIN`);
-    }
-
-    // ---- Assign System Admin as Leader of System Administration ----
-    if (adminEmployeeId && defaultOrg) {
-        await db.insert(orgUnitLeaders)
-            .values({
-                orgUnitId: defaultOrg.id,
-                employeeId: adminEmployeeId,
-                role: 'HEAD',
-                effectiveFrom: todayIso,
-            })
-            .onConflictDoNothing();
-    }
-
-    // ---- Test Data for Pagination and Approvals ----
-    if (loadTestData) {
-        console.log('Loading test organizational data and leave requests...');
-
-        // Create a dedicated team under Admin
-        const [teamOrg] = await db.insert(orgUnits)
-            .values({
-                name: 'Managed Team',
-                code: 'MNG_TEAM',
-                parentId: rootOrg?.id,
-                isActive: true,
-            })
-            .onConflictDoNothing()
-            .returning();
-
-        const resolvedTeamOrg = teamOrg || (await db.select().from(orgUnits).where(eq(orgUnits.code, 'MNG_TEAM')))[0];
-
-        let devPosition = (await db.select().from(positions).where(eq(positions.code, 'SOFTWARE_ENGINEER')))[0];
-        if (!devPosition) {
-            [devPosition] = await db.insert(positions)
-                .values({
-                    code: 'SOFTWARE_ENGINEER',
-                    title: 'Software Engineer',
-                    isActive: true,
-                })
-                .onConflictDoNothing()
-                .returning();
-        }
-
-        if (resolvedTeamOrg && devPosition) {
-            await db.insert(orgUnitPositions)
-                .values({ orgUnitId: resolvedTeamOrg.id, positionId: devPosition.id })
-                .onConflictDoNothing();
-        }
-
-        const teamMembers = [];
-        // Create 15 team members reporting to Admin
-        for (let i = 1; i <= 15; i++) {
-            const empNo = `EMP-TEAM-${padLeft(i.toString(), 3)}`;
-            let [emp] = await db.insert(employees)
-                .values({
-                    employeeNo: empNo,
-                    firstName: `TeamMember`,
-                    lastName: `${i}`,
-                    hireDate: todayIso,
-                    employmentType: 'REGULAR',
-                    status: 'ACTIVE',
-                    orgUnitId: resolvedTeamOrg.id,
-                    positionId: devPosition.id,
-                    supervisorId: ceoEmployee?.id, // Everyone reports to CEO for this test
-                })
-                .onConflictDoNothing()
-                .returning();
-
-            if (!emp) {
-                emp = (await db.select().from(employees).where(eq(employees.employeeNo, empNo)))[0];
-            }
-
-            if (emp) {
-                teamMembers.push(emp);
-                await ensureEmployeeProfile(emp.id, emp.employeeNo);
-                await ensureEmployeeIdentifiers(emp.id, emp.employeeNo);
-
-                // Create User
-                let [usr] = await db.insert(users)
-                    .values({
-                        employeeId: emp.id,
-                        email: `${emp.employeeNo.toLowerCase()}@hybrid-hris.local`,
-                        passwordHash: passwordHash,
-                        isActive: true,
-                    })
-                    .onConflictDoNothing()
-                    .returning();
-
-                if (!usr) {
-                    usr = (await db.select().from(users).where(eq(users.employeeId, emp.id)))[0];
-                }
-
-                if (usr && employeeRole) {
-                    await db.insert(userRoles)
-                        .values({ userId: usr.id, roleId: employeeRole.id })
-                        .onConflictDoNothing();
-                }
-
-                // Assign Standard Leave Policy
-                if (standardPolicy) {
-                    await db.insert(employeeLeavePolicies)
-                        .values({
-                            employeeId: emp.id,
-                            policyId: standardPolicy.id,
-                            effectiveFrom: emp.hireDate,
-                        })
-                        .onConflictDoNothing();
-                }
-
-                // Initial Accrual for VL and SL (10 days each)
-                if (vlType && slType) {
-                    for (const lt of [vlType, slType]) {
-                        await db.insert(leaveLedger)
-                            .values({
-                                employeeId: emp.id,
-                                leaveTypeId: lt.id,
-                                entryType: 'ACCRUAL',
-                                amount: '10.0000',
-                                balance: '10.0000',
-                                accrualKey: 'INITIAL_SEED',
-                            })
-                            .onConflictDoNothing();
-                    }
-                }
-            }
-        }
-
-        // Create various leave requests for these team members
-        if (adminUserObj?.id && vlType && slType) {
-            for (let i = 0; i < teamMembers.length; i++) {
-                const emp = teamMembers[i];
-                const isPending = i < 8; // First 8 are pending
-                const isApproved = i >= 8 && i < 12; // Next 4 approved
-                const isRejected = i >= 12; // Last 3 rejected
-
-                const startDate = new Date(today);
-                startDate.setDate(today.getDate() + (i + 1));
-                const endDate = new Date(startDate);
-                endDate.setDate(startDate.getDate() + 1);
-
-                const [req] = await db.insert(leaveRequests)
-                    .values({
-                        employeeId: emp.id,
-                        leaveTypeId: i % 2 === 0 ? vlType.id : slType.id,
-                        startDate: startDate.toISOString().slice(0, 10),
-                        endDate: endDate.toISOString().slice(0, 10),
-                        days: '2.0000',
-                        status: isPending ? 'PENDING' : (isApproved ? 'APPROVED' : 'REJECTED'),
-                        notes: `Sample request from team member ${i + 1}`,
-                        approvedBy: (isApproved || isRejected) ? adminUserObj.id : null,
-                        approvedAt: (isApproved || isRejected) ? new Date() : null,
-                    })
-                    .returning();
-
-                if (req) {
-                    // Create approval record
-                    await db.insert(leaveRequestApprovals)
-                        .values({
-                            leaveRequestId: req.id,
-                            approverUserId: adminUserObj.id,
-                            level: 1,
-                            status: isPending ? 'PENDING' : (isApproved ? 'APPROVED' : 'REJECTED'),
-                            actedAt: (isApproved || isRejected) ? new Date() : null,
-                            remarks: (isApproved || isRejected) ? 'Processed via seed' : null,
-                        })
-                        .onConflictDoNothing();
-
-                    // If approved, add consumption entry to ledger
-                    if (isApproved) {
-                        const ltId = i % 2 === 0 ? vlType.id : slType.id;
-                        await db.insert(leaveLedger)
-                            .values({
-                                employeeId: emp.id,
-                                leaveTypeId: ltId,
-                                entryType: 'CONSUMPTION',
-                                amount: '-2.0000',
-                                balance: '8.0000',
-                                referenceLeaveRequestId: req.id,
-                            });
-                    }
-                }
-            }
-
-            // Create sample attendance adjustments for the team
-            console.log('Seeding sample attendance adjustments...');
-            for (let i = 0; i < 5; i++) {
-                const emp = teamMembers[i];
-                const workDate = new Date(today);
-                workDate.setDate(today.getDate() - (i + 1));
-                const workDateStr = workDate.toISOString().slice(0, 10);
-
-                // Create a basic log first for some of them
-                let logId: string | null = null;
-                if (i % 2 === 0) {
-                    const [log] = await db.insert(attendanceLogs).values({
-                        employeeId: emp.id,
-                        workDate: workDateStr,
-                        actualInAt: new Date(`${workDateStr}T08:15:00Z`),
-                        actualOutAt: new Date(`${workDateStr}T17:05:00Z`),
-                        sourceIn: 'WEB',
-                        sourceOut: 'WEB',
-                    }).onConflictDoNothing().returning();
-                    
-                    if (log) {
-                        logId = log.id;
-                    } else {
-                        const [existing] = await db.select()
-                            .from(attendanceLogs)
-                            .where(and(
-                                eq(attendanceLogs.employeeId, emp.id),
-                                eq(attendanceLogs.workDate, workDateStr)
-                            ))
-                            .limit(1);
-                        logId = existing?.id || null;
-                    }
-                }
-
-                // Create a pending adjustment
-                await db.insert(attendanceAdjustments).values({
-                    employeeId: emp.id,
-                    attendanceLogId: logId,
-                    workDate: workDateStr,
-                    requestedActualInAt: new Date(`${workDateStr}T09:00:00Z`),
-                    requestedActualOutAt: new Date(`${workDateStr}T18:00:00Z`),
-                    previousActualInAt: logId ? new Date(`${workDateStr}T08:15:00Z`) : null,
-                    previousActualOutAt: logId ? new Date(`${workDateStr}T17:05:00Z`) : null,
-                    remarks: i === 0 ? "Forgot to punch out correctly" : `Adjustment request ${i + 1}`,
-                    status: 'PENDING',
-                    requestedBy: (await db.select().from(users).where(eq(users.employeeId, emp.id)))[0]?.id || adminUserObj.id,
+    // --- 8. Plantilla limits ---
+    console.log('  - Setting plantilla limits...');
+    for (const org of allOrgUnits) {
+        for (const pos of allPositions) {
+            // Randomly assign some positions to units with limits
+            if (faker.datatype.boolean(0.3)) {
+                await db.insert(orgUnitPositions).values({
+                    orgUnitId: org.id,
+                    positionId: pos.id,
+                    headcountLimit: faker.number.int({ min: 2, max: 15 }),
+                    isActive: true
                 }).onConflictDoNothing();
             }
         }
     }
 
+    // --- 9. Attendance (Last 30 Days) ---
+    console.log('  - Seeding 30 days of attendance logs...');
+    const attendanceData: any[] = [];
+    for (const emp of employeeList) {
+        for (let d = 1; d <= 30; d++) {
+            const date = new Date(today);
+            date.setDate(today.getDate() - d);
+            if (date.getDay() === 0 || date.getDay() === 6) continue;
+
+            const dateStr = date.toISOString().slice(0, 10);
+            const punchIn = new Date(`${dateStr}T08:45:00Z`);
+            punchIn.setMinutes(faker.number.int({ min: 45, max: 70 })); 
+            
+            const punchOut = new Date(`${dateStr}T18:00:00Z`);
+            punchOut.setMinutes(faker.number.int({ min: 0, max: 20 })); 
+
+            attendanceData.push({
+                employeeId: emp.id,
+                workDate: dateStr,
+                actualInAt: punchIn,
+                actualOutAt: punchOut,
+                sourceIn: 'WEB',
+                sourceOut: 'WEB'
+            });
+        }
+    }
+    if (attendanceData.length > 0) {
+        const chunkSize = 500;
+        for (let i = 0; i < attendanceData.length; i += chunkSize) {
+            await db.insert(attendanceLogs).values(attendanceData.slice(i, i + chunkSize)).onConflictDoNothing();
+        }
+    }
+
+    // --- 10. Leave Accruals (Last 6 Months) ---
+    console.log('  - Seeding 6 months of leave accruals...');
+    const accrualMonths = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        accrualMonths.push({
+            year: d.getFullYear(),
+            month: d.getMonth() + 1,
+            label: d.toISOString().slice(0, 7)
+        });
+    }
+
+    for (const m of accrualMonths) {
+        for (const emp of employeeList) {
+            if (vlType) {
+                await db.insert(leaveLedger).values({
+                    employeeId: emp.id,
+                    leaveTypeId: vlType.id,
+                    entryType: 'ACCRUAL',
+                    amount: '1.2500',
+                    balance: '0.0000',
+                    accrualKey: `SEED-ACCRUAL-${m.label}-${emp.id}-${vlType.code}`
+                }).onConflictDoNothing();
+            }
+            if (slType) {
+                await db.insert(leaveLedger).values({
+                    employeeId: emp.id,
+                    leaveTypeId: slType.id,
+                    entryType: 'ACCRUAL',
+                    amount: '1.2500',
+                    balance: '0.0000',
+                    accrualKey: `SEED-ACCRUAL-${m.label}-${emp.id}-${slType.code}`
+                }).onConflictDoNothing();
+            }
+        }
+    }
+
+    // --- 11. Leave Requests ---
+    console.log('  - Seeding randomized leave requests...');
+    const leaveStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
+    const leaveEmployees = faker.helpers.arrayElements(employeeList, Math.floor(employeeList.length * 0.3));
+    
+    for (const emp of leaveEmployees) {
+        const requestCount = faker.number.int({ min: 1, max: 2 });
+        for (let i = 0; i < requestCount; i++) {
+            const status = faker.helpers.arrayElement(leaveStatuses);
+            const leaveType = faker.helpers.arrayElement([vlType, slType]);
+            if (!leaveType) continue;
+
+            const startDate = faker.date.between({ 
+                from: new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000), 
+                to: new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000) 
+            });
+            const days = faker.number.int({ min: 1, max: 3 });
+            const endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + (days - 1));
+
+            const [req] = await db.insert(leaveRequests).values({
+                employeeId: emp.id,
+                leaveTypeId: leaveType.id,
+                startDate: startDate.toISOString().slice(0, 10),
+                endDate: endDate.toISOString().slice(0, 10),
+                days: days.toFixed(4),
+                status: status as any,
+                notes: faker.lorem.sentence(),
+            }).returning();
+
+            if (req) {
+                const approverId = adminUserObj?.id || hrUserObj?.id;
+                if (approverId) {
+                    await db.insert(leaveRequestApprovals).values({
+                        leaveRequestId: req.id,
+                        approverUserId: approverId,
+                        level: 1,
+                        status: status === 'PENDING' ? 'PENDING' : (status === 'APPROVED' ? 'APPROVED' : 'REJECTED'),
+                        actedAt: status !== 'PENDING' ? new Date() : null,
+                        remarks: status !== 'PENDING' ? 'Processed via enterprise seed' : null,
+                    }).onConflictDoNothing();
+                }
+                if (status === 'APPROVED') {
+                    await db.insert(leaveLedger).values({
+                        employeeId: emp.id,
+                        leaveTypeId: leaveType.id,
+                        entryType: 'CONSUMPTION',
+                        amount: `-${days}.0000`,
+                        balance: '0.0000',
+                        referenceLeaveRequestId: req.id,
+                    });
+                }
+            }
+        }
+    }
+
+    // --- 12. Manpower Requests (Plantilla) ---
+    console.log('  - Seeding manpower requests...');
+    const requestTypes = ['NEW_HEADCOUNT', 'REPLACEMENT', 'PROJECT_BASED'];
+    const mrStatuses = ['DRAFT', 'SUBMITTED', 'SUBMITTED_TO_ROOT', 'APPROVED', 'REJECTED'];
+    const allUsers = await db.select().from(users);
+
+    const sampleSummaries = [
+        '<p>We are seeking a <strong>talented professional</strong> to join our growing team. This role is critical for our upcoming expansion and requires someone with a passion for excellence and innovation.</p>',
+        '<p>Join our dynamic department as we scale our operations. We need a <em>self-starter</em> who can hit the ground running and contribute to our strategic goals from day one.</p>',
+        '<p>A unique opportunity for an experienced individual to take ownership of key projects and drive measurable impact within the organization.</p>'
+    ];
+
+    const sampleResponsibilities = [
+        '<ul><li>Drive end-to-end execution of department initiatives and key performance indicators.</li><li>Collaborate with cross-functional stakeholders to ensure alignment and delivery of project goals.</li><li>Mentor junior team members and foster a culture of continuous learning and improvement.</li><li>Analyze complex data sets to provide actionable insights for senior leadership.</li></ul>',
+        '<ul><li>Manage daily operations and ensure all workflows are optimized for maximum efficiency.</li><li>Prepare comprehensive reports and presentations for monthly business reviews.</li><li>Identify and mitigate operational risks through proactive monitoring and process improvements.</li><li>Champion the adoption of new technologies and methodologies across the team.</li></ul>'
+    ];
+
+    const sampleQualifications = [
+        '<ul><li>Bachelor\'s degree in a relevant field; Master\'s or professional certification preferred.</li><li>Minimum of 3-5 years of proven experience in a similar capacity or industry.</li><li>Proficiency in modern office productivity suites and specialized industry software.</li><li>Strong analytical, communication, and interpersonal skills.</li></ul>',
+        '<ul><li>Demonstrated track record of delivering high-quality results in a fast-paced environment.</li><li>Ability to work independently and as part of a collaborative team.</li><li>Fluent in English, both written and verbal; additional languages are a plus.</li><li>Deep understanding of industry best practices and regulatory requirements.</li></ul>'
+    ];
+
+    for (let i = 0; i < 12; i++) {
+        const type = faker.helpers.arrayElement(requestTypes);
+        const status = faker.helpers.arrayElement(mrStatuses);
+        const org = faker.helpers.arrayElement(allOrgUnits);
+        const pos = faker.helpers.arrayElement(allPositions);
+        const quantity = faker.number.int({ min: 1, max: 3 });
+        const requester = faker.helpers.arrayElement(allUsers);
+        
+        const [mr] = await db.insert(manpowerRequests).values({
+            orgUnitId: org.id,
+            positionId: pos.id,
+            requestedBy: requester.id,
+            requestType: type as any,
+            quantity,
+            employmentType: 'REGULAR',
+            priority: faker.helpers.arrayElement(['NORMAL', 'HIGH', 'URGENT']),
+            jobTitle: pos.title,
+            jobSummary: faker.helpers.arrayElement(sampleSummaries),
+            jobDescription: faker.lorem.paragraphs(2),
+            responsibilities: faker.helpers.arrayElement(sampleResponsibilities),
+            qualifications: faker.helpers.arrayElement(sampleQualifications),
+            status: status as any,
+            targetHireDate: todayIso,
+        }).returning();
+
+        if (mr && status !== 'DRAFT') {
+            if (hrUserObj) {
+                await db.insert(manpowerRequestApprovals).values({
+                    manpowerRequestId: mr.id,
+                    approverUserId: hrUserObj.id,
+                    level: 1,
+                    status: (status === 'SUBMITTED') ? 'PENDING' : 'APPROVED',
+                    actedAt: (status === 'SUBMITTED') ? null : new Date(),
+                });
+            }
+            if (status === 'SUBMITTED_TO_ROOT' || status === 'APPROVED' || status === 'REJECTED') {
+                if (adminUserObj) {
+                    await db.insert(manpowerRequestApprovals).values({
+                        manpowerRequestId: mr.id,
+                        approverUserId: adminUserObj.id,
+                        level: 2,
+                        status: (status === 'SUBMITTED_TO_ROOT') ? 'PENDING' : (status === 'APPROVED' ? 'APPROVED' : 'REJECTED'),
+                        actedAt: (status === 'SUBMITTED_TO_ROOT') ? null : new Date(),
+                    });
+                }
+            }
+            if (status === 'APPROVED') {
+                await db.insert(jobPostings).values({
+                    manpowerRequestId: mr.id,
+                    title: mr.jobTitle,
+                    slug: `${mr.jobTitle.toLowerCase().replace(/ /g, '-')}-${mr.id.slice(0, 8)}`,
+                    employmentType: 'REGULAR',
+                    description: mr.jobSummary || '',
+                    responsibilities: mr.responsibilities || '',
+                    qualifications: mr.qualifications || '',
+                    status: 'OPEN',
+                });
+            }
+        }
+    }
+
+    // --- 13. Budgets ---
+    console.log('  - Seeding department budgets...');
     await seedExpenses(db);
 
-    console.log('System seed completed.');
+    console.log('✅ Enterprise Seed Complete!');
 }
 
 async function seedExpenses(db: any) {
-    console.log('Seeding expense and budget data...');
-
     const categories = [
         { code: 'TRAVEL', name: 'Travel' },
         { code: 'MEALS', name: 'Meals & Entertainment' },
         { code: 'HARDWARE', name: 'Hardware & Equipment' },
-        { code: 'SOFTWARE', name: 'Software Subscriptions' },
-        { code: 'TRAINING', name: 'Training & Development' },
-        { code: 'SUPPLIES', name: 'Office Supplies' },
+        { code: 'SOFTWARE', name: 'Software' },
     ];
-
-    const insertedCats = [];
     for (const cat of categories) {
-        const [c] = await db.insert(expenseCategories).values(cat).onConflictDoNothing().returning();
-        insertedCats.push(c || (await db.select().from(expenseCategories).where(eq(expenseCategories.code, cat.code)))[0]);
+        await db.insert(expenseCategories).values(cat).onConflictDoNothing();
     }
+    const cats = await db.select().from(expenseCategories);
 
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-
-    const periods = [
-        {
-            code: `${currentYear}-${currentMonth.toString().padStart(2, '0')}`,
-            name: `${now.toLocaleString('default', { month: 'long' })} ${currentYear}`,
-            periodStart: `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`,
-            periodEnd: new Date(currentYear, currentMonth, 0).toISOString().slice(0, 10),
-            periodType: 'MONTHLY',
-        },
-        {
-            code: `FY-${currentYear}`,
-            name: `Fiscal Year ${currentYear}`,
-            periodStart: `${currentYear}-01-01`,
-            periodEnd: `${currentYear}-12-31`,
-            periodType: 'ANNUAL',
-        }
-    ];
-
-    const insertedPeriods = [];
-    for (const p of periods) {
-        const [per] = await db.insert(budgetPeriods).values(p).onConflictDoNothing().returning();
-        insertedPeriods.push(per || (await db.select().from(budgetPeriods).where(eq(budgetPeriods.code, p.code)))[0]);
-    }
-
-    // Allocate initial budgets to some leaf org units
+    const [period] = await db.insert(budgetPeriods).values({
+        code: `${now.getFullYear()}-03`,
+        name: 'March 2026',
+        periodStart: '2026-03-01',
+        periodEnd: '2026-03-31',
+        periodType: 'MONTHLY' as BudgetPeriodType
+    }).onConflictDoNothing().returning();
+    
+    const resolvedPeriod = period || (await db.select().from(budgetPeriods).limit(1))[0];
     const allOrgs = await db.select().from(orgUnits);
-    const leafOrgs = allOrgs.filter((ou: InferSelectModel<typeof orgUnits>) =>
-        !allOrgs.some((child: InferSelectModel<typeof orgUnits>) => child.parentId === ou.id)
-    );
+    const leafOrgs = allOrgs.filter((ou: { id: any; }) => !allOrgs.some((child: { parentId: any; }) => child.parentId === ou.id));
 
-    const monthlyPeriod = insertedPeriods.find(p => p.periodType === 'MONTHLY');
-    const travelCat = insertedCats.find(c => c.code === 'TRAVEL');
-    const mealsCat = insertedCats.find(c => c.code === 'MEALS');
-
-    if (monthlyPeriod && leafOrgs.length > 0) {
-        for (const org of leafOrgs) {
-            // Give every leaf team $1,000 for travel and $500 for meals
-            if (travelCat) {
-                await db.insert(orgUnitBudgets).values({
-                    orgUnitId: org.id,
-                    budgetPeriodId: monthlyPeriod.id,
-                    expenseCategoryId: travelCat.id,
-                    amountAllocated: '1000.00',
-                }).onConflictDoNothing();
-
-                await db.insert(budgetLedger).values({
-                    orgUnitId: org.id,
-                    budgetPeriodId: monthlyPeriod.id,
-                    expenseCategoryId: travelCat.id,
-                    entryType: 'ALLOCATION',
-                    amount: '1000.00',
-                }).onConflictDoNothing();
-            }
-
-            if (mealsCat) {
-                await db.insert(orgUnitBudgets).values({
-                    orgUnitId: org.id,
-                    budgetPeriodId: monthlyPeriod.id,
-                    expenseCategoryId: mealsCat.id,
-                    amountAllocated: '500.00',
-                }).onConflictDoNothing();
-
-                await db.insert(budgetLedger).values({
-                    orgUnitId: org.id,
-                    budgetPeriodId: monthlyPeriod.id,
-                    expenseCategoryId: mealsCat.id,
-                    entryType: 'ALLOCATION',
-                    amount: '500.00',
-                }).onConflictDoNothing();
-            }
+    for (const org of leafOrgs) {
+        for (const cat of cats) {
+            const amount = faker.number.int({ min: 1000, max: 10000 }).toString() + '.00';
+            await db.insert(orgUnitBudgets).values({
+                orgUnitId: org.id, budgetPeriodId: resolvedPeriod.id, expenseCategoryId: cat.id, amountAllocated: amount
+            }).onConflictDoNothing();
+            
+            await db.insert(budgetLedger).values({
+                orgUnitId: org.id, budgetPeriodId: resolvedPeriod.id, expenseCategoryId: cat.id, 
+                entryType: 'ALLOCATION' as BudgetLedgerEntryType, amount
+            }).onConflictDoNothing();
         }
     }
 }

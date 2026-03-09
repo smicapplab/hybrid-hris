@@ -90,6 +90,9 @@ export class AuthController {
     }
 
     private async handleOAuthSuccess(req: any, res: Response) {
+        if (!req.user) {
+            throw new UnauthorizedException('OAuth user not found');
+        }
         const { accessToken, refreshToken } = await this.auth.login(req.user);
 
         res.cookie(this.refreshCookieName(), refreshToken, this.cookieOptions());

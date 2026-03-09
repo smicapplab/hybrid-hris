@@ -200,7 +200,7 @@ export default function OrgStructurePage() {
             <OrgUnitDialog
                 key={`${dialogMode}-${editingOrg?.id ?? 'new'}-${parentForCreate?.id ?? 'root'}`}
                 open={dialogOpen}
-                onClose={async () => {
+                onCloseAction={async () => {
                     setDialogOpen(false);
                     await refreshTree();
                 }}

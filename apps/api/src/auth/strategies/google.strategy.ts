@@ -17,9 +17,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   async validate(
     accessToken: string,
     refreshToken: string,
-    profile: any,
+    profile: Record<string, any>,
     done: VerifyCallback,
-  ): Promise<any> {
+  ): Promise<void> {
     const { name, emails, id } = profile;
     const userProfile = {
       provider: 'GOOGLE' as const,
@@ -33,7 +33,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       const user = await this.authService.validateOAuthUser(userProfile);
       done(null, user);
     } catch (err) {
-      done(err, false);
+      done(err as Error, false);
     }
   }
 }
