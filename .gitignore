@@ -1,50 +1,82 @@
-# Node
+# Dependencies
 node_modules/
+.pnp
+.pnp.*
 
 # Prevent nested workspace/lock files
 apps/**/pnpm-lock.yaml
+packages/**/pnpm-lock.yaml
 apps/**/pnpm-workspace.yaml
+packages/**/pnpm-workspace.yaml
 
 # Build outputs
-apps/**/dist/
-packages/**/dist/
+dist/
 .next/
 out/
 build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Specific patterns for apps and packages
+apps/**/dist/
+packages/**/dist/
+apps/**/.next/
+apps/**/out/
 
 # Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
-# Environment files
+# Environment files - ensure all .env variations are ignored in all subdirectories
 .env
-.env.local
-.env.development.local
-.env.dev.env.development.local
-.env.production.local
-.env.test.local
-
-# Allow sample env files to be committed
+.env.*
 !.env.sample
 
 # OS
 .DS_Store
+.DS_Store?
+._*
 Thumbs.db
+desktop.ini
 
-# IDE
-.vscode/
+# IDE - VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# IDE - IntelliJ
 .idea/
+*.iws
+*.iml
+*.ipr
 
-# Coverage
+# Coverage and tests
 coverage/
+.nyc_output
 
-# Turborepo (if added later)
+# Turborepo
 .turbo/
 
-# Misc
-*.tsbuildinfo
+# Temporary files
+.tmp/
+.temp/
+*.swp
+*.bak
+*~
 
-#demo
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Demo and scripts
 scripts/reset-demo.sh
+scripts/reset-db.sh.bak
