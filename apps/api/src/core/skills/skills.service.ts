@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { skillCategories, skills, employeeSkills, employeeSkillEndorsements, employees, orgUnits } from '@hybrid-hris/db/schema';
+import { skillCategories, skills, employeeSkills, employeeSkillEndorsements, employees } from '@hybrid-hris/db/schema';
 import { and, eq, asc, sql, isNull, inArray } from 'drizzle-orm';
 import { ProficiencyLevel } from '@hybrid-hris/domain';
 

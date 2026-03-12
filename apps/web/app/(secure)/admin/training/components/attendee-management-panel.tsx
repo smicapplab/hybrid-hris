@@ -128,8 +128,12 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
       toast({ title: 'Attendee added', variant: 'success' });
       setNewEmployeeId(null);
       loadAttendees();
-    } catch {
-      toast({ title: 'Failed to add attendee', variant: 'destructive' });
+    } catch (err) {
+      toast({ 
+        title: 'Failed to add attendee', 
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive' 
+      });
     }
   }
 

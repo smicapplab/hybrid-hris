@@ -43,7 +43,7 @@ const pool = new Pool({
 const db = drizzle(pool);
 
 export async function seedSystem() {
-    console.log('🚀 Starting Enterprise Seed...');
+    console.log('🚀 Starting Enterprise Seed (Hierarchical Mode)...');
     
     const today = new Date();
     const todayIso = today.toISOString().slice(0, 10);
@@ -103,6 +103,7 @@ export async function seedSystem() {
         employeeNoPrefix: 'EMP-',
         employeeNoNext: 1000,
         employeeNoPadding: 6,
+        timezone: 'Asia/Manila',
         passwordLoginEnabled: true,
         googleLoginEnabled: true,
         microsoftLoginEnabled: true
@@ -111,6 +112,7 @@ export async function seedSystem() {
         set: { 
             googleLoginEnabled: true, 
             microsoftLoginEnabled: true,
+            timezone: 'Asia/Manila',
             updatedAt: new Date() 
         }
     });
@@ -163,11 +165,14 @@ export async function seedSystem() {
     }
 
     const allOrgUnits = await db.select().from(orgUnits);
+    const leafOrgs = allOrgUnits.filter(ou => !allOrgUnits.some(child => child.parentId === ou.id));
 
     // --- 6. Positions ---
     console.log('  - Seeding positions...');
     const posData = [
         { code: 'CEO', title: 'Chief Executive Officer' },
+        { code: 'DIV_HEAD', title: 'Division Director' },
+        { code: 'DEPT_MGR', title: 'Department Manager' },
         { code: 'HR_MGR', title: 'HR Manager' },
         { code: 'CTO', title: 'Chief Technology Officer' },
         { code: 'CFO', title: 'Chief Financial Officer' },
@@ -176,55 +181,50 @@ export async function seedSystem() {
         { code: 'QA_ENG', title: 'QA Engineer' },
         { code: 'HR_GEN', title: 'HR Generalist' },
         { code: 'ACC', title: 'Accountant' },
+        { code: 'SYS_ADMIN', title: 'System Administrator' },
     ];
     for (const pos of posData) {
         await db.insert(positions).values({ ...pos, isActive: true }).onConflictDoNothing();
     }
     const allPositions = await db.select().from(positions);
 
-    // --- 7. Employees & Users ---
-    console.log('  - Generating employees...');
+    // --- 7. Employees & Users (Hierarchical) ---
+    console.log('  - Generating employees with proper reporting lines...');
     
-    // Fixed Demo Users
-    const demoUsers = [
-        { email: 'ceo@hybrid-hris.local', role: 'MANAGER', pos: 'CEO', org: 'HQ', fname: 'Arthur', lname: 'Chief' },
-        { email: 'hr@hybrid-hris.local', role: 'HR_ADMIN', pos: 'HR_MGR', org: 'HR', fname: 'Sarah', lname: 'Human' },
-        { email: 'admin@hybrid-hris.local', role: 'ADMIN', pos: 'SYSTEM_ADMIN', org: 'HQ', fname: 'System', lname: 'Root' },
-    ];
-
     const employeeList: any[] = [];
+    const unitManagers = new Map<string, string>(); // orgUnitId -> employeeId
 
     async function createEmployee(data: {
-        email: string, roleCode: string, posCode: string, orgCode: string, fname: string, lname: string, empNo: string
+        email: string, roleCode: string, posCode: string, orgId: string, fname: string, lname: string, empNo: string, supervisorId?: string
     }) {
-        const org = (await db.select().from(orgUnits).where(eq(orgUnits.code, data.orgCode)).limit(1))[0];
-        let pos = allPositions.find(p => p.code === data.posCode);
-        if (!pos) {
-            [pos] = await db.insert(positions).values({ code: data.posCode, title: data.posCode.replace('_', ' '), isActive: true }).onConflictDoNothing().returning();
-        }
+        const pos = allPositions.find(p => p.code === data.posCode) || allPositions[0];
 
         const [emp] = await db.insert(employees).values({
             employeeNo: data.empNo,
             firstName: data.fname,
             lastName: data.lname,
-            orgUnitId: org?.id,
-            positionId: pos?.id,
+            orgUnitId: data.orgId,
+            positionId: pos.id,
+            supervisorId: data.supervisorId || null,
             hireDate: '2022-01-01',
             status: 'ACTIVE',
             employmentType: 'REGULAR',
+            timezone: 'Asia/Manila',
         }).onConflictDoNothing().returning();
 
         const resolvedEmp = emp || (await db.select().from(employees).where(eq(employees.employeeNo, data.empNo)))[0];
 
-        // Profile & IDs
+        // Profile
         await db.insert(employeeProfiles).values({
             employeeId: resolvedEmp.id,
-            mobileNo: faker.phone.number(),
+            mobileNo: '(+63) 917-123-4567',
             birthDate: '1985-05-20',
             gender: faker.helpers.arrayElement(['MALE', 'FEMALE']),
-            civilStatus: 'MARRIED'
+            civilStatus: 'MARRIED',
+            emergencyContactMobileNo: '(+63) 917-123-4567',
         }).onConflictDoNothing();
 
+        // IDs
         await db.insert(employeeIdentifiers).values({
             employeeId: resolvedEmp.id,
             tinNo: faker.string.numeric(12),
@@ -233,7 +233,7 @@ export async function seedSystem() {
             pagIbigNo: faker.string.numeric(12)
         }).onConflictDoNothing();
 
-        // User Account
+        // User
         const [usr] = await db.insert(users).values({
             employeeId: resolvedEmp.id,
             email: data.email,
@@ -249,14 +249,14 @@ export async function seedSystem() {
             await db.insert(userRoles).values({ userId: resolvedUsr.id, roleId: role.id }).onConflictDoNothing();
         }
 
-        // Leader?
-        if (data.roleCode === 'MANAGER' || data.roleCode === 'HR_ADMIN') {
+        // Leader registration
+        if (data.roleCode === 'MANAGER' || data.roleCode === 'HR_ADMIN' || data.roleCode === 'ADMIN') {
             await db.insert(orgUnitLeaders).values({
-                orgUnitId: org.id, employeeId: resolvedEmp.id, role: 'HEAD', effectiveFrom: '2022-01-01'
+                orgUnitId: data.orgId, employeeId: resolvedEmp.id, role: 'HEAD', effectiveFrom: '2022-01-01'
             }).onConflictDoNothing();
         }
 
-        // Shift
+        // Shift & Policy
         await db.insert(employeeShiftAssignments).values({
             employeeId: resolvedEmp.id, shiftTemplateId: resolvedDayShift.id,
             startTime: '09:00', endTime: '18:00', breakMinutes: 60,
@@ -266,7 +266,6 @@ export async function seedSystem() {
             effectiveFrom: '2022-01-01'
         }).onConflictDoNothing();
 
-        // Leave Policy
         await db.insert(employeeLeavePolicies).values({
             employeeId: resolvedEmp.id, policyId, effectiveFrom: '2022-01-01'
         }).onConflictDoNothing();
@@ -274,37 +273,79 @@ export async function seedSystem() {
         return { emp: resolvedEmp, usr: resolvedUsr };
     }
 
-    // 1. Create Demo Users
-    console.log('  - Seeding demo accounts...');
-    for (let i = 0; i < demoUsers.length; i++) {
-        const d = demoUsers[i];
-        const { emp, usr } = await createEmployee({
-            email: d.email, roleCode: d.role, posCode: d.pos, orgCode: d.org, fname: d.fname, lname: d.lname, empNo: `EMP-00000${i}`
+    // A. Root Management
+    console.log('    * Seeding Root Leaders...');
+    const { emp: ceo, usr: ceoUser } = await createEmployee({
+        email: 'ceo@hybrid-hris.local', roleCode: 'MANAGER', posCode: 'CEO', orgId: hqId, fname: 'Arthur', lname: 'Chief', empNo: 'EMP-000001'
+    });
+    unitManagers.set(hqId, ceo.id);
+
+    const { emp: sysAdmin, usr: adminUser } = await createEmployee({
+        email: 'admin@hybrid-hris.local', roleCode: 'ADMIN', posCode: 'SYS_ADMIN', orgId: hqId, fname: 'System', lname: 'Root', empNo: 'EMP-000002', supervisorId: ceo.id
+    });
+    adminUserObj = adminUser;
+    employeeList.push(ceo, sysAdmin);
+
+    // B. Division Heads
+    console.log('    * Seeding Division Heads...');
+    for (const div of allDivs) {
+        const { emp: divHead } = await createEmployee({
+            email: `${div.code.toLowerCase()}@hybrid-hris.local`, 
+            roleCode: 'MANAGER', 
+            posCode: 'DIV_HEAD', 
+            orgId: div.id, 
+            fname: faker.person.firstName(), 
+            lname: faker.person.lastName(), 
+            empNo: `EMP-DIV-${div.code}`,
+            supervisorId: ceo.id
         });
-        
-        if (d.email === 'admin@hybrid-hris.local') adminUserObj = usr;
-        if (d.email === 'hr@hybrid-hris.local') hrUserObj = usr;
-        
-        employeeList.push(emp);
+        unitManagers.set(div.id, divHead.id);
+        employeeList.push(divHead);
     }
 
-    // 2. Generate Randomized Bulk Employees (~80 more)
-    console.log('  - Seeding bulk enterprise data...');
-    for (let i = 10; i < 90; i++) {
-        const org = faker.helpers.arrayElement(allOrgUnits);
-        const pos = faker.helpers.arrayElement(allPositions);
+    // C. Department Managers (Leafs)
+    console.log('    * Seeding Department Managers...');
+    for (const leaf of leafOrgs) {
+        if (leaf.id === hqId) continue;
+        
+        const parentDivManagerId = unitManagers.get(leaf.parentId!);
+        const isHR = leaf.code === 'HR';
+        
+        const { emp: deptMgr, usr: deptUser } = await createEmployee({
+            email: isHR ? 'hr@hybrid-hris.local' : `${leaf.code.toLowerCase()}-mgr@hybrid-hris.local`, 
+            roleCode: isHR ? 'HR_ADMIN' : 'MANAGER', 
+            posCode: isHR ? 'HR_MGR' : 'DEPT_MGR', 
+            orgId: leaf.id, 
+            fname: faker.person.firstName(), 
+            lname: faker.person.lastName(), 
+            empNo: `EMP-MGR-${leaf.code}`,
+            supervisorId: parentDivManagerId || ceo.id
+        });
+        
+        if (isHR) hrUserObj = deptUser;
+        unitManagers.set(leaf.id, deptMgr.id);
+        employeeList.push(deptMgr);
+    }
+
+    // D. Bulk Staff (Leaf Only)
+    console.log('    * Seeding staff distributed in leaf nodes...');
+    for (let i = 0; i < 80; i++) {
+        const leaf = faker.helpers.arrayElement(leafOrgs);
+        if (leaf.id === hqId) continue;
+
+        const deptMgrId = unitManagers.get(leaf.id);
         const fname = faker.person.firstName();
         const lname = faker.person.lastName();
-        const empNo = `EMP-${1000 + i}`;
         
         const { emp } = await createEmployee({
             email: faker.internet.email({ firstName: fname, lastName: lname }).toLowerCase(),
             roleCode: SystemRole.EMPLOYEE,
-            posCode: pos.code,
-            orgCode: org.code,
+            posCode: leaf.code === 'HR' ? 'HR_GEN' : (leaf.code === 'FIN' ? 'ACC' : (leaf.code === 'QA' ? 'QA_ENG' : 'SWE')),
+            orgId: leaf.id,
             fname,
             lname,
-            empNo
+            empNo: `EMP-STAFF-${1000 + i}`,
+            supervisorId: deptMgrId
         });
         employeeList.push(emp);
     }
@@ -313,7 +354,6 @@ export async function seedSystem() {
     console.log('  - Setting plantilla limits...');
     for (const org of allOrgUnits) {
         for (const pos of allPositions) {
-            // Randomly assign some positions to units with limits
             if (faker.datatype.boolean(0.3)) {
                 await db.insert(orgUnitPositions).values({
                     orgUnitId: org.id,
@@ -451,27 +491,11 @@ export async function seedSystem() {
         }
     }
 
-    // --- 12. Manpower Requests (Plantilla) ---
+    // --- 12. Manpower Requests ---
     console.log('  - Seeding manpower requests...');
     const requestTypes = ['NEW_HEADCOUNT', 'REPLACEMENT', 'PROJECT_BASED'];
     const mrStatuses = ['DRAFT', 'SUBMITTED', 'SUBMITTED_TO_ROOT', 'APPROVED', 'REJECTED'];
     const allUsers = await db.select().from(users);
-
-    const sampleSummaries = [
-        '<p>We are seeking a <strong>talented professional</strong> to join our growing team. This role is critical for our upcoming expansion and requires someone with a passion for excellence and innovation.</p>',
-        '<p>Join our dynamic department as we scale our operations. We need a <em>self-starter</em> who can hit the ground running and contribute to our strategic goals from day one.</p>',
-        '<p>A unique opportunity for an experienced individual to take ownership of key projects and drive measurable impact within the organization.</p>'
-    ];
-
-    const sampleResponsibilities = [
-        '<ul><li>Drive end-to-end execution of department initiatives and key performance indicators.</li><li>Collaborate with cross-functional stakeholders to ensure alignment and delivery of project goals.</li><li>Mentor junior team members and foster a culture of continuous learning and improvement.</li><li>Analyze complex data sets to provide actionable insights for senior leadership.</li></ul>',
-        '<ul><li>Manage daily operations and ensure all workflows are optimized for maximum efficiency.</li><li>Prepare comprehensive reports and presentations for monthly business reviews.</li><li>Identify and mitigate operational risks through proactive monitoring and process improvements.</li><li>Champion the adoption of new technologies and methodologies across the team.</li></ul>'
-    ];
-
-    const sampleQualifications = [
-        '<ul><li>Bachelor\'s degree in a relevant field; Master\'s or professional certification preferred.</li><li>Minimum of 3-5 years of proven experience in a similar capacity or industry.</li><li>Proficiency in modern office productivity suites and specialized industry software.</li><li>Strong analytical, communication, and interpersonal skills.</li></ul>',
-        '<ul><li>Demonstrated track record of delivering high-quality results in a fast-paced environment.</li><li>Ability to work independently and as part of a collaborative team.</li><li>Fluent in English, both written and verbal; additional languages are a plus.</li><li>Deep understanding of industry best practices and regulatory requirements.</li></ul>'
-    ];
 
     for (let i = 0; i < 12; i++) {
         const type = faker.helpers.arrayElement(requestTypes);
@@ -490,10 +514,10 @@ export async function seedSystem() {
             employmentType: 'REGULAR',
             priority: faker.helpers.arrayElement(['NORMAL', 'HIGH', 'URGENT']),
             jobTitle: pos.title,
-            jobSummary: faker.helpers.arrayElement(sampleSummaries),
+            jobSummary: '<p>Standard summary generated via seed.</p>',
             jobDescription: faker.lorem.paragraphs(2),
-            responsibilities: faker.helpers.arrayElement(sampleResponsibilities),
-            qualifications: faker.helpers.arrayElement(sampleQualifications),
+            responsibilities: '<ul><li>Standard responsibility</li></ul>',
+            qualifications: '<ul><li>Standard qualification</li></ul>',
             status: status as any,
             targetHireDate: todayIso,
         }).returning();

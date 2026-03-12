@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -34,17 +34,39 @@ export default function MyTrainingsPage() {
   const [trainings, setTrainings] = useState<MyTraining[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tab, setTab] = useState<'upcoming' | 'history'>('upcoming');
+  const lastTab = useRef<'upcoming' | 'history'>(tab);
 
-  const loadTrainings = useCallback(async () => {
+  const loadTrainings = useCallback(async (autoSelect = false) => {
     try {
       setLoading(true);
       const result = await apiFetch<MyTraining[]>('/training/my-trainings');
       setTrainings(result);
 
-      setSelectedId((current) => {
-        if (result.length > 0 && !current) return result[0].id;
-        return current;
-      });
+      if (autoSelect || !selectedId || lastTab.current !== tab) {
+        lastTab.current = tab;
+        // Find the first training that would be visible in the current tab
+        const now = new Date();
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+        const firstVisible = result.find((t) => {
+          const startDate = new Date(t.startAt);
+          if (tab === 'upcoming') {
+            return t.enrollmentStatus === 'ENROLLED' && (startDate >= now || t.status !== 'COMPLETED');
+          } else {
+            return startDate >= sixMonthsAgo && (startDate < now || t.status === 'COMPLETED' || t.enrollmentStatus === 'CANCELLED');
+          }
+        });
+
+        setSelectedId(firstVisible?.id ?? null);
+      } else {
+        // If we have a selectedId, check if it's still in the result
+        const stillExists = result.some(t => t.id === selectedId);
+        if (!stillExists) {
+          setSelectedId(result[0]?.id ?? null);
+        }
+      }
     } catch (err) {
       toast({
         title: 'Failed to load trainings',
@@ -54,13 +76,20 @@ export default function MyTrainingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [selectedId, tab, toast]);
 
   useEffect(() => {
     if (user) {
       loadTrainings();
     }
-  }, [user, loadTrainings]);
+  }, [user]); // Removed loadTrainings to prevent unnecessary firing on selectedId change
+
+  // Trigger reload with auto-select when tab changes
+  useEffect(() => {
+    if (user) {
+      loadTrainings(true);
+    }
+  }, [tab, user]);
 
   if (!user) return null;
 
@@ -69,7 +98,7 @@ export default function MyTrainingsPage() {
   return (
     <div className="p-6 h-[calc(100vh-(--spacing(16)))] flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-bold">My Trainings</h1>
+        <h1 className="text-xl font-bold text-foreground">My Trainings</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Track your professional development, enrolled sessions, and training history.
         </p>
@@ -82,18 +111,24 @@ export default function MyTrainingsPage() {
             loading={loading}
             selectedId={selectedId}
             onSelectAction={setSelectedId}
+            tab={tab}
+            onTabChangeAction={(newTab) => {
+              setTab(newTab);
+              // Trigger reload with auto-select when switching tabs
+              // We'll use a small delay or useEffect to handle this better
+            }}
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={65}>
           <div className="h-full overflow-y-auto p-5 bg-muted/5">
             {!selected ? (
-              <div className="h-full flex flex-col items-center justify-center gap-3 text-center py-16">
+              <div className="h-full flex flex-col items-center justify-center gap-3 text-center py-16 text-foreground">
                 <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                   <GraduationCap className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">No training selected</p>
+                  <p className="text-sm font-medium">No training selected</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Select a training from the list to view its details.
                   </p>
@@ -102,7 +137,7 @@ export default function MyTrainingsPage() {
             ) : (
               <TrainingDetailPanel 
                 scheduleId={selected.id}
-                onUnenrollAction={loadTrainings}
+                onUnenrollAction={() => loadTrainings(true)}
               />
             )}
           </div>

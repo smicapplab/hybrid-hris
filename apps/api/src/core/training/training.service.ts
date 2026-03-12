@@ -627,6 +627,20 @@ export class TrainingService {
   }
 
   async addAttendee(scheduleId: string, employeeId: string, processorId: string | null) {
+    // Check if already enrolled
+    const existing = await this.db.db
+      .select({ id: trainingEnrollments.id })
+      .from(trainingEnrollments)
+      .where(and(
+        eq(trainingEnrollments.scheduleId, scheduleId),
+        eq(trainingEnrollments.employeeId, employeeId)
+      ))
+      .limit(1);
+
+    if (existing.length) {
+      throw new ConflictException('Employee is already enrolled in this session');
+    }
+
     const [inserted] = await this.db.db
       .insert(trainingEnrollments)
       .values({

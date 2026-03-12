@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { PhoneInput, isValidPHMobile, cleanPhoneNumber } from '@/components/ui/phone-input'
+import { LandlineInput, isValidPHLandline, cleanLandline } from '@/components/ui/landline-input'
 import { Button } from '@/components/ui/button'
 import {
     Select,
@@ -102,6 +104,7 @@ export default function MyProfilePage() {
     const [form, setForm] = useState<FormState | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
     useEffect(() => {
         apiFetch<ProfileData>('/profile/me')
@@ -126,12 +129,43 @@ export default function MyProfilePage() {
 
     async function handleSave() {
         if (!form) return
+
+        // ── Validation ──
+        const errors: Record<string, string> = {}
+        if (form.mobileNo && !isValidPHMobile(form.mobileNo)) {
+            errors.mobileNo = 'Invalid mobile number format'
+        }
+        if (form.emergencyContactMobileNo && !isValidPHMobile(form.emergencyContactMobileNo)) {
+            errors.emergencyContactMobileNo = 'Invalid mobile number format'
+        }
+        if (form.landlineNo && !isValidPHLandline(form.landlineNo)) {
+            errors.landlineNo = 'Invalid landline number format'
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors)
+            toast({
+                title: 'Validation Error',
+                description: 'Please fix the number format.',
+                variant: 'destructive',
+            })
+            return
+        }
+
+        setFieldErrors({})
         setSaving(true)
         try {
             // Omit keys with empty string — don't blank-out existing values unintentionally
             const payload: Record<string, string> = {}
             for (const [k, v] of Object.entries(form)) {
-                if (v !== '') payload[k] = v as string
+                let cleanVal = v as string
+                if (k === 'mobileNo' || k === 'emergencyContactMobileNo') {
+                    cleanVal = cleanPhoneNumber(cleanVal)
+                }
+                if (k === 'landlineNo') {
+                    cleanVal = cleanLandline(cleanVal)
+                }
+                if (cleanVal !== '') payload[k] = cleanVal
             }
             const updated = await apiFetch<ProfileData>('/profile/me', {
                 method: 'PATCH',
@@ -279,22 +313,28 @@ export default function MyProfilePage() {
 
                                     <Field>
                                         <FieldLabel htmlFor="mobileNo">Mobile Number</FieldLabel>
-                                        <Input
+                                        <PhoneInput
                                             id="mobileNo"
                                             value={form.mobileNo}
-                                            placeholder="+63 9XX XXX XXXX"
-                                            onChange={(e) => set('mobileNo', e.target.value)}
+                                            error={!!fieldErrors.mobileNo}
+                                            onChangeAction={(v) => set('mobileNo', v)}
                                         />
+                                        {fieldErrors.mobileNo && (
+                                            <p className="text-[10px] text-destructive font-medium uppercase tracking-tight mt-1">{fieldErrors.mobileNo}</p>
+                                        )}
                                     </Field>
 
                                     <Field>
                                         <FieldLabel htmlFor="landlineNo">Landline Number</FieldLabel>
-                                        <Input
+                                        <LandlineInput
                                             id="landlineNo"
                                             value={form.landlineNo}
-                                            placeholder="+02 8XXX XXXX"
-                                            onChange={(e) => set('landlineNo', e.target.value)}
+                                            error={!!fieldErrors.landlineNo}
+                                            onChangeAction={(v) => set('landlineNo', v)}
                                         />
+                                        {fieldErrors.landlineNo && (
+                                            <p className="text-[10px] text-destructive font-medium uppercase tracking-tight mt-1">{fieldErrors.landlineNo}</p>
+                                        )}
                                     </Field>
 
                                     <Field>
@@ -351,12 +391,15 @@ export default function MyProfilePage() {
 
                                     <Field>
                                         <FieldLabel htmlFor="ecMobile">Mobile Number</FieldLabel>
-                                        <Input
+                                        <PhoneInput
                                             id="ecMobile"
                                             value={form.emergencyContactMobileNo}
-                                            placeholder="+63 9XX XXX XXXX"
-                                            onChange={(e) => set('emergencyContactMobileNo', e.target.value)}
+                                            error={!!fieldErrors.emergencyContactMobileNo}
+                                            onChangeAction={(v) => set('emergencyContactMobileNo', v)}
                                         />
+                                        {fieldErrors.emergencyContactMobileNo && (
+                                            <p className="text-[10px] text-destructive font-medium uppercase tracking-tight mt-1">{fieldErrors.emergencyContactMobileNo}</p>
+                                        )}
                                     </Field>
 
                                 </div>

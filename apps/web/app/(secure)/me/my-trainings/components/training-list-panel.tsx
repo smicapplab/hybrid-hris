@@ -13,6 +13,8 @@ type Props = {
   loading: boolean;
   selectedId: string | null;
   onSelectAction: (id: string) => void;
+  tab: 'upcoming' | 'history';
+  onTabChangeAction: (tab: 'upcoming' | 'history') => void;
 };
 
 export function TrainingListPanel({
@@ -20,9 +22,10 @@ export function TrainingListPanel({
   loading,
   selectedId,
   onSelectAction,
+  tab,
+  onTabChangeAction,
 }: Props) {
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'upcoming' | 'history'>('upcoming');
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -61,7 +64,7 @@ export function TrainingListPanel({
 
         <Tabs
           value={tab}
-          onValueChange={(v) => setTab(v as 'upcoming' | 'history')}
+          onValueChange={(v) => onTabChangeAction(v as 'upcoming' | 'history')}
           className="w-full"
         >
           <TabsList className="grid w-full grid-cols-2 h-8 p-1">

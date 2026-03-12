@@ -35,7 +35,7 @@ export const hrSettings = pgTable(
 
         // Default IANA timezone for the organisation (e.g., "Asia/Manila").
         // Used as fallback when employee.timezone is not set.
-        timezone: varchar('timezone', { length: 50 }).notNull().default('UTC'),
+        timezone: varchar('timezone', { length: 50 }).notNull().default('Asia/Manila'),
 
         // Authentication Settings
         passwordLoginEnabled: boolean('password_login_enabled').default(true).notNull(),

@@ -34,13 +34,13 @@ export class UpdateEmployeeProfileDto {
     @IsOptional()
     @IsString()
     @MaxLength(30)
-    @Matches(/^[0-9+\-\s]*$/, { message: 'Invalid mobile number format' })
+    @Matches(/^[0-9+\-\s().x]*$/, { message: 'Invalid mobile number format' })
     mobileNo?: string
 
     @IsOptional()
     @IsString()
     @MaxLength(30)
-    @Matches(/^[0-9+\-\s]*$/, { message: 'Invalid mobile number format' })
+    @Matches(/^[0-9+\-\s().x]*$/, { message: 'Invalid mobile number format' })
     landlineNo?: string
 
     @IsOptional()
@@ -56,7 +56,7 @@ export class UpdateEmployeeProfileDto {
     @IsOptional()
     @IsString()
     @MaxLength(30)
-    @Matches(/^[0-9+\-\s]*$/, { message: 'Invalid mobile number format' })
+    @Matches(/^[0-9+\-\s().x]*$/, { message: 'Invalid mobile number format' })
     emergencyContactMobileNo?: string
 
     @IsOptional()

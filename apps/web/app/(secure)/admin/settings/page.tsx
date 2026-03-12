@@ -10,6 +10,8 @@ import { Switch } from '@/components/ui/switch';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ShieldCheck, Mail, Globe, Hash } from 'lucide-react';
+import { TIMEZONE_OPTIONS } from '@/lib/employee.enum';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type HrSettings = {
     employeeNoPrefix: string;
@@ -134,6 +136,7 @@ export default function AdminSettingsPage() {
                         <div className="space-y-2">
                             <Label htmlFor="padding">Padding Length</Label>
                             <NumericInput
+                                className='w-16'
                                 id="padding"
                                 mode="int"
                                 value={settings.employeeNoPadding}
@@ -153,12 +156,24 @@ export default function AdminSettingsPage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="timezone">Default Timezone</Label>
-                            <Input
-                                id="timezone"
-                                value={settings.timezone}
-                                onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
-                                placeholder="e.g., Asia/Manila"
-                            />
+                            <Select 
+                                value={settings.timezone} 
+                                onValueChange={(v) => setSettings({ ...settings, timezone: v })}
+                            >
+                                <SelectTrigger id="timezone">
+                                    <SelectValue placeholder="Select timezone" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-60">
+                                    {TIMEZONE_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[10px] text-muted-foreground italic">
+                                Used as fallback when an employee doesn&apos;t have a specific timezone set.
+                            </p>
                         </div>
                     </CardContent>
                 </Card>

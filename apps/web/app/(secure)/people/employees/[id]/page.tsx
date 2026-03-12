@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { RequiredInput } from '@/components/ui/required-input'
+import { PhoneInput, isValidPHMobile, cleanPhoneNumber } from '@/components/ui/phone-input'
+import { LandlineInput, isValidPHLandline, cleanLandline } from '@/components/ui/landline-input'
 import { DatePickerField } from '@/components/ui/date-picker-field'
 import { BirthdayPickerField } from '@/components/ui/birthday-picker-field'
 import { RequiredSelect } from '@/components/ui/required-select'
@@ -35,6 +37,7 @@ import { getBackgroundColor } from '@/lib/utils'
 import { format } from 'date-fns'
 import { useToast } from "@/hooks/use-toast";
 import { COUNTRY_OPTIONS, EMPLOYMENT_TYPE_LABELS, STATUS_CONFIG, TIMEZONE_OPTIONS } from '@/lib/employee.enum'
+import { Label } from '@/components/ui/label'
 
 export default function EmployeeDetailPage() {
     const { id } = useParams<{ id: string }>()
@@ -132,6 +135,18 @@ export default function EmployeeDetailPage() {
                 errors.positionId = 'Position is not allowed in the specified org unit'
             }
         }
+
+        // Phone validation
+        if (e.profile?.mobileNo && !isValidPHMobile(e.profile.mobileNo)) {
+            errors.mobileNo = 'Invalid format'
+        }
+        if (e.profile?.emergencyContactMobileNo && !isValidPHMobile(e.profile.emergencyContactMobileNo)) {
+            errors.emergencyContactMobileNo = 'Invalid format'
+        }
+        if (e.profile?.landlineNo && !isValidPHLandline(e.profile.landlineNo)) {
+            errors.landlineNo = 'Invalid format'
+        }
+
         return errors
     }
 
@@ -214,7 +229,15 @@ export default function EmployeeDetailPage() {
                     province: province ?? null,
                     postalCode: postalCode ?? null,
                     countryCode: countryCode ?? null,
-                    profile: stripSystemFields(profile),
+                    profile: (() => {
+                        const p = stripSystemFields(profile)
+                        if (p) {
+                            if (p.mobileNo) p.mobileNo = cleanPhoneNumber(p.mobileNo)
+                            if (p.emergencyContactMobileNo) p.emergencyContactMobileNo = cleanPhoneNumber(p.emergencyContactMobileNo)
+                            if (p.landlineNo) p.landlineNo = cleanLandline(p.landlineNo)
+                        }
+                        return p
+                    })(),
                     identifiers: stripSystemFields(identifiers),
                 })),
             })
@@ -605,22 +628,64 @@ export default function EmployeeDetailPage() {
                             {(
                                 [
                                     ['mobileNo', 'Mobile No'],
+                                    ['landlineNo', 'Landline No'],
                                     ['emergencyContactName', 'Emergency Contact Name'],
                                     ['emergencyContactMobileNo', 'Emergency Contact Mobile No'],
                                 ] as const
-                            ).map(([field, label]) => (
-                                <RequiredInput
-                                    key={field}
-                                    label={label}
-                                    value={employee.profile?.[field] ?? ''}
-                                    onChangeAction={(v) =>
-                                        setEmployee((prev) => prev ? {
-                                            ...prev,
-                                            profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), [field]: v },
-                                        } : prev)
-                                    }
-                                />
-                            ))}
+                            ).map(([field, label]) => {
+                                const isMobile = field.toLowerCase().includes('mobile');
+                                const isLandline = field.toLowerCase().includes('landline');
+                                const val = employee.profile?.[field] ?? '';
+                                
+                                const onChange = (v: string) =>
+                                    setEmployee((prev) => prev ? {
+                                        ...prev,
+                                        profile: { ...(prev.profile ?? { ...DEFAULT_PROFILE, employeeId: prev.id }), [field]: v },
+                                    } : prev);
+
+                                if (isMobile) {
+                                    return (
+                                        <div key={field} className="space-y-1 text-foreground">
+                                            <Label>{label}</Label>
+                                            <PhoneInput
+                                                value={val}
+                                                error={!!fieldErrors[field]}
+                                                onChangeAction={onChange}
+                                            />
+                                            {fieldErrors[field] && (
+                                                <p className="text-[10px] text-destructive font-medium uppercase tracking-tight mt-1">{fieldErrors[field]}</p>
+                                            )}
+                                        </div>
+                                    );
+                                }
+
+                                if (isLandline) {
+                                    return (
+                                        <div key={field} className="space-y-1 text-foreground">
+                                            <Label>{label}</Label>
+                                            <LandlineInput
+                                                value={val}
+                                                error={!!fieldErrors[field]}
+                                                onChangeAction={onChange}
+                                            />
+                                            {fieldErrors[field] && (
+                                                <p className="text-[10px] text-destructive font-medium uppercase tracking-tight mt-1">{fieldErrors[field]}</p>
+                                            )}
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <RequiredInput
+                                        key={field}
+                                        label={label}
+                                        value={val}
+                                        touched={!!fieldErrors[field]}
+                                        errorMessage={fieldErrors[field]}
+                                        onChangeAction={onChange}
+                                    />
+                                );
+                            })}
                         </div>
                     </div>
 
