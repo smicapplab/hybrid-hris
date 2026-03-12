@@ -19,6 +19,7 @@ import {
     UserPlus,
     GraduationCap,
     Library,
+    UserCheck,
 } from "lucide-react";
 
 export const navigation: NavCategory[] = [

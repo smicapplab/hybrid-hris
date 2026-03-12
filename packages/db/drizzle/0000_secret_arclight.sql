@@ -616,7 +616,8 @@ CREATE TABLE "employee_skills" (
 	"verified_by_id" uuid,
 	"verified_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "employee_skills_employee_skill_uq" UNIQUE("employee_id","skill_id")
 );
 --> statement-breakpoint
 CREATE TABLE "training_prerequisites" (

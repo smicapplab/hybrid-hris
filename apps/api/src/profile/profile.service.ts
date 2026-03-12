@@ -252,6 +252,26 @@ export class ProfileService {
                 )
             )
 
+        const peers = await this.db.db
+            .select({
+                id: employees.id,
+                firstName: employees.firstName,
+                lastName: employees.lastName,
+                employeeNo: employees.employeeNo,
+                positionTitle: positions.title,
+                status: employees.status,
+            })
+            .from(employees)
+            .leftJoin(positions, eq(employees.positionId, positions.id))
+            .where(
+                and(
+                    eq(employees.orgUnitId, empRow.orgUnitId),
+                    sql`${employees.id} != ${employeeId}`,
+                    isNull(employees.deletedAt)
+                )
+            )
+            .orderBy(asc(employees.lastName))
+
         return {
             employee: {
                 id: empRow.id,
@@ -272,6 +292,7 @@ export class ProfileService {
             supervisor,
             directReports,
             leaders,
+            peers,
         }
     }
 

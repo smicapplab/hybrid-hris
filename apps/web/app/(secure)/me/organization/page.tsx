@@ -4,18 +4,21 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Briefcase, ChevronRight, User, Users, Crown, ArrowUpRight } from 'lucide-react'
+import { Building2, Briefcase, ChevronRight, User, Users, ArrowUpRight, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OrgContext } from '@/types/org.type'
 import { ORG_LEADER_ROLE_BADGE, ORG_LEADER_ROLE_LABEL } from '@/lib/org.enum'
 import { EMPLOYEE_STATUS_BADGE, EMPLOYMENT_TYPE_LABELS } from '@/lib/employee.enum'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { SkillApprovalsTab } from './components/skill-approvals-tab'
+import { Badge } from '@/components/ui/badge'
 
 /* ─── Avatar helper ─────────────────────────────────────────── */
 function Avatar({ name, className }: { name: string; className?: string }) {
     const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
     return (
         <div className={cn(
-            'rounded-full bg-primary/10 text-primary font-semibold flex items-center justify-center text-xs',
+            'rounded-full bg-primary/10 text-primary font-semibold flex items-center justify-center text-xs shrink-0',
             className,
         )}>
             {initials}
@@ -42,7 +45,7 @@ export default function OrganizationPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center h-64 text-sm text-muted-foreground animate-pulse font-medium">
                 Loading organization context…
             </div>
         )
@@ -50,232 +53,243 @@ export default function OrganizationPage() {
 
     if (error || !ctx) {
         return (
-            <div className="flex items-center justify-center h-64 text-sm text-destructive">
+            <div className="flex items-center justify-center h-64 text-sm text-destructive font-medium">
                 {error ?? 'No organization data found.'}
             </div>
         )
     }
 
     const fullName = `${ctx.employee.firstName} ${ctx.employee.lastName}`
+    const canSeeApprovals = user.roles.some(r => ['ADMIN', 'HR_ADMIN', 'SUPERVISOR', 'MANAGER'].includes(r))
 
     return (
-        <div className="p-6 space-y-4 max-w-4xl">
-            {/* ── My Position Card ─────────────────────────────────── */}
-            <Card className="overflow-hidden">
-                <div className="px-6 pt-6 pb-5">
-                    <div className="flex items-start gap-4">
-                        <Avatar name={fullName} className="w-14 h-14 text-base" />
-                        <div className="flex-1 min-w-0">
-                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-0.5">
-                                You
-                            </p>
-                            <h2 className="text-lg font-bold leading-tight">{fullName}</h2>
-                            {ctx.position && (
-                                <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                                    <Briefcase className="w-3.5 h-3.5" />
-                                    {ctx.position.title}
-                                    <code className="ml-1 text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">
-                                        {ctx.position.code}
-                                    </code>
-                                </p>
-                            )}
-                        </div>
-                        <span className={cn(
-                            'text-xs border rounded-full px-2.5 py-0.5 font-medium',
-                            EMPLOYEE_STATUS_BADGE[ctx.employee.status] ?? 'bg-muted text-muted-foreground',
-                        )}>
-                            {ctx.employee.status}
-                        </span>
-                    </div>
-                </div>
+        <div className="p-6 space-y-6 max-w-5xl text-foreground">
+            <Tabs defaultValue="my-org" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 max-w-125 h-10 p-1 bg-muted/50 rounded-lg">
+                    <TabsTrigger value="my-org" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <Building2 className="w-4 h-4" /> My Organization
+                    </TabsTrigger>
+                    <TabsTrigger value="my-team" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <Users className="w-4 h-4" /> My Team
+                    </TabsTrigger>
+                    {canSeeApprovals && (
+                        <TabsTrigger value="approvals" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                            <ShieldCheck className="w-4 h-4" /> Approvals
+                        </TabsTrigger>
+                    )}
+                </TabsList>
 
-                {ctx.orgUnit && (
-                    <CardContent className="pt-4">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                            Department
-                        </p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <Building2 className="w-4 h-4 text-muted-foreground" />
-                            {ctx.orgUnit.path.map((segment, i) => (
-                                <span key={i} className="flex items-center gap-1.5 text-sm">
-                                    {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-                                    <span className={cn(
-                                        i === ctx.orgUnit!.path.length - 1
-                                            ? 'font-semibold text-foreground'
-                                            : 'text-muted-foreground'
-                                    )}>
-                                        {segment}
-                                    </span>
-                                </span>
-                            ))}
-                            <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono text-muted-foreground">
-                                {ctx.orgUnit.code}
-                            </code>
-                        </div>
-                    </CardContent>
-                )}
-            </Card>
-
-            {/* ── Supervisor + Direct Reports ───────────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                            <ArrowUpRight className="w-4 h-4 text-muted-foreground" />
-                            Reports To
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {ctx.supervisor ? (
-                            <div className="flex items-center gap-3">
-                                <Avatar
-                                    name={`${ctx.supervisor.firstName} ${ctx.supervisor.lastName}`}
-                                    className="w-9 h-9"
-                                />
-                                <div className="min-w-0">
-                                    <p className="text-sm font-semibold leading-tight truncate">
-                                        {ctx.supervisor.firstName} {ctx.supervisor.lastName}
+                <TabsContent value="my-org" className="mt-6 space-y-6">
+                    {/* ── My Position Card ─────────────────────────────────── */}
+                    <Card className="overflow-hidden shadow-sm border-border/60 bg-card">
+                        <div className="px-6 pt-6 pb-5">
+                            <div className="flex items-start gap-4">
+                                <Avatar name={fullName} className="w-14 h-14 text-base" />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-0.5">
+                                        You
                                     </p>
-                                    <p className="text-xs text-muted-foreground truncate mt-0.5">
-                                        {ctx.supervisor.positionTitle}
-                                    </p>
+                                    <h2 className="text-xl font-bold leading-tight">{fullName}</h2>
+                                    {ctx.position && (
+                                        <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5 font-medium">
+                                            <Briefcase className="w-3.5 h-3.5" />
+                                            {ctx.position.title}
+                                            <code className="ml-1 text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono font-bold">
+                                                {ctx.position.code}
+                                            </code>
+                                        </p>
+                                    )}
                                 </div>
-                            </div>
-                        ) : (
-                            <p className="text-sm text-muted-foreground italic">No supervisor assigned</p>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                            <Users className="w-4 h-4 text-muted-foreground" />
-                            Direct Reports
-                            {ctx.directReports.length > 0 && (
-                                <span className="ml-auto text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium">
-                                    {ctx.directReports.length}
-                                </span>
-                            )}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {ctx.directReports.length === 0 ? (
-                            <p className="text-sm text-muted-foreground italic">No direct reports</p>
-                        ) : (
-                            <div className="space-y-2.5">
-                                {ctx.directReports.slice(0, 5).map(dr => (
-                                    <div key={dr.id} className="flex items-center gap-2.5">
-                                        <Avatar name={`${dr.firstName} ${dr.lastName}`} className="w-7 h-7" />
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-medium leading-tight truncate">
-                                                {dr.firstName} {dr.lastName}
-                                            </p>
-                                            <p className="text-[11px] text-muted-foreground truncate">
-                                                {dr.positionTitle}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                                {ctx.directReports.length > 5 && (
-                                    <p className="text-xs text-muted-foreground pt-1">
-                                        +{ctx.directReports.length - 5} more
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* ── Unit Leaders ──────────────────────────────────────── */}
-            {ctx.leaders.length > 0 && (
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                            <Crown className="w-4 h-4 text-muted-foreground" />
-                            Unit Leadership
-                            {ctx.orgUnit && (
-                                <span className="text-xs text-muted-foreground font-normal">
-                                    — {ctx.orgUnit.name}
-                                </span>
-                            )}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {ctx.leaders.map(leader => (
-                                <div key={leader.id} className="flex items-center gap-3">
-                                    <Avatar
-                                        name={`${leader.firstName} ${leader.lastName}`}
-                                        className="w-8 h-8"
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="text-sm font-medium leading-tight">
-                                                {leader.firstName} {leader.lastName}
-                                            </p>
-                                            {leader.isPrimary && (
-                                                <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 rounded-full px-1.5 py-px font-medium">
-                                                    Primary
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <span className={cn(
-                                        'text-[11px] border rounded-full px-2 py-0.5 font-medium',
-                                        ORG_LEADER_ROLE_BADGE[leader.role] ?? 'bg-muted text-muted-foreground',
-                                    )}>
-                                        {ORG_LEADER_ROLE_LABEL[leader.role] ?? leader.role}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            <Card>
-                <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                        <User className="w-4 h-4 text-muted-foreground" />
-                        Employment Details
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                        <div>
-                            <dt className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Employee No.</dt>
-                            <dd className="mt-0.5 font-mono font-medium">{ctx.employee.employeeNo}</dd>
-                        </div>
-                        <div>
-                            <dt className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Hire Date</dt>
-                            <dd className="mt-0.5">
-                                {new Date(ctx.employee.hireDate).toLocaleDateString('en-US', {
-                                    year: 'numeric', month: 'long', day: 'numeric',
-                                })}
-                            </dd>
-                        </div>
-                        <div>
-                            <dt className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Employment Type</dt>
-                            <dd className="mt-0.5">
-                                {EMPLOYMENT_TYPE_LABELS[ctx.employee.employmentType] ?? ctx.employee.employmentType}
-                            </dd>
-                        </div>
-                        <div>
-                            <dt className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Status</dt>
-                            <dd className="mt-0.5">
                                 <span className={cn(
-                                    'text-xs border rounded-full px-2 py-0.5 font-medium',
+                                    'text-xs border rounded-full px-3 py-0.5 font-bold uppercase tracking-tight',
                                     EMPLOYEE_STATUS_BADGE[ctx.employee.status] ?? 'bg-muted text-muted-foreground',
                                 )}>
                                     {ctx.employee.status}
                                 </span>
-                            </dd>
+                            </div>
                         </div>
-                    </dl>
-                </CardContent>
-            </Card>
+
+                        {ctx.orgUnit && (
+                            <CardContent className="pt-4 border-t border-border/40 bg-muted/5">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5">
+                                    Department Path
+                                </p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <Building2 className="w-4 h-4 text-primary" />
+                                    {ctx.orgUnit.path.map((segment, i) => (
+                                        <span key={i} className="flex items-center gap-1.5 text-sm">
+                                            {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50" />}
+                                            <span className={cn(
+                                                i === ctx.orgUnit!.path.length - 1
+                                                    ? 'font-bold text-foreground'
+                                                    : 'text-muted-foreground font-medium'
+                                            )}>
+                                                {segment}
+                                            </span>
+                                        </span>
+                                    ))}
+                                    <Badge variant="secondary" className="text-[10px] font-mono h-5">
+                                        {ctx.orgUnit.code}
+                                    </Badge>
+                                </div>
+                            </CardContent>
+                        )}
+                    </Card>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card className="shadow-sm border-border/60">
+                            <CardHeader className="pb-3 border-b border-border/40 bg-muted/10">
+                                <CardTitle className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
+                                    <ArrowUpRight className="w-4 h-4 text-orange-500" />
+                                    Reports To
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-5">
+                                {ctx.supervisor ? (
+                                    <div className="flex items-center gap-4">
+                                        <Avatar
+                                            name={`${ctx.supervisor.firstName} ${ctx.supervisor.lastName}`}
+                                            className="w-10 h-10 border"
+                                        />
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold leading-tight truncate">
+                                                {ctx.supervisor.firstName} {ctx.supervisor.lastName}
+                                            </p>
+                                            <p className="text-[11px] text-muted-foreground font-medium truncate mt-1 uppercase tracking-tight">
+                                                {ctx.supervisor.positionTitle}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground italic text-center py-2">No supervisor assigned</p>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card className="shadow-sm border-border/60">
+                            <CardHeader className="pb-3 border-b border-border/40 bg-muted/10">
+                                <CardTitle className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
+                                    <User className="w-4 h-4 text-blue-500" />
+                                    Employment
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-5">
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-muted-foreground font-medium">Type</span>
+                                        <span className="font-bold">{EMPLOYMENT_TYPE_LABELS[ctx.employee.employmentType] ?? ctx.employee.employmentType}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-muted-foreground font-medium">Joined</span>
+                                        <span className="font-bold">{new Date(ctx.employee.hireDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="my-team" className="mt-6 space-y-6 text-foreground">
+                    <div className="grid grid-cols-1 gap-6">
+                        {/* ── Direct Reports Section ── */}
+                        {ctx.directReports.length > 0 && (
+                            <section className="space-y-3">
+                                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">My Direct Reports ({ctx.directReports.length})</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {ctx.directReports.map(dr => (
+                                        <Card key={dr.id} className="hover:border-primary/30 transition-all bg-card border-border/60 shadow-none">
+                                            <CardContent className="p-4 flex items-center gap-3">
+                                                <Avatar name={`${dr.firstName} ${dr.lastName}`} className="w-9 h-9" />
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-bold leading-tight truncate">{dr.firstName} {dr.lastName}</p>
+                                                    <p className="text-[10px] text-muted-foreground font-medium truncate mt-0.5 uppercase">{dr.positionTitle}</p>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+
+                        {/* ── Peers Section ── */}
+                        <section className="space-y-3">
+                            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">My Peers in {ctx.orgUnit?.name} ({ctx.peers?.length ?? 0})</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {ctx.peers?.map(peer => {
+                                    const isSupervisor = ctx.supervisor?.id === peer.id;
+                                    const isLead = ctx.leaders.some(l => l.employeeId === peer.id);
+
+                                    return (
+                                        <Card key={peer.id} className={cn(
+                                            "transition-all bg-card border-border/60 shadow-none",
+                                            (isSupervisor || isLead) && "border-blue-200 bg-blue-50/10 ring-1 ring-blue-100/50"
+                                        )}>
+                                            <CardContent className="p-4 flex items-center gap-3 relative text-foreground">
+                                                <Avatar name={`${peer.firstName} ${peer.lastName}`} className="w-9 h-9" />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-sm font-bold leading-tight truncate">{peer.firstName} {peer.lastName}</p>
+                                                        {isSupervisor && <Badge className="text-[8px] h-3.5 px-1 bg-orange-100 text-orange-700 border-orange-200 shadow-none">Manager</Badge>}
+                                                        {isLead && <Badge className="text-[8px] h-3.5 px-1 bg-blue-100 text-blue-700 border-blue-200 shadow-none">Lead</Badge>}
+                                                    </div>
+                                                    <p className="text-[10px] text-muted-foreground font-medium truncate mt-0.5 uppercase tracking-tight">{peer.positionTitle}</p>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                                {(!ctx.peers || ctx.peers.length === 0) && (
+                                    <div className="col-span-full py-12 text-center border-dashed border rounded-2xl bg-muted/5">
+                                        <p className="text-xs text-muted-foreground italic font-medium">No other members in this unit yet.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        {/* ── Unit Leadership Matrix ── */}
+                        <section className="space-y-3">
+                            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Unit Leadership Matrix</h3>
+                            <Card className="border-border/60 shadow-none overflow-hidden">
+                                <CardContent className="p-0">
+                                    <div className="divide-y divide-border/40">
+                                        {ctx.leaders.map(leader => (
+                                            <div key={leader.id} className="flex items-center justify-between p-4 bg-card hover:bg-muted/5 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <Avatar name={`${leader.firstName} ${leader.lastName}`} className="w-8 h-8" />
+                                                    <div>
+                                                        <p className="text-sm font-bold">{leader.firstName} {leader.lastName}</p>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <Badge variant="outline" className={cn(
+                                                                "text-[9px] uppercase h-4 px-1.5",
+                                                                ORG_LEADER_ROLE_BADGE[leader.role]
+                                                            )}>
+                                                                {ORG_LEADER_ROLE_LABEL[leader.role]}
+                                                            </Badge>
+                                                            {leader.isPrimary && <span className="text-[9px] font-bold text-primary uppercase tracking-tighter">Primary Contact</span>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </section>
+                    </div>
+                </TabsContent>
+
+                {canSeeApprovals && (
+                    <TabsContent value="approvals" className="mt-6">
+                        <div className="space-y-4">
+                            <div className="px-1">
+                                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Pending Skill Declarations</h3>
+                                <p className="text-xs text-muted-foreground mt-1">Skills submitted by your direct reports that require verification.</p>
+                            </div>
+                            <SkillApprovalsTab />
+                        </div>
+                    </TabsContent>
+                )}
+            </Tabs>
         </div>
     )
 }

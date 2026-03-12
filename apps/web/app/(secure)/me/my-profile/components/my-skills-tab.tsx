@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { SkillDeclarationDialog } from './skill-declaration-dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface Endorsement {
   id: string;
@@ -38,6 +39,7 @@ export function MySkillsTab() {
   const [skills, setSkills] = useState<EmployeeSkill[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [skillToDelete, setSkillToDelete] = useState<string | null>(null);
 
   const loadSkills = useCallback(async () => {
     try {
@@ -55,14 +57,16 @@ export function MySkillsTab() {
     loadSkills();
   }, [loadSkills]);
 
-  async function handleRemove(id: string) {
-    if (!confirm('Are you sure you want to remove this skill declaration?')) return;
+  async function handleConfirmRemove() {
+    if (!skillToDelete) return;
     try {
-      await apiFetch(`/skills/my-skills/${id}`, { method: 'DELETE' });
+      await apiFetch(`/skills/my-skills/${skillToDelete}`, { method: 'DELETE' });
       toast({ title: 'Skill removed', variant: 'success' });
       loadSkills();
     } catch {
       toast({ title: 'Failed to remove skill', variant: 'destructive' });
+    } finally {
+      setSkillToDelete(null);
     }
   }
 
@@ -99,7 +103,7 @@ export function MySkillsTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {skills.map((s) => (
             <Card key={s.id} className={cn(
-              "group overflow-hidden transition-all hover:border-primary/30",
+              "group overflow-hidden transition-all hover:border-primary/30 text-foreground",
               s.verificationStatus === 'VERIFIED' ? "bg-card" : "bg-muted/10 opacity-80"
             )}>
               <CardContent className="p-5 space-y-4">
@@ -119,7 +123,7 @@ export function MySkillsTab() {
                     </div>
                   </div>
                   {s.verificationStatus !== 'VERIFIED' && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemove(s.id)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setSkillToDelete(s.id)}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   )}
@@ -152,7 +156,6 @@ export function MySkillsTab() {
                   </div>
                 )}
 
-                {/* 360 Endorsements Section */}
                 <div className="space-y-2.5 pt-2 border-t border-border/40">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
@@ -185,6 +188,16 @@ export function MySkillsTab() {
         open={dialogOpen}
         onOpenChangeAction={setDialogOpen}
         onSuccessAction={loadSkills}
+      />
+
+      <ConfirmDialog 
+        open={!!skillToDelete}
+        onOpenChange={(open) => !open && setSkillToDelete(null)}
+        title="Remove Skill Declaration"
+        description="Are you sure you want to remove this skill from your profile? This action cannot be undone."
+        onConfirm={handleConfirmRemove}
+        confirmText="Remove Skill"
+        variant="destructive"
       />
     </div>
   );

@@ -1,5 +1,5 @@
 {
-  "id": "eb6e6802-f27e-4e6b-913b-16de43fb0849",
+  "id": "e3d83eed-9ba3-4241-aa1b-f9bf0923360e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -5989,7 +5989,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "employee_skills_employee_skill_uq": {
+          "name": "employee_skills_employee_skill_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "employee_id",
+            "skill_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

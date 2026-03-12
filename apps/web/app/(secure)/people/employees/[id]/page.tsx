@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -53,6 +53,23 @@ export default function EmployeeDetailPage() {
     const [statusSaving, setStatusSaving] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+    const fetchOrgUnits = useCallback(async (search: string) => {
+        const list = await apiFetch<OrgUnitOption[]>(
+            `/org-units/search?leavesOnly=true&showDeleted=false&limit=20&query=${encodeURIComponent(search)}`,
+        )
+        if (currentOrgUnit && !list.some((ou) => ou.id === currentOrgUnit.id)) {
+            return [currentOrgUnit, ...list]
+        }
+        return list
+    }, [currentOrgUnit])
+
+    const fetchSupervisors = useCallback(async (search: string) => {
+        const res = await apiFetch<{ data: SupervisorOption[] }>(
+            `/employees?status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`,
+        )
+        return res.data
+    }, [])
 
     async function refreshStatusOptions() {
         try {
@@ -441,15 +458,7 @@ export default function EmployeeDetailPage() {
                                             setPositions(positionsData)
                                             setEmployee((prev) => prev ? { ...prev, positionId: positionsData[0]?.id ?? '' } : prev)
                                         }}
-                                        fetchOptions={async (search) => {
-                                            const list = await apiFetch<OrgUnitOption[]>(
-                                                `/org-units/search?leavesOnly=true&showDeleted=false&limit=20&query=${encodeURIComponent(search)}`,
-                                            )
-                                            if (currentOrgUnit && !list.some((ou) => ou.id === currentOrgUnit.id)) {
-                                                return [currentOrgUnit, ...list]
-                                            }
-                                            return list
-                                        }}
+                                        fetchOptions={fetchOrgUnits}
                                         getOptionValue={(o) => o.id}
                                         getOptionLabel={(o) => {
                                             const base = o.path?.trim() ? o.path : o.name
@@ -479,12 +488,7 @@ export default function EmployeeDetailPage() {
                                 label="Supervisor"
                                 value={employee.supervisorId}
                                 onChangeAction={(v) => setEmployee({ ...employee, supervisorId: v })}
-                                fetchOptions={async (search) => {
-                                    const res = await apiFetch<{ data: SupervisorOption[] }>(
-                                        `/employees?status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`,
-                                    )
-                                    return res.data
-                                }}
+                                fetchOptions={fetchSupervisors}
                                 getOptionValue={(o) => o.id}
                                 getOptionLabel={(o) => `${o.firstName} ${o.lastName}`}
                                 excludeIds={[employee.id]}

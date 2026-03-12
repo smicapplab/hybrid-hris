@@ -10,15 +10,15 @@ import {
   skills,
   employees,
   orgUnits,
+  employeeSkills,
 } from '@hybrid-hris/db/schema';
-import { eq, and, asc, sql, count } from 'drizzle-orm';
+import { eq, and, asc, sql, count, inArray, isNull } from 'drizzle-orm';
 import { ProficiencyLevel, TrainingScheduleStatus, TrainingType, TrainingEnrollmentStatus } from '@hybrid-hris/domain';
+import { Tx } from 'src/database/database.types';
 
 @Injectable()
 export class TrainingService {
   constructor(private readonly db: DatabaseService) {}
-
-  // ... existing methods ...
 
   async getPublicScheduleDetails(scheduleId: string, currentEmployeeId?: string) {
     const result = await this.db.db
@@ -37,14 +37,12 @@ export class TrainingService {
 
     const { schedule, program } = result[0];
 
-    // Get sessions
     const sessions = await this.db.db
       .select()
       .from(trainingScheduleSessions)
       .where(eq(trainingScheduleSessions.scheduleId, scheduleId))
       .orderBy(asc(trainingScheduleSessions.startAt));
 
-    // Get enrollment count
     const [enrollmentCount] = await this.db.db
       .select({ val: count() })
       .from(trainingEnrollments)
@@ -55,7 +53,6 @@ export class TrainingService {
         )
       );
 
-    // Get current user enrollment
     let myEnrollment = null;
     if (currentEmployeeId) {
       const [enrollment] = await this.db.db
@@ -71,7 +68,6 @@ export class TrainingService {
       myEnrollment = enrollment || null;
     }
 
-    // Get attendee list (public info only)
     const attendees = await this.db.db
       .select({
         id: employees.id,
@@ -100,7 +96,6 @@ export class TrainingService {
   }
 
   async enroll(scheduleId: string, employeeId: string) {
-    // 1. Validate schedule exists and is upcoming
     const schedule = await this.db.db
       .select()
       .from(trainingSchedules)
@@ -110,7 +105,6 @@ export class TrainingService {
     if (!schedule.length) throw new NotFoundException('Schedule not found');
     if (schedule[0].status !== 'SCHEDULED') throw new ConflictException('This session is no longer open for enrollment');
 
-    // 2. Check capacity
     if (schedule[0].capacity) {
       const [current] = await this.db.db
         .select({ val: count() })
@@ -127,7 +121,6 @@ export class TrainingService {
       }
     }
 
-    // 3. Check existing enrollment
     const existing = await this.db.db
       .select()
       .from(trainingEnrollments)
@@ -141,7 +134,6 @@ export class TrainingService {
 
     if (existing.length) {
       if (existing[0].status === 'CANCELLED') {
-        // Re-enroll
         return (await this.db.db
           .update(trainingEnrollments)
           .set({ status: 'ENROLLED', enrolledAt: new Date(), updatedAt: new Date() })
@@ -151,7 +143,6 @@ export class TrainingService {
       throw new ConflictException('You are already enrolled in this session');
     }
 
-    // 4. Create enrollment
     const [inserted] = await this.db.db
       .insert(trainingEnrollments)
       .values({
@@ -162,6 +153,54 @@ export class TrainingService {
       .returning();
 
     return inserted;
+  }
+
+  async enrollOrgUnit(scheduleId: string, orgUnitId: string, processorId: string | null) {
+    return await this.db.db.transaction(async (tx) => {
+      const orgTree = await tx.execute(sql`
+        WITH RECURSIVE org_tree AS (
+          SELECT id FROM org_units WHERE id = ${orgUnitId}
+          UNION ALL
+          SELECT ou.id FROM org_units ou JOIN org_tree ot ON ou.parent_id = ot.id
+        )
+        SELECT id FROM org_tree
+      `);
+      
+      const orgUnitIds = (orgTree.rows as { id: string }[]).map(row => row.id);
+      if (!orgUnitIds.length) return { count: 0 };
+
+      const targetEmployees = await tx
+        .select({ id: employees.id })
+        .from(employees)
+        .where(and(
+          inArray(employees.orgUnitId, orgUnitIds),
+          isNull(employees.deletedAt),
+          inArray(employees.status, ['ACTIVE', 'PROBATION'])
+        ));
+
+      if (!targetEmployees.length) return { count: 0 };
+
+      const existingEnrollments = await tx
+        .select({ employeeId: trainingEnrollments.employeeId })
+        .from(trainingEnrollments)
+        .where(eq(trainingEnrollments.scheduleId, scheduleId));
+      
+      const existingIds = new Set(existingEnrollments.map(e => e.employeeId));
+      const toEnroll = targetEmployees.filter(e => !existingIds.has(e.id));
+
+      if (!toEnroll.length) return { count: 0 };
+
+      await tx.insert(trainingEnrollments).values(
+        toEnroll.map(e => ({
+          scheduleId,
+          employeeId: e.id,
+          status: 'ENROLLED' as TrainingEnrollmentStatus,
+          processedById: processorId,
+        }))
+      );
+
+      return { count: toEnroll.length };
+    });
   }
 
   async cancelEnrollment(scheduleId: string, employeeId: string) {
@@ -229,7 +268,6 @@ export class TrainingService {
       throw new NotFoundException('Training program not found');
     }
 
-    // Load associated skills
     const programSkills = await this.db.db
       .select({
         id: trainingProgramSkills.id,
@@ -241,7 +279,6 @@ export class TrainingService {
       .innerJoin(skills, eq(trainingProgramSkills.skillId, skills.id))
       .where(eq(trainingProgramSkills.programId, id));
 
-    // Load prerequisites
     const prerequisites = await this.db.db
       .select({
         id: trainingPrerequisites.id,
@@ -333,7 +370,6 @@ export class TrainingService {
         throw new NotFoundException('Training program not found');
       }
 
-      // Sync skills if provided
       if (skillIds !== undefined) {
         await tx.delete(trainingProgramSkills).where(eq(trainingProgramSkills.programId, id));
         if (skillIds.length > 0) {
@@ -347,7 +383,6 @@ export class TrainingService {
         }
       }
 
-      // Sync prerequisites if provided
       if (prerequisiteIds !== undefined) {
         await tx.delete(trainingPrerequisites).where(eq(trainingPrerequisites.programId, id));
         if (prerequisiteIds.length > 0) {
@@ -492,5 +527,145 @@ export class TrainingService {
       ...schedule[0],
       sessions,
     };
+  }
+
+  // --- Attendee Management ---
+
+  async getScheduleAttendees(scheduleId: string) {
+    return this.db.db
+      .select({
+        enrollmentId: trainingEnrollments.id,
+        employeeId: employees.id,
+        firstName: employees.firstName,
+        lastName: employees.lastName,
+        employeeNo: employees.employeeNo,
+        orgUnitName: orgUnits.name,
+        status: trainingEnrollments.status,
+        processedAt: trainingEnrollments.processedAt,
+      })
+      .from(trainingEnrollments)
+      .innerJoin(employees, eq(trainingEnrollments.employeeId, employees.id))
+      .leftJoin(orgUnits, eq(employees.orgUnitId, orgUnits.id))
+      .where(eq(trainingEnrollments.scheduleId, scheduleId))
+      .orderBy(asc(employees.lastName));
+  }
+
+  async updateAttendeeStatus(
+    enrollmentId: string,
+    data: { status: TrainingEnrollmentStatus; notes?: string },
+    processorId: string | null,
+    tx?: Tx
+  ) {
+    const db = tx || this.db.db;
+
+    const [enrollment] = await db
+      .update(trainingEnrollments)
+      .set({
+        status: data.status,
+        completionNotes: data.notes ?? null,
+        processedAt: new Date(),
+        processedById: processorId ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(trainingEnrollments.id, enrollmentId))
+      .returning();
+
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+
+    if (data.status === 'COMPLETED') {
+      const results = await db
+        .select({
+          programId: trainingPrograms.id,
+          skillId: trainingProgramSkills.skillId,
+          grantedProficiencyLevel: trainingProgramSkills.grantedProficiencyLevel,
+        })
+        .from(trainingSchedules)
+        .innerJoin(trainingPrograms, eq(trainingSchedules.programId, trainingPrograms.id))
+        .innerJoin(trainingProgramSkills, eq(trainingPrograms.id, trainingProgramSkills.programId))
+        .where(eq(trainingSchedules.id, enrollment.scheduleId));
+
+      for (const ps of results) {
+        await db
+          .insert(employeeSkills)
+          .values({
+            employeeId: enrollment.employeeId,
+            skillId: ps.skillId,
+            trainingEnrollmentId: enrollment.id,
+            proficiencyLevel: ps.grantedProficiencyLevel,
+            source: 'INTERNAL_TRAINING',
+            verificationStatus: 'VERIFIED',
+            acquiredDate: sql`CURRENT_DATE`,
+            verifiedById: processorId ?? null,
+            verifiedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [employeeSkills.employeeId, employeeSkills.skillId],
+            set: {
+              proficiencyLevel: ps.grantedProficiencyLevel,
+              verificationStatus: 'VERIFIED',
+              verifiedAt: new Date(),
+              updatedAt: new Date(),
+              trainingEnrollmentId: enrollment.id,
+            },
+          });
+      }
+    }
+
+    return enrollment;
+  }
+
+  async bulkUpdateAttendeeStatus(
+    enrollmentIds: string[],
+    data: { status: TrainingEnrollmentStatus; notes?: string },
+    processorId: string | null
+  ) {
+    return await this.db.db.transaction(async (tx) => {
+      return await Promise.all(
+        enrollmentIds.map(id => this.updateAttendeeStatus(id, data, processorId, tx))
+      );
+    });
+  }
+
+  async addAttendee(scheduleId: string, employeeId: string, processorId: string | null) {
+    const [inserted] = await this.db.db
+      .insert(trainingEnrollments)
+      .values({
+        scheduleId,
+        employeeId,
+        status: 'ENROLLED',
+        processedById: processorId ?? null,
+      })
+      .returning();
+    return inserted;
+  }
+
+  async removeAttendee(enrollmentId: string) {
+    const [deleted] = await this.db.db
+      .delete(trainingEnrollments)
+      .where(eq(trainingEnrollments.id, enrollmentId))
+      .returning();
+    
+    if (!deleted) throw new NotFoundException('Enrollment not found');
+    
+    await this.db.db
+      .delete(employeeSkills)
+      .where(eq(employeeSkills.trainingEnrollmentId, enrollmentId));
+
+    return deleted;
+  }
+
+  async bulkRemoveAttendees(enrollmentIds: string[]) {
+    return await this.db.db.transaction(async (tx) => {
+      await tx
+        .delete(employeeSkills)
+        .where(inArray(employeeSkills.trainingEnrollmentId, enrollmentIds));
+
+      const deleted = await tx
+        .delete(trainingEnrollments)
+        .where(inArray(trainingEnrollments.id, enrollmentIds))
+        .returning();
+
+      return deleted;
+    });
   }
 }

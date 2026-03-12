@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { skillCategories, skills, employeeSkills, employeeSkillEndorsements, employees, orgUnits } from '@hybrid-hris/db/schema';
-import { and, eq, asc, sql } from 'drizzle-orm';
+import { and, eq, asc, sql, isNull, inArray } from 'drizzle-orm';
+import { ProficiencyLevel } from '@hybrid-hris/domain';
 
 @Injectable()
 export class SkillsService {
@@ -47,7 +48,7 @@ export class SkillsService {
       })
       .from(employeeSkillEndorsements)
       .innerJoin(employees, eq(employeeSkillEndorsements.endorserId, employees.id))
-      .where(sql`${employeeSkillEndorsements.employeeSkillId} IN ${skillIds}`);
+      .where(inArray(employeeSkillEndorsements.employeeSkillId, skillIds));
 
     return results.map(r => ({
       ...r,
@@ -57,7 +58,7 @@ export class SkillsService {
 
   async declareSkill(employeeId: string, data: {
     skillId: string;
-    proficiencyLevel: any;
+    proficiencyLevel: ProficiencyLevel;
     acquiredDate: string;
     evidenceUrl?: string;
     notes?: string;
@@ -103,7 +104,77 @@ export class SkillsService {
     return { success: true };
   }
 
-  // ... taxonomy methods continue ...
+  // --- Manager Skill Approvals ---
+
+  async getPendingSkillsForManager(managerEmployeeId: string) {
+    return this.db.db
+      .select({
+        id: employeeSkills.id,
+        employeeId: employees.id,
+        employeeFirstName: employees.firstName,
+        employeeLastName: employees.lastName,
+        employeeNo: employees.employeeNo,
+        skillId: skills.id,
+        skillName: skills.name,
+        skillType: skills.type,
+        proficiencyLevel: employeeSkills.proficiencyLevel,
+        acquiredDate: employeeSkills.acquiredDate,
+        evidenceUrl: employeeSkills.evidenceUrl,
+        notes: employeeSkills.notes,
+        createdAt: employeeSkills.createdAt,
+      })
+      .from(employeeSkills)
+      .innerJoin(skills, eq(employeeSkills.skillId, skills.id))
+      .innerJoin(employees, eq(employeeSkills.employeeId, employees.id))
+      .where(
+        and(
+          eq(employees.supervisorId, managerEmployeeId),
+          eq(employeeSkills.verificationStatus, 'PENDING'),
+          isNull(employees.deletedAt)
+        )
+      )
+      .orderBy(asc(employeeSkills.createdAt));
+  }
+
+  async processSkillApproval(
+    employeeSkillId: string,
+    managerEmployeeId: string,
+    data: { status: 'VERIFIED' | 'REJECTED'; notes?: string }
+  ) {
+    // 1. Verify this is a pending skill for a direct report
+    const result = await this.db.db
+      .select({ id: employeeSkills.id })
+      .from(employeeSkills)
+      .innerJoin(employees, eq(employeeSkills.employeeId, employees.id))
+      .where(
+        and(
+          eq(employeeSkills.id, employeeSkillId),
+          eq(employees.supervisorId, managerEmployeeId),
+          eq(employeeSkills.verificationStatus, 'PENDING')
+        )
+      )
+      .limit(1);
+
+    if (!result.length) {
+      throw new NotFoundException('Pending skill declaration not found for your direct reports');
+    }
+
+    const [updated] = await this.db.db
+      .update(employeeSkills)
+      .set({
+        verificationStatus: data.status,
+        notes: data.notes ? sql`${employeeSkills.notes} || '\nManager Note: ' || ${data.notes}` : employeeSkills.notes,
+        verifiedById: managerEmployeeId,
+        verifiedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(employeeSkills.id, employeeSkillId))
+      .returning();
+
+    return updated;
+  }
+
+  // --- Taxonomy (Admin) ---
 
   // --- Categories ---
 

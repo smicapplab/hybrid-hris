@@ -14,7 +14,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-import { SystemRole, ProficiencyLevel, TrainingScheduleStatus } from '@hybrid-hris/domain';
+import { SystemRole, ProficiencyLevel, TrainingScheduleStatus, TrainingEnrollmentStatus } from '@hybrid-hris/domain';
 
 @Controller('training')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -139,6 +139,63 @@ export class TrainingController {
         endAt: new Date(s.endAt),
       })),
     });
+  }
+
+  @Get('schedules/:id/attendees')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async getScheduleAttendees(@Param('id') id: string) {
+    return this.trainingService.getScheduleAttendees(id);
+  }
+
+  @Post('schedules/:id/attendees')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async addAttendee(
+    @Param('id') id: string,
+    @Body('employeeId') employeeId: string,
+    @CurrentUser('employeeId') processorId: string,
+  ) {
+    return this.trainingService.addAttendee(id, employeeId, processorId);
+  }
+
+  @Post('schedules/:id/enroll-org')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async enrollOrgUnit(
+    @Param('id') id: string,
+    @Body('orgUnitId') orgUnitId: string,
+    @CurrentUser('employeeId') processorId: string,
+  ) {
+    return this.trainingService.enrollOrgUnit(id, orgUnitId, processorId);
+  }
+
+  @Patch('enrollments/bulk-status')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async bulkUpdateStatus(
+    @Body() data: { enrollmentIds: string[]; status: TrainingEnrollmentStatus; notes?: string },
+    @CurrentUser('employeeId') processorId: string,
+  ) {
+    return this.trainingService.bulkUpdateAttendeeStatus(data.enrollmentIds, data, processorId);
+  }
+
+  @Delete('enrollments/bulk')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async bulkRemove(@Body('enrollmentIds') enrollmentIds: string[]) {
+    return this.trainingService.bulkRemoveAttendees(enrollmentIds);
+  }
+
+  @Patch('enrollments/:id/status')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async updateAttendeeStatus(
+    @Param('id') id: string,
+    @Body() data: { status: TrainingEnrollmentStatus; notes?: string },
+    @CurrentUser('employeeId') processorId: string,
+  ) {
+    return this.trainingService.updateAttendeeStatus(id, data, processorId);
+  }
+
+  @Delete('enrollments/:id')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async removeAttendee(@Param('id') id: string) {
+    return this.trainingService.removeAttendee(id);
   }
 
   // --- Public / Enrollment Endpoints ---

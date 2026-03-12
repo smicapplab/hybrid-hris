@@ -18,9 +18,10 @@ type Props = {
   programId: string;
   onEditAction: (prog: TrainingProgram) => void;
   onUpdateSuccessAction: () => void;
+  onManageAttendeesAction: (scheduleId: string, title: string) => void;
 };
 
-export function ProgramDetailPanel({ programId, onEditAction }: Props) {
+export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesAction }: Props) {
   const { toast } = useToast();
   const [program, setProgram] = useState<TrainingProgram | null>(null);
   const [loading, setLoading] = useState(false);
@@ -238,7 +239,11 @@ export function ProgramDetailPanel({ programId, onEditAction }: Props) {
         </TabsContent>
 
         <TabsContent value="schedules" className="mt-6">
-          <ScheduleList programId={programId} />
+          <ScheduleList 
+            programId={programId} 
+            programTitle={program.title}
+            onManageAttendeesAction={onManageAttendeesAction} 
+          />
         </TabsContent>
       </Tabs>
     </div>

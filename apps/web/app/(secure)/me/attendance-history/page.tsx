@@ -25,6 +25,7 @@ import { format, parseISO, differenceInMinutes } from 'date-fns'
 import { AttendanceLog } from '@/types/attendance.types'
 import { AttendanceAdjustmentDialog } from '../../dashboard/components/attendance-adjustment-dialog'
 import { useToast } from '@/hooks/use-toast'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 /* ─── Helpers ────────────────────────────────────────────────── */
 
@@ -154,6 +155,7 @@ export default function AttendanceHistoryPage() {
     // Adjustment Dialog State
     const [isAdjustOpen, setIsAdjustOpen] = useState(false)
     const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null)
+    const [adjustmentToCancel, setAdjustmentToCancel] = useState<string | null>(null)
 
     const loadLogs = useCallback(async () => {
         try {
@@ -178,15 +180,16 @@ export default function AttendanceHistoryPage() {
         setIsAdjustOpen(true)
     }
 
-    const handleCancelAdjustment = async (adjustmentId: string) => {
-        if (!confirm('Are you sure you want to cancel this adjustment request?')) return
+    const handleConfirmCancelAdjustment = async () => {
+        if (!adjustmentToCancel) return
 
         try {
-            await apiFetch(`/attendance-adjustments/${adjustmentId}`, {
+            await apiFetch(`/attendance-adjustments/${adjustmentToCancel}`, {
                 method: 'PATCH',
                 body: JSON.stringify({ status: 'CANCELLED' })
             })
             toast({ title: 'Request Cancelled', description: 'The adjustment request has been cancelled.', variant: 'success' })
+            setAdjustmentToCancel(null)
             loadLogs()
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Cancel failed';
@@ -205,7 +208,7 @@ export default function AttendanceHistoryPage() {
     }
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 text-foreground">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-blue-900">Attendance History</h1>
@@ -363,7 +366,7 @@ export default function AttendanceHistoryPage() {
                                                                         <Edit3 className="w-3.5 h-3.5" /> Edit Request
                                                                     </DropdownMenuItem>
                                                                     <DropdownMenuItem
-                                                                        onClick={() => handleCancelAdjustment(row.pendingAdjustmentId!)}
+                                                                        onClick={() => setAdjustmentToCancel(row.pendingAdjustmentId!)}
                                                                         className="gap-2 cursor-pointer text-destructive focus:text-destructive"
                                                                     >
                                                                         <XCircle className="w-3.5 h-3.5" /> Cancel Request
@@ -392,6 +395,16 @@ export default function AttendanceHistoryPage() {
                 onOpenChangeAction={setIsAdjustOpen}
                 initialLog={selectedLog}
                 onSuccessAction={loadLogs}
+            />
+
+            <ConfirmDialog 
+                open={!!adjustmentToCancel}
+                onOpenChange={(o) => !o && setAdjustmentToCancel(null)}
+                title="Cancel Adjustment Request"
+                description="Are you sure you want to cancel this attendance adjustment request? This action cannot be undone."
+                onConfirm={handleConfirmCancelAdjustment}
+                variant="destructive"
+                confirmText="Cancel Request"
             />
         </div>
     )

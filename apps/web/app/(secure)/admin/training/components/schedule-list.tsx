@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Calendar, MapPin, Users, Pencil, Clock } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, Pencil, Clock, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { apiFetch } from '@/lib/api';
@@ -11,9 +11,11 @@ import { ScheduleDialog } from './schedule-dialog';
 
 type Props = {
   programId: string;
+  programTitle: string;
+  onManageAttendeesAction: (scheduleId: string, title: string) => void;
 };
 
-export function ScheduleList({ programId }: Props) {
+export function ScheduleList({ programId, programTitle, onManageAttendeesAction }: Props) {
   const { toast } = useToast();
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([]);
   const [loading, setLoading] = useState(false);
@@ -98,12 +100,17 @@ export function ScheduleList({ programId }: Props) {
                 </div>
               </div>
 
-              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
-                setEditingScheduleId(sch.id);
-                setDialogOpen(true);
-              }}>
-                <Pencil className="w-3.5 h-3.5" />
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button variant="outline" size="sm" className="h-8 gap-2 text-xs" onClick={() => onManageAttendeesAction(sch.id, programTitle)}>
+                  <UserCheck className="w-3.5 h-3.5" /> Attendees
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 self-end opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
+                  setEditingScheduleId(sch.id);
+                  setDialogOpen(true);
+                }}>
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
         ))}

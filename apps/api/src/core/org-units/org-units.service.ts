@@ -15,17 +15,18 @@ export interface OrgUnitNode extends OrgUnit {
 export class OrgUnitsService {
   constructor(private readonly db: DatabaseService) { }
 
-  async getFlat(showDeleted = false, leavesOnly = false): Promise<OrgUnit[]> {
-    const units = showDeleted
-      ? await this.db.db
-        .select()
-        .from(orgUnits)
-        .orderBy(asc(orgUnits.name))
-      : await this.db.db
-        .select()
-        .from(orgUnits)
-        .where(isNull(orgUnits.deletedAt))
-        .orderBy(asc(orgUnits.name))
+  async getFlat(showDeleted = false, leavesOnly = false, search?: string): Promise<OrgUnit[]> {
+    let query = this.db.db.select().from(orgUnits).$dynamic();
+    
+    const conditions = [];
+    if (!showDeleted) conditions.push(isNull(orgUnits.deletedAt));
+    if (search) conditions.push(sql`lower(${orgUnits.name}) LIKE ${'%' + search.toLowerCase() + '%'}`);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const units = await query.orderBy(asc(orgUnits.name));
 
     if (!leavesOnly) {
       return units

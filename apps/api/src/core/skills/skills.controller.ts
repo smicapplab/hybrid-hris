@@ -53,6 +53,26 @@ export class SkillsController {
     return this.skillsService.removeSkill(employeeId, id);
   }
 
+  // --- Manager Skill Approvals ---
+
+  @Get('approvals/pending')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
+  async getPendingSkills(@CurrentUser('employeeId') managerEmployeeId: string) {
+    if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
+    return this.skillsService.getPendingSkillsForManager(managerEmployeeId);
+  }
+
+  @Patch('approvals/:id')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
+  async approveSkill(
+    @Param('id') id: string,
+    @CurrentUser('employeeId') managerEmployeeId: string,
+    @Body() data: { status: 'VERIFIED' | 'REJECTED'; notes?: string }
+  ) {
+    if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
+    return this.skillsService.processSkillApproval(id, managerEmployeeId, data);
+  }
+
   // --- Taxonomy (Admin) ---
 
   @Get('taxonomy')

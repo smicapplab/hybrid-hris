@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface PublicScheduleDetails extends TrainingSchedule {
   program: TrainingProgram;
@@ -28,6 +29,7 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
   const [data, setData] = useState<PublicScheduleDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showUnenrollConfirm, setShowUnenrollConfirm] = useState(false);
 
   const loadDetails = useCallback(async () => {
     try {
@@ -45,11 +47,12 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
     loadDetails();
   }, [loadDetails]);
 
-  async function handleCancel() {
+  async function handleConfirmUnenroll() {
     try {
       setActionLoading(true);
       await apiFetch(`/training/schedules/${scheduleId}/enroll`, { method: 'DELETE' });
       toast({ title: 'Successfully un-enrolled', variant: 'success' });
+      setShowUnenrollConfirm(false);
       onUnenrollAction();
     } catch {
       toast({ title: 'Failed to un-enroll', variant: 'destructive' });
@@ -72,7 +75,7 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
   const isUpcoming = new Date(data.startAt) >= new Date();
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto pb-12">
+    <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto pb-12 text-foreground">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start justify-between gap-6 p-6 rounded-2xl border bg-card shadow-sm">
         <div className="flex gap-5">
@@ -80,13 +83,13 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
             <Library className="w-7 h-7" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">{data.program.title}</h2>
+            <h2 className="text-2xl font-bold tracking-tight">{data.program.title}</h2>
             <div className="flex items-center gap-3 mt-2">
               <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider">{data.program.type}</Badge>
               {data.program.isMandatory && (
                 <Badge variant="destructive" className="text-[10px] uppercase font-bold tracking-wider">Mandatory</Badge>
               )}
-              <span className="text-xs text-muted-foreground">• {data.status}</span>
+              <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-wider">{data.status}</Badge>
             </div>
           </div>
         </div>
@@ -96,18 +99,17 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
             size="sm"
             className="gap-2 shadow-sm font-bold text-xs uppercase"
             disabled={actionLoading}
-            onClick={handleCancel}
+            onClick={() => setShowUnenrollConfirm(true)}
           >
-            <Trash2 className="w-3.5 h-3.5" /> Un-enroll from Session
+            <Trash2 className="w-3.5 h-3.5" /> Un-enroll
           </Button>
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column - Details */}
         <div className="lg:col-span-2 space-y-8">
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-foreground">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 rounded-2xl border bg-muted/20 space-y-1.5">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <MapPin className="w-4 h-4 text-blue-500" />
@@ -180,7 +182,7 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
         <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
           <Users className="w-4 h-4" /> Attendees ({data.attendees.length})
         </h3>
-        <div className="rounded-xl border bg-card overflow-hidden shadow-sm text-foreground">
+        <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
@@ -211,6 +213,16 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
           </Table>
         </div>
       </div>
+
+      <ConfirmDialog 
+        open={showUnenrollConfirm}
+        onOpenChange={setShowUnenrollConfirm}
+        title="Un-enroll from Training"
+        description="Are you sure you want to cancel your enrollment for this session? This will free up your seat for others."
+        onConfirm={handleConfirmUnenroll}
+        variant="destructive"
+        confirmText="Un-enroll"
+      />
     </div>
   );
 }

@@ -6,7 +6,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { positions } from './positions';
 import { skills } from './skills';
-import { proficiencyLevelEnum } from './employee-skills';
+import { proficiencyLevelEnum } from './enums';
 
 export const positionSkills = pgTable(
   'position_skills',

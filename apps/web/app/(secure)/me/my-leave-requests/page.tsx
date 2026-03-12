@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import RequestLeaveDialog from './components/request-leave-dialog'
 import { useToast } from '@/hooks/use-toast'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 // ── Status badge ────────────────────────────────────────────
 const STATUS_CONFIG: Record<LeaveRequestStatus, { label: string; color: string; icon: React.ReactNode }> = {
@@ -63,7 +64,7 @@ function BalanceCard({ balance }: { balance: LeaveBalance }) {
 
     return (
         <div className="rounded-xl border bg-white p-4 space-y-2 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between text-foreground">
                 <p className="text-sm font-medium text-gray-700 truncate pr-2">{balance.leaveTypeName}</p>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${balance.isPaid ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
                     {balance.isPaid ? 'Paid' : 'Unpaid'}
@@ -71,10 +72,10 @@ function BalanceCard({ balance }: { balance: LeaveBalance }) {
             </div>
             <div className="flex items-end gap-1">
                 <span className="text-3xl font-bold text-gray-900">{available.toFixed(1)}</span>
-                <span className="text-sm text-gray-500 mb-1">days</span>
+                <span className="text-sm text-gray-500 mb-1 text-foreground">days</span>
             </div>
             {pending > 0 && (
-                <p className="text-xs text-amber-600 flex items-center gap-1">
+                <p className="text-xs text-amber-600 flex items-center gap-1 font-medium">
                     <Clock className="w-3 h-3" />
                     {pending.toFixed(1)} days pending approval
                 </p>
@@ -86,10 +87,10 @@ function BalanceCard({ balance }: { balance: LeaveBalance }) {
 // ── Request row ─────────────────────────────────────────────
 function RequestRow({
     request,
-    onCancel,
+    onCancelAction,
 }: {
     request: LeaveRequest
-    onCancel: (id: string) => void
+    onCancelAction: (id: string) => void
 }) {
     const [expanded, setExpanded] = useState(false)
     const canCancel = request.status === 'PENDING' || request.status === 'APPROVED'
@@ -125,7 +126,7 @@ function RequestRow({
                             size="sm"
                             variant="ghost"
                             className="text-xs h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => onCancel(request.id)}
+                            onClick={() => onCancelAction(request.id)}
                         >
                             Cancel
                         </Button>
@@ -173,6 +174,7 @@ export default function MyLeaveRequestsPage() {
     const [requests, setRequests] = useState<LeaveRequest[]>([])
     const [loading, setLoading] = useState(true)
     const [dialogOpen, setDialogOpen] = useState(false)
+    const [requestToCancel, setRequestToCancel] = useState<string | null>(null)
 
     const load = useCallback(async () => {
         setLoading(true)
@@ -192,11 +194,12 @@ export default function MyLeaveRequestsPage() {
 
     useEffect(() => { load() }, [load])
 
-    const handleCancel = async (id: string) => {
-        if (!confirm('Are you sure you want to cancel this leave request?')) return
+    const handleConfirmCancel = async () => {
+        if (!requestToCancel) return
         try {
-            await apiFetch(`/leave-requests/my/${id}/cancel`, { method: 'PATCH' })
-            toast({ title: 'Leave request cancelled' })
+            await apiFetch(`/leave-requests/my/${requestToCancel}/cancel`, { method: 'PATCH' })
+            toast({ title: 'Leave request cancelled', variant: 'success' })
+            setRequestToCancel(null)
             load()
         } catch (err: unknown) {
             toast({
@@ -213,12 +216,12 @@ export default function MyLeaveRequestsPage() {
     const historyRequests = requests.filter((r) => r.status === 'REJECTED' || r.status === 'CANCELLED')
 
     return (
-        <div className="p-6 max-w-4xl space-y-8">
+        <div className="p-6 max-w-4xl space-y-8 text-foreground">
             {/* Header */}
             <div className="flex items-start justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">My Leave Requests</h1>
-                    <p className="text-sm text-gray-500 mt-1">Last 12 months</p>
+                    <h1 className="text-2xl font-bold">My Leave Requests</h1>
+                    <p className="text-sm text-muted-foreground mt-1">Last 12 months</p>
                 </div>
                 <Button onClick={() => setDialogOpen(true)} className="gap-2">
                     <Plus className="w-4 h-4" />
@@ -228,15 +231,15 @@ export default function MyLeaveRequestsPage() {
 
             {/* Balance cards */}
             <section>
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Leave Balance</h2>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Leave Balance</h2>
                 {loading ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {[...Array(3)].map((_, i) => (
-                            <div key={i} className="rounded-xl border bg-gray-50 p-4 h-24 animate-pulse" />
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="rounded-xl border bg-muted/20 p-4 h-24 animate-pulse" />
                         ))}
                     </div>
                 ) : balances.length === 0 ? (
-                    <p className="text-sm text-gray-400">No leave types configured yet.</p>
+                    <p className="text-sm text-muted-foreground italic">No leave types configured yet.</p>
                 ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         {balances.map((b) => (
@@ -248,24 +251,24 @@ export default function MyLeaveRequestsPage() {
 
             {/* Upcoming / active requests */}
             <section>
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                     Upcoming & Pending
                 </h2>
                 {loading ? (
                     <div className="space-y-2">
                         {[...Array(2)].map((_, i) => (
-                            <div key={i} className="h-20 rounded-lg border bg-gray-50 animate-pulse" />
+                            <div key={i} className="h-20 rounded-lg border bg-muted/20 animate-pulse" />
                         ))}
                     </div>
                 ) : upcomingRequests.length === 0 ? (
-                    <div className="rounded-lg border border-dashed p-8 text-center">
-                        <CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                        <p className="text-sm text-gray-400">No upcoming or pending leave requests.</p>
+                    <div className="rounded-lg border border-dashed p-8 text-center bg-muted/5">
+                        <CalendarDays className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">No upcoming or pending leave requests.</p>
                     </div>
                 ) : (
                     <div className="space-y-2">
                         {upcomingRequests.map((r) => (
-                            <RequestRow key={r.id} request={r} onCancel={handleCancel} />
+                            <RequestRow key={r.id} request={r} onCancelAction={setRequestToCancel} />
                         ))}
                     </div>
                 )}
@@ -274,10 +277,10 @@ export default function MyLeaveRequestsPage() {
             {/* History */}
             {historyRequests.length > 0 && (
                 <section>
-                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">History</h2>
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">History</h2>
                     <div className="space-y-2">
                         {historyRequests.map((r) => (
-                            <RequestRow key={r.id} request={r} onCancel={handleCancel} />
+                            <RequestRow key={r.id} request={r} onCancelAction={setRequestToCancel} />
                         ))}
                     </div>
                 </section>
@@ -289,6 +292,16 @@ export default function MyLeaveRequestsPage() {
                 onOpenChangeAction={setDialogOpen}
                 balances={balances}
                 onSuccessAction={load}
+            />
+
+            <ConfirmDialog 
+                open={!!requestToCancel}
+                onOpenChange={(o) => !o && setRequestToCancel(null)}
+                title="Cancel Leave Request"
+                description="Are you sure you want to cancel this leave request? This action will revert the deducted balance."
+                onConfirm={handleConfirmCancel}
+                variant="destructive"
+                confirmText="Cancel Request"
             />
         </div>
     )

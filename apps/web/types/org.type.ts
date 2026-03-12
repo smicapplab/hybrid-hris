@@ -31,4 +31,5 @@ export interface OrgContext {
     supervisor: OrgEmployee | null
     directReports: OrgEmployee[]
     leaders: OrgLeader[]
+    peers: (OrgEmployee & { employeeNo: string; status: string })[]
 }

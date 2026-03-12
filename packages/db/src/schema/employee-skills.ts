@@ -2,10 +2,12 @@ import {
   pgTable,
   uuid,
   timestamp,
-  text,
-  varchar,
-  index,
+  pgEnum,
   date,
+  unique,
+  varchar,
+  text,
+  index,
 } from 'drizzle-orm/pg-core';
 import { employees } from './employees';
 import { skills } from './skills';
@@ -49,6 +51,7 @@ export const employeeSkills = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
+    employeeSkillUq: unique('employee_skills_employee_skill_uq').on(t.employeeId, t.skillId),
     employeeIdx: index('employee_skills_employee_idx').on(t.employeeId),
     skillIdx: index('employee_skills_skill_idx').on(t.skillId),
     statusIdx: index('employee_skills_status_idx').on(t.verificationStatus),

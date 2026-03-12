@@ -24,10 +24,11 @@ export class OrgUnitsController {
     getFlat(
         @Query('showDeleted') showDeleted?: string,
         @Query('leavesOnly') leavesOnly?: string,
+        @Query('search') search?: string,
     ) {
         const includeDeleted = showDeleted === 'true';
         const onlyLeaves = leavesOnly === 'true';
-        return this.service.getFlat(includeDeleted, onlyLeaves);
+        return this.service.getFlat(includeDeleted, onlyLeaves, search);
     }
 
     @Get('tree')

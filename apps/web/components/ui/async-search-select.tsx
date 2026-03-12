@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Button } from '@/components/ui/button'
@@ -32,6 +32,7 @@ export function AsyncSearchSelect<T>({
     const [search, setSearch] = useState('')
     const [options, setOptions] = useState<T[]>([])
     const [loading, setLoading] = useState(false)
+    const lastFetchedValue = useRef<string | null | undefined>(null)
 
     useEffect(() => {
         // Fetch when opened
@@ -51,24 +52,22 @@ export function AsyncSearchSelect<T>({
     }, [search, open, fetchOptions])
 
     // Ensure selected value is loaded so label can render
+    // BREAKS INFINITE LOOP: removed 'options' and 'getOptionValue' from dependencies
     useEffect(() => {
-        if (!value) return
+        if (!value || lastFetchedValue.current === value) return
 
-        const exists = options.some(
-            (opt) => getOptionValue(opt) === value
-        )
-
-        if (exists) return
-
-            ; (async () => {
-                try {
-                    const results = await fetchOptions('')
-                    setOptions(results)
-                } catch {
-                    // silently ignore
-                }
-            })()
-    }, [value, options, fetchOptions, getOptionValue])
+        const loadInitial = async () => {
+            try {
+                const results = await fetchOptions('')
+                setOptions(results)
+                lastFetchedValue.current = value
+            } catch {
+                // silently ignore
+            }
+        }
+        
+        loadInitial()
+    }, [value, fetchOptions])
 
     const filteredOptions = useMemo(() => {
         return options.filter(
@@ -81,7 +80,7 @@ export function AsyncSearchSelect<T>({
     }, [options, value, getOptionValue])
 
     return (
-        <div className="space-y-1">
+        <div className="space-y-1 text-foreground">
             {label && (
                 <label className="text-sm font-medium">
                     {label}
@@ -93,16 +92,18 @@ export function AsyncSearchSelect<T>({
                     <Button
                         type="button"
                         variant="outline"
-                        className="w-full justify-between"
+                        className="w-full justify-between bg-background"
                         disabled={disabled}
                     >
-                        {selectedOption
-                            ? getOptionLabel(selectedOption)
-                            : placeholder}
+                        <span className="truncate">
+                            {selectedOption
+                                ? getOptionLabel(selectedOption)
+                                : placeholder}
+                        </span>
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0">
-                    <Command>
+                    <Command className="bg-background text-foreground border shadow-md">
                         <CommandInput
                             placeholder={placeholder}
                             value={search}
@@ -126,6 +127,7 @@ export function AsyncSearchSelect<T>({
                                             onChangeAction(optionValue)
                                             setOpen(false)
                                         }}
+                                        className="text-foreground"
                                     >
                                         {getOptionLabel(option)}
                                     </CommandItem>
