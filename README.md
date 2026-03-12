@@ -25,6 +25,7 @@ The system focuses on deterministic background processing, clean domain separati
 - **Expense & Team Budgets** – Hierarchical budget allocation per Org Unit and category. Append-only budget ledger for consumption tracking.
 - **Attendance & Shift Management** – Shift templates, employee shift assignments, and attendance logging with 30-day historical tracking.
 - **Identity & RBAC** – Users, roles, and user-role mappings with hardened database-first authorization.
+- **Skills & Training Management** – Centralized skill taxonomy, 360-degree employee skill profiles, and internal/external training programs with automated skill granting.
 
 ### Design Philosophy
 
@@ -101,6 +102,13 @@ LOAD_TEST_DATA=true pnpm --filter @hybrid-hris/db run seed
 ### Employee Lifecycle
 - PH-centric tracking (TIN, SSS, PhilHealth, Pag-IBIG).
 - Full movement tracking from Probation to Regular/Resigned.
+
+### Skills & Professional Development
+- **Skill Taxonomy:** HR-managed global catalog of skills categorized by domain (e.g., Programming, Leadership) with support for expiration and recertification.
+- **360 Skill Profiles:** Employees maintain verified skill inventories sourced from internal training, external experience, or manager assignments.
+- **Trust Hierarchy:** Automated verification for "Internal Training" skills, manager-verified "Assigned" skills, and pending "Self-Claimed" skills.
+- **Training Lifecycle:** Manage reusable Training Programs (templates) and multiple Schedules (instances) with capacity tracking and automated attendance-to-skill workflows.
+- **Skill Gap Heatmaps (Planned):** Compare employee proficiency levels against Position-specific requirements to identify organizational capabilities and training needs.
 
 ---
 

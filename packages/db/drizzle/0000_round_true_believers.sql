@@ -21,6 +21,12 @@ CREATE TYPE "public"."manpower_request_type" AS ENUM('NEW_HEADCOUNT', 'REPLACEME
 CREATE TYPE "public"."request_priority" AS ENUM('LOW', 'NORMAL', 'HIGH', 'URGENT');--> statement-breakpoint
 CREATE TYPE "public"."manpower_approval_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
 CREATE TYPE "public"."job_posting_status" AS ENUM('DRAFT', 'OPEN', 'CLOSED');--> statement-breakpoint
+CREATE TYPE "public"."proficiency_level" AS ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT');--> statement-breakpoint
+CREATE TYPE "public"."skill_source" AS ENUM('INTERNAL_TRAINING', 'EXTERNAL_EXPERIENCE', 'MANAGER_ASSIGNED');--> statement-breakpoint
+CREATE TYPE "public"."skill_verification_status" AS ENUM('PENDING', 'VERIFIED', 'REJECTED');--> statement-breakpoint
+CREATE TYPE "public"."training_type" AS ENUM('INTERNAL', 'EXTERNAL');--> statement-breakpoint
+CREATE TYPE "public"."training_schedule_status" AS ENUM('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');--> statement-breakpoint
+CREATE TYPE "public"."training_enrollment_status" AS ENUM('ENROLLED', 'COMPLETED', 'CANCELLED', 'WAITLISTED', 'DID_NOT_ATTEND');--> statement-breakpoint
 CREATE TABLE "employees" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"employee_no" varchar(50) NOT NULL,
@@ -566,6 +572,127 @@ CREATE TABLE "job_postings" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "skill_categories" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"name" varchar(120) NOT NULL,
+	"description" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "skill_categories_name_unique" UNIQUE("name")
+);
+--> statement-breakpoint
+CREATE TABLE "skills" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"category_id" uuid NOT NULL,
+	"name" varchar(120) NOT NULL,
+	"type" varchar(50) DEFAULT 'TECHNICAL' NOT NULL,
+	"description" text,
+	"expiry_months" integer,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "employee_skill_endorsements" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"employee_skill_id" uuid NOT NULL,
+	"endorser_id" uuid NOT NULL,
+	"message" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "employee_skills" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"employee_id" uuid NOT NULL,
+	"skill_id" uuid NOT NULL,
+	"training_enrollment_id" uuid,
+	"proficiency_level" "proficiency_level" NOT NULL,
+	"skill_source" "skill_source" NOT NULL,
+	"skill_verification_status" "skill_verification_status" DEFAULT 'PENDING' NOT NULL,
+	"evidence_url" varchar(2048),
+	"notes" text,
+	"acquired_date" date NOT NULL,
+	"expiry_date" date,
+	"verified_by_id" uuid,
+	"verified_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "training_prerequisites" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"program_id" uuid NOT NULL,
+	"prerequisite_program_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "training_program_skills" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"program_id" uuid NOT NULL,
+	"skill_id" uuid NOT NULL,
+	"granted_proficiency_level" "proficiency_level" NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "training_programs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"title" varchar(255) NOT NULL,
+	"description" text,
+	"objectives" text,
+	"type" "training_type" DEFAULT 'INTERNAL' NOT NULL,
+	"is_mandatory" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "training_schedule_sessions" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"schedule_id" uuid NOT NULL,
+	"title" varchar(255),
+	"location" varchar(255),
+	"start_at" timestamp with time zone NOT NULL,
+	"end_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "training_schedules" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"program_id" uuid NOT NULL,
+	"status" "training_schedule_status" DEFAULT 'SCHEDULED' NOT NULL,
+	"trainer_id" uuid,
+	"external_trainer" varchar(255),
+	"location" varchar(255),
+	"capacity" integer,
+	"start_at" timestamp with time zone NOT NULL,
+	"end_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "training_enrollments" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"schedule_id" uuid NOT NULL,
+	"employee_id" uuid NOT NULL,
+	"status" "training_enrollment_status" DEFAULT 'ENROLLED' NOT NULL,
+	"completion_notes" text,
+	"enrolled_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"processed_at" timestamp with time zone,
+	"processed_by_id" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "position_skills" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"position_id" uuid NOT NULL,
+	"skill_id" uuid NOT NULL,
+	"required_proficiency_level" "proficiency_level" NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_positions_id_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_supervisor_fk" FOREIGN KEY ("supervisor_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -625,6 +752,25 @@ ALTER TABLE "manpower_requests" ADD CONSTRAINT "manpower_requests_requested_by_u
 ALTER TABLE "manpower_request_approvals" ADD CONSTRAINT "manpower_request_approvals_manpower_request_id_manpower_requests_id_fk" FOREIGN KEY ("manpower_request_id") REFERENCES "public"."manpower_requests"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "manpower_request_approvals" ADD CONSTRAINT "manpower_request_approvals_approver_user_id_users_id_fk" FOREIGN KEY ("approver_user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "job_postings" ADD CONSTRAINT "job_postings_manpower_request_id_manpower_requests_id_fk" FOREIGN KEY ("manpower_request_id") REFERENCES "public"."manpower_requests"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "skills" ADD CONSTRAINT "skills_category_id_skill_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."skill_categories"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_skill_endorsements" ADD CONSTRAINT "employee_skill_endorsements_employee_skill_id_employee_skills_id_fk" FOREIGN KEY ("employee_skill_id") REFERENCES "public"."employee_skills"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_skill_endorsements" ADD CONSTRAINT "employee_skill_endorsements_endorser_id_employees_id_fk" FOREIGN KEY ("endorser_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_skills" ADD CONSTRAINT "employee_skills_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_skills" ADD CONSTRAINT "employee_skills_skill_id_skills_id_fk" FOREIGN KEY ("skill_id") REFERENCES "public"."skills"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_skills" ADD CONSTRAINT "employee_skills_training_enrollment_id_training_enrollments_id_fk" FOREIGN KEY ("training_enrollment_id") REFERENCES "public"."training_enrollments"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_skills" ADD CONSTRAINT "employee_skills_verified_by_id_employees_id_fk" FOREIGN KEY ("verified_by_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "training_prerequisites" ADD CONSTRAINT "training_prerequisites_program_id_training_programs_id_fk" FOREIGN KEY ("program_id") REFERENCES "public"."training_programs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "training_prerequisites" ADD CONSTRAINT "training_prerequisites_prerequisite_program_id_training_programs_id_fk" FOREIGN KEY ("prerequisite_program_id") REFERENCES "public"."training_programs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "training_program_skills" ADD CONSTRAINT "training_program_skills_program_id_training_programs_id_fk" FOREIGN KEY ("program_id") REFERENCES "public"."training_programs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "training_program_skills" ADD CONSTRAINT "training_program_skills_skill_id_skills_id_fk" FOREIGN KEY ("skill_id") REFERENCES "public"."skills"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "training_schedule_sessions" ADD CONSTRAINT "training_schedule_sessions_schedule_id_training_schedules_id_fk" FOREIGN KEY ("schedule_id") REFERENCES "public"."training_schedules"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "training_schedules" ADD CONSTRAINT "training_schedules_program_id_training_programs_id_fk" FOREIGN KEY ("program_id") REFERENCES "public"."training_programs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "training_schedules" ADD CONSTRAINT "training_schedules_trainer_id_employees_id_fk" FOREIGN KEY ("trainer_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "training_enrollments" ADD CONSTRAINT "training_enrollments_schedule_id_training_schedules_id_fk" FOREIGN KEY ("schedule_id") REFERENCES "public"."training_schedules"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "training_enrollments" ADD CONSTRAINT "training_enrollments_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "training_enrollments" ADD CONSTRAINT "training_enrollments_processed_by_id_employees_id_fk" FOREIGN KEY ("processed_by_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "position_skills" ADD CONSTRAINT "position_skills_position_id_positions_id_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "position_skills" ADD CONSTRAINT "position_skills_skill_id_skills_id_fk" FOREIGN KEY ("skill_id") REFERENCES "public"."skills"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "employees_employee_no_uq" ON "employees" USING btree ("employee_no");--> statement-breakpoint
 CREATE INDEX "employees_hire_date_idx" ON "employees" USING btree ("hire_date");--> statement-breakpoint
 CREATE INDEX "employees_last_name_idx" ON "employees" USING btree ("last_name");--> statement-breakpoint
@@ -723,4 +869,13 @@ CREATE INDEX "manpower_request_approvals_approver_idx" ON "manpower_request_appr
 CREATE UNIQUE INDEX "manpower_request_approvals_request_level_uq" ON "manpower_request_approvals" USING btree ("manpower_request_id","level");--> statement-breakpoint
 CREATE INDEX "job_postings_request_idx" ON "job_postings" USING btree ("manpower_request_id");--> statement-breakpoint
 CREATE INDEX "job_postings_slug_idx" ON "job_postings" USING btree ("slug");--> statement-breakpoint
-CREATE INDEX "job_postings_status_idx" ON "job_postings" USING btree ("status");
+CREATE INDEX "job_postings_status_idx" ON "job_postings" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "skills_name_idx" ON "skills" USING btree ("name");--> statement-breakpoint
+CREATE INDEX "skills_category_idx" ON "skills" USING btree ("category_id");--> statement-breakpoint
+CREATE INDEX "employee_skills_employee_idx" ON "employee_skills" USING btree ("employee_id");--> statement-breakpoint
+CREATE INDEX "employee_skills_skill_idx" ON "employee_skills" USING btree ("skill_id");--> statement-breakpoint
+CREATE INDEX "employee_skills_status_idx" ON "employee_skills" USING btree ("skill_verification_status");--> statement-breakpoint
+CREATE UNIQUE INDEX "training_prerequisites_uq" ON "training_prerequisites" USING btree ("program_id","prerequisite_program_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "training_enrollments_schedule_employee_uq" ON "training_enrollments" USING btree ("schedule_id","employee_id");--> statement-breakpoint
+CREATE INDEX "position_skills_position_idx" ON "position_skills" USING btree ("position_id");--> statement-breakpoint
+CREATE INDEX "position_skills_skill_idx" ON "position_skills" USING btree ("skill_id");

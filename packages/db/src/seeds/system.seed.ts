@@ -33,6 +33,8 @@ import { manpowerRequests } from '../schema/manpower-requests';
 import { manpowerRequestApprovals } from '../schema/manpower-request-approvals';
 import { jobPostings } from '../schema/job-postings';
 import { faker } from '@faker-js/faker';
+import { seedSkillsEssential } from './skills-seed-essential';
+import { seedSkillsDemo } from './skills-seed-demo';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -535,6 +537,14 @@ export async function seedSystem() {
     // --- 13. Budgets ---
     console.log('  - Seeding department budgets...');
     await seedExpenses(db);
+
+    // --- 14. Skills & Training ---
+    console.log('  - Seeding Skills & Training module...');
+    await seedSkillsEssential(db);
+    
+    if (process.env.LOAD_TEST_DATA === 'true') {
+        await seedSkillsDemo(db);
+    }
 
     console.log('✅ Enterprise Seed Complete!');
 }
