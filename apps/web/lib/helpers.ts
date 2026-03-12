@@ -27,6 +27,7 @@ export function emptyToNull(value?: string | null): string | null {
 // Object Helpers
 export function removeUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
     return Object.fromEntries(
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         Object.entries(obj).filter(([_, v]) => v !== undefined)
     ) as Partial<T>
 }

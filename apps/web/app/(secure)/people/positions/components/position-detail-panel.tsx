@@ -42,7 +42,7 @@ export function PositionDetailPanel({
                 'rounded-xl border p-5 space-y-4',
                 !position.isActive
                     ? 'bg-zinc-50/60 border-zinc-200'
-                    : 'bg-gradient-to-br from-card to-muted/20 border-border shadow-sm',
+                    : 'bg-linear-to-br from-card to-muted/20 border-border shadow-sm',
             )}>
                 {/* Icon + title + actions */}
                 <div className="flex items-start justify-between gap-4">

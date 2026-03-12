@@ -59,7 +59,7 @@ export default function RequestLeaveDialog({ open, onOpenChangeAction, balances,
         if (startDate && !endDate) setEndDate(startDate)
         // If endDate is before startDate, reset it
         if (startDate && endDate && endDate < startDate) setEndDate(startDate)
-    }, [startDate])
+    }, [startDate, endDate])
 
     const selectedBalance = balances.find((b) => b.leaveTypeId === leaveTypeId)
     const isMultiDay = startDate && endDate && startDate !== endDate
@@ -249,7 +249,7 @@ export default function RequestLeaveDialog({ open, onOpenChangeAction, balances,
 
                     {error && (
                         <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            <AlertCircle className="w-4 h-4 shrink-0" />
                             {error}
                         </div>
                     )}

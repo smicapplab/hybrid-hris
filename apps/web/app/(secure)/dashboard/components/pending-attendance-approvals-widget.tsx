@@ -106,7 +106,7 @@ export default function PendingAttendanceApprovalsWidget() {
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 space-y-1">
                                     <div className="flex items-center gap-1.5">
-                                        <User className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                                        <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                                         <p className="text-sm font-bold text-blue-900 truncate">
                                             {item.employee.firstName} {item.employee.lastName}
                                         </p>
@@ -159,7 +159,7 @@ export default function PendingAttendanceApprovalsWidget() {
             </div>
 
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="sm:max-w-[400px]">
+                <DialogContent className="sm:max-w-100">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             {action === 'approve' ? (
@@ -186,7 +186,7 @@ export default function PendingAttendanceApprovalsWidget() {
                                     placeholder={action === 'approve' ? "Notes for approval..." : "Reason for rejection..."}
                                     value={remarks}
                                     onChange={(e) => setRemarks(e.target.value)}
-                                    className="min-h-[80px]"
+                                    className="min-h-20"
                                 />
                             </div>
                         </div>

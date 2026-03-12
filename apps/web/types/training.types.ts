@@ -1,5 +1,3 @@
-import { Skill } from "./skills.types";
-
 export interface TrainingProgram {
   id: string;
   title: string;

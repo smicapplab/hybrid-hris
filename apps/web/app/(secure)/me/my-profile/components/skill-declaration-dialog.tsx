@@ -37,6 +37,7 @@ export function SkillDeclarationDialog({ open, onOpenChangeAction, onSuccessActi
   }, [open]);
 
   const fetchSkills = useCallback(async (s: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await apiFetch<any[]>('/skills/taxonomy');
     return res.flatMap(c => c.skills).filter(sk => sk.name.toLowerCase().includes(s.toLowerCase()));
   }, []);
@@ -112,9 +113,9 @@ export function SkillDeclarationDialog({ open, onOpenChangeAction, onSuccessActi
 
           <div className="space-y-1.5">
             <Label>Evidence Link (URL)</Label>
-            <Input 
-              value={evidenceUrl} 
-              onChange={e => setEvidenceUrl(e.target.value)} 
+            <Input
+              value={evidenceUrl}
+              onChange={e => setEvidenceUrl(e.target.value)}
               placeholder="e.g. LinkedIn certificate or portfolio link"
             />
           </div>
@@ -122,7 +123,7 @@ export function SkillDeclarationDialog({ open, onOpenChangeAction, onSuccessActi
           <div className="space-y-1.5">
             <Label>Notes</Label>
             <textarea
-              className="w-full text-sm rounded-md border p-2 min-h-[60px] bg-background"
+              className="w-full text-sm rounded-md border p-2 min-h-15 bg-background"
               placeholder="Any additional details..."
               value={notes}
               onChange={e => setNotes(e.target.value)}

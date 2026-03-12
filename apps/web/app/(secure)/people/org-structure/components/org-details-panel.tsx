@@ -78,7 +78,7 @@ export function OrgDetailsPanel({
                 'rounded-xl border p-5 space-y-4',
                 isDeleted
                     ? 'bg-red-50/50 border-red-200'
-                    : 'bg-gradient-to-br from-card to-muted/20 border-border shadow-sm',
+                    : 'bg-linear-to-br from-card to-muted/20 border-border shadow-sm',
             )}>
                 {/* Icon + name + actions row */}
                 <div className="flex items-start justify-between gap-4">
