@@ -35,6 +35,13 @@ The system focuses on deterministic background processing, clean domain separati
 - **Deterministic Accruals:** Monthly accruals use idempotent deterministic keys to prevent duplicate credits.
 - **Monorepo Architecture:** Clean package boundaries using pnpm workspaces.
 
+### Screenshots
+<img src="./screenshots/dashboard.png" width="700" />
+<img src="./screenshots/leave.png" width="700" />
+<img src="./screenshots/org.png" width="700" />
+<img src="./screenshots/skill.png" width="700" />
+
+
 ---
 
 ## Tech Stack
