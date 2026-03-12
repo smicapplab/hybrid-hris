@@ -43,7 +43,7 @@ export default function PendingApprovalsWidget() {
     return (
         <>
             <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
-                <div className="px-4 py-3 border-b bg-gradient-to-r from-amber-50 to-white flex items-center justify-between">
+                <div className="px-4 py-3 border-b bg-linear-to-r from-amber-50 to-white flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <ClipboardCheck className="w-4 h-4 text-amber-500" />
                         <h3 className="text-sm font-semibold text-gray-800">Pending Approvals</h3>
@@ -66,22 +66,22 @@ export default function PendingApprovalsWidget() {
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
-                                            <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                            <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                             {item.employeeFirstName} {item.employeeLastName}
                                         </p>
                                         <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                            <CalendarDays className="w-3 h-3 flex-shrink-0" />
+                                            <CalendarDays className="w-3 h-3 shrink-0" />
                                             {item.leaveTypeName} · {formatDateRange(item.startDate, item.endDate)}
                                             <span className="text-gray-400 mx-0.5">·</span>
                                             {item.days} {item.days === 1 ? 'day' : 'days'}
                                         </p>
                                         {item.notes && (
                                             <p className="text-xs text-gray-400 italic mt-0.5 truncate max-w-xs">
-                                                "{item.notes}"
+                                                &quot;{item.notes}&quot;
                                             </p>
                                         )}
                                     </div>
-                                    <div className="flex gap-1.5 flex-shrink-0 mt-0.5">
+                                    <div className="flex gap-1.5 shrink-0 mt-0.5">
                                         <Button
                                             size="sm"
                                             variant="outline"

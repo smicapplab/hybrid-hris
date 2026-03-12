@@ -79,7 +79,7 @@ export function AllocateBudgetDialog({ open, onOpenChangeAction, categories, per
 
     return (
         <Dialog open={open} onOpenChange={onOpenChangeAction}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-106.25">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>Allocate Team Budget</DialogTitle>

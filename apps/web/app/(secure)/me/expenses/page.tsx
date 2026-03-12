@@ -130,7 +130,7 @@ export default function MyExpensesPage() {
                                             {format(new Date(claim.expenseDate), 'MMM dd, yyyy')}
                                         </TableCell>
                                         <TableCell>{getCategoryName(claim.expenseCategoryId)}</TableCell>
-                                        <TableCell className="max-w-[300px] truncate">{claim.description}</TableCell>
+                                        <TableCell className="max-w-75 truncate">{claim.description}</TableCell>
                                         <TableCell className="text-right font-mono font-medium">
                                             {parseFloat(claim.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                         </TableCell>

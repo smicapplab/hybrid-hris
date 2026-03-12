@@ -74,11 +74,11 @@ export default function ActOnRequestDialog({ open, onOpenChangeAction, request, 
                     {/* Summary */}
                     <div className="rounded-lg bg-gray-50 border p-3 text-sm space-y-1">
                         <div className="flex items-center gap-2 text-gray-700">
-                            <User className="w-3.5 h-3.5 flex-shrink-0" />
+                            <User className="w-3.5 h-3.5 shrink-0" />
                             <span className="font-medium">{request.employeeFirstName} {request.employeeLastName}</span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-600">
-                            <CalendarDays className="w-3.5 h-3.5 flex-shrink-0" />
+                            <CalendarDays className="w-3.5 h-3.5 shrink-0" />
                             <span>{request.leaveTypeName} · {formatDateRange(request.startDate, request.endDate)}</span>
                         </div>
                         <p className="text-gray-500 text-xs mt-1">

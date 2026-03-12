@@ -29,7 +29,7 @@ export default function UpcomingTeamLeaves() {
 
     return (
         <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b bg-gradient-to-r from-purple-50 to-white flex items-center gap-2">
+            <div className="px-4 py-3 border-b bg-linear-to-r from-purple-50 to-white flex items-center gap-2">
                 <Users className="w-4 h-4 text-purple-500" />
                 <h3 className="text-sm font-semibold text-gray-800">Upcoming Team Leaves</h3>
             </div>
@@ -47,7 +47,7 @@ export default function UpcomingTeamLeaves() {
                                     {l.employeeFirstName} {l.employeeLastName}
                                 </p>
                                 <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                    <CalendarDays className="w-3 h-3 flex-shrink-0" />
+                                    <CalendarDays className="w-3 h-3 shrink-0" />
                                     {l.leaveTypeName} · {formatDateRange(l.startDate, l.endDate)}
                                     <span className="text-gray-400 mx-0.5">·</span>
                                     {l.days} {l.days === 1 ? 'day' : 'days'}

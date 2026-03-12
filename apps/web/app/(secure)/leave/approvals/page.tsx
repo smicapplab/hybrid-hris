@@ -184,7 +184,7 @@ export default function LeaveApprovalsPage() {
                 <Table>
                     <TableHeader className="bg-gray-50/50">
                         <TableRow>
-                            <TableHead className="w-[250px]">Employee</TableHead>
+                            <TableHead className="w-62.5">Employee</TableHead>
                             <TableHead>Type & Period</TableHead>
                             <TableHead>Duration</TableHead>
                             <TableHead>Balance</TableHead>
@@ -263,7 +263,7 @@ export default function LeaveApprovalsPage() {
                                                 <div className="flex flex-col gap-1">
                                                     <StatusBadge status={item.approvalStatus} />
                                                     {item.approvalRemarks && (
-                                                        <div className="flex items-center gap-1 text-[10px] text-gray-400 max-w-[150px] truncate">
+                                                        <div className="flex items-center gap-1 text-[10px] text-gray-400 max-w-37.5 truncate">
                                                             <MessageSquare className="w-2.5 h-2.5" />
                                                             {item.approvalRemarks}
                                                         </div>

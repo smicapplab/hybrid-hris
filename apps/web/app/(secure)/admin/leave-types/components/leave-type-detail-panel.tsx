@@ -42,7 +42,7 @@ export function LeaveTypeDetailPanel({ leaveType, onEditAction, onDeleteAction, 
     return (
         <div className="space-y-4">
             {/* Header card */}
-            <div className={`rounded-xl border p-5 bg-gradient-to-br ${isDeleted ? 'from-zinc-50 to-zinc-100/60' : 'from-card to-muted/20'}`}>
+            <div className={`rounded-xl border p-5 bg-linear-to-br ${isDeleted ? 'from-zinc-50 to-zinc-100/60' : 'from-card to-muted/20'}`}>
                 <div className="flex items-start gap-4">
                     {/* Icon box */}
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0

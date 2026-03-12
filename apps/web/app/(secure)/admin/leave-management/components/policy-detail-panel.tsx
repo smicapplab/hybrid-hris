@@ -104,7 +104,7 @@ export function PolicyDetailPanel({
     return (
         <div className="space-y-6">
             {/* Policy header card */}
-            <div className={`rounded-xl border p-5 bg-gradient-to-br ${isInactive ? 'from-zinc-50 to-zinc-100/60' : 'from-card to-muted/20'}`}>
+            <div className={`rounded-xl border p-5 bg-linear-to-br ${isInactive ? 'from-zinc-50 to-zinc-100/60' : 'from-card to-muted/20'}`}>
                 <div className="flex items-start gap-4">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0
                         ${isInactive ? 'bg-zinc-200 text-zinc-400' : 'bg-blue-100 text-blue-700'}`}>
@@ -281,15 +281,15 @@ export function PolicyDetailPanel({
                     </div>
                 </div>
 
-                <div className="min-h-[200px]">
+                <div className="min-h-50">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/30 hover:bg-muted/30">
-                                <TableHead className="w-[100px] text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pl-4">ID</TableHead>
+                                <TableHead className="w-25 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pl-4">ID</TableHead>
                                 <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Name</TableHead>
                                 <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</TableHead>
                                 <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Hire Date</TableHead>
-                                <TableHead className="w-[50px] pr-4"></TableHead>
+                                <TableHead className="w-12.5 pr-4"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>

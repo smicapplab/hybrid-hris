@@ -43,7 +43,7 @@ export default function MyUpcomingLeaves() {
 
     return (
         <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b bg-gradient-to-r from-blue-50 to-white flex items-center justify-between">
+            <div className="px-4 py-3 border-b bg-linear-to-r from-blue-50 to-white flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <CalendarDays className="w-4 h-4 text-blue-500" />
                     <h3 className="text-sm font-semibold text-gray-800">My Upcoming Leaves</h3>

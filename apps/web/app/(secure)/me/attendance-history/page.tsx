@@ -32,7 +32,7 @@ function formatTime(ts: string | null | undefined): string | null {
     if (!ts) return null
     try {
         return format(new Date(ts), 'h:mm a')
-    } catch (e) {
+    } catch {
         return null
     }
 }
@@ -45,7 +45,7 @@ function formatDuration(inAt: string | null | undefined, outAt: string | null | 
         const h = Math.floor(mins / 60)
         const m = mins % 60
         return m === 0 ? `${h}h` : `${h}h ${m}m`
-    } catch (e) {
+    } catch {
         return null
     }
 }
@@ -69,12 +69,12 @@ function SourceTag({ source }: { source: string | null }) {
     )
 }
 
-function TimeCell({ 
-    ts, 
-    source, 
-    pendingTs 
-}: { 
-    ts: string | null; 
+function TimeCell({
+    ts,
+    source,
+    pendingTs
+}: {
+    ts: string | null;
     source: string | null;
     pendingTs?: string | null;
 }) {
@@ -253,7 +253,7 @@ export default function AttendanceHistoryPage() {
                                     <TableHead>Time Out</TableHead>
                                     <TableHead>Hours</TableHead>
                                     <TableHead>Status</TableHead>
-                                    <TableHead className="w-[50px]"></TableHead>
+                                    <TableHead className="w-12.5"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -297,18 +297,18 @@ export default function AttendanceHistoryPage() {
 
                                             {/* Actual In */}
                                             <TableCell>
-                                                <TimeCell 
-                                                    ts={row.actualInAt} 
-                                                    source={row.sourceIn} 
+                                                <TimeCell
+                                                    ts={row.actualInAt}
+                                                    source={row.sourceIn}
                                                     pendingTs={row.pendingActualInAt}
                                                 />
                                             </TableCell>
 
                                             {/* Actual Out */}
                                             <TableCell>
-                                                <TimeCell 
-                                                    ts={row.actualOutAt} 
-                                                    source={row.sourceOut} 
+                                                <TimeCell
+                                                    ts={row.actualOutAt}
+                                                    source={row.sourceOut}
                                                     pendingTs={row.pendingActualOutAt}
                                                 />
                                             </TableCell>
@@ -339,7 +339,7 @@ export default function AttendanceHistoryPage() {
                                                 <div className="flex flex-col gap-1">
                                                     <StatusBadge row={row} />
                                                     {row.pendingRemarks && (
-                                                        <div className="flex items-center gap-1 text-[10px] text-amber-600 font-medium max-w-[120px] truncate">
+                                                        <div className="flex items-center gap-1 text-[10px] text-amber-600 font-medium max-w-30 truncate">
                                                             <AlertCircle className="w-2.5 h-2.5 shrink-0" />
                                                             <span>{row.pendingRemarks}</span>
                                                         </div>
@@ -362,8 +362,8 @@ export default function AttendanceHistoryPage() {
                                                                     <DropdownMenuItem onClick={() => handleRequestAdjustment(row)} className="gap-2 cursor-pointer">
                                                                         <Edit3 className="w-3.5 h-3.5" /> Edit Request
                                                                     </DropdownMenuItem>
-                                                                    <DropdownMenuItem 
-                                                                        onClick={() => handleCancelAdjustment(row.pendingAdjustmentId!)} 
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => handleCancelAdjustment(row.pendingAdjustmentId!)}
                                                                         className="gap-2 cursor-pointer text-destructive focus:text-destructive"
                                                                     >
                                                                         <XCircle className="w-3.5 h-3.5" /> Cancel Request

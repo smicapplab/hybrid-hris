@@ -87,7 +87,7 @@ export default function AdminBudgetsPage() {
                 </div>
                 <div className="flex items-center gap-3">
                     <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                        <SelectTrigger className="w-[200px]">
+                        <SelectTrigger className="w-50">
                             <SelectValue placeholder="Select period" />
                         </SelectTrigger>
                         <SelectContent>
@@ -114,9 +114,9 @@ export default function AdminBudgetsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/50">
-                                    <TableHead className="w-[250px] font-bold">Organizational Unit</TableHead>
+                                    <TableHead className="w-62.5 font-bold">Organizational Unit</TableHead>
                                     {categories.map(cat => (
-                                        <TableHead key={cat.id} className="text-right font-bold min-w-[120px]">
+                                        <TableHead key={cat.id} className="text-right font-bold min-w-30">
                                             {cat.name}
                                         </TableHead>
                                     ))}

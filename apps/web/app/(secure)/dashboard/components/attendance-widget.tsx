@@ -92,7 +92,7 @@ export default function AttendanceWidget() {
     const isTimedIn = !!(today?.actualInAt && !today?.actualOutAt)
 
     return (
-        <Card className="shadow-sm border-blue-100 bg-gradient-to-br from-white to-blue-50/30 overflow-hidden">
+        <Card className="shadow-sm border-blue-100 bg-linear-to-br from-white to-blue-50/30 overflow-hidden max-w-md">
             <CardHeader className="pb-2 border-b bg-white/50">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">

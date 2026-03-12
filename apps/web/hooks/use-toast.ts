@@ -1,4 +1,5 @@
 import { toast as showToast } from 'sonner';
+import { useCallback } from 'react';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning' | 'default' | 'destructive';
 
@@ -14,7 +15,7 @@ interface ToastProps {
 }
 
 export const useToast = () => {
-  const toast = (props: ToastProps) => {
+  const toast = useCallback((props: ToastProps) => {
     const { title, description, variant = 'default', duration, action } = props;
     const options = {
       description,
@@ -29,7 +30,7 @@ export const useToast = () => {
     } else {
       showToast[variant as 'success' | 'error' | 'info' | 'warning'](title ?? variant, options);
     }
-  };
+  }, []);
 
   return { toast };
 };

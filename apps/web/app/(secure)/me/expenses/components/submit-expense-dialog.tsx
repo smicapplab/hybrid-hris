@@ -103,7 +103,7 @@ export function SubmitExpenseDialog({ open, onOpenChangeAction, categories, peri
 
     return (
         <Dialog open={open} onOpenChange={onOpenChangeAction}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-106.25">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>File New Expense</DialogTitle>

@@ -6,6 +6,7 @@ import PendingApprovalsWidget from './components/pending-approvals-widget'
 import PendingAttendanceApprovalsWidget from './components/pending-attendance-approvals-widget'
 import UpcomingTeamLeaves from './components/upcoming-team-leaves'
 import AttendanceWidget from './components/attendance-widget'
+import UpcomingTrainings from './components/upcoming-trainings'
 
 export default function DashboardPage() {
     const { user } = useAuth()
@@ -17,53 +18,37 @@ export default function DashboardPage() {
     )
 
     return (
-        <div className="p-6 max-w-5xl space-y-8">
+        <div className="p-6 space-y-8">
             {/* Top Section: Greeting & Attendance */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-                <div className="md:col-span-2 py-4">
+            <div className='space-y-3'>
+                <div>
                     <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
                         Welcome back, {user.firstName}
                     </h1>
                     <p className="text-gray-500 mt-1">{user.email}</p>
-                    <div className="mt-6 flex flex-wrap gap-2">
-                        {user.roles.map(role => (
-                            <span key={role} className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-wider">
-                                {role.replace('_', ' ')}
-                            </span>
-                        ))}
-                    </div>
                 </div>
-                <div className="w-full">
-                    <AttendanceWidget />
-                </div>
+                <AttendanceWidget />
             </div>
-
-            {/* Approver section — only shown when user has approver role */}
-            {isApprover && (
-                <section>
-                    <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                        Action Required
-                    </h2>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="space-y-6">
-                            <PendingApprovalsWidget />
-                            <PendingAttendanceApprovalsWidget />
-                        </div>
-                        <UpcomingTeamLeaves />
-                    </div>
-                </section>
-            )}
-
-            {/* Employee section — all linked employees */}
             {user.employeeId && (
-                <section>
-                    <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                        My Leaves
-                    </h2>
-                    <div className="max-w-sm">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                    {/* LEFT COLUMN */}
+                    <div className="space-y-6">
+                        {isApprover && (
+                            <>
+                                <PendingApprovalsWidget />
+                                <PendingAttendanceApprovalsWidget />
+                            </>
+                        )}
                         <MyUpcomingLeaves />
                     </div>
-                </section>
+
+                    {/* RIGHT COLUMN */}
+                    <div className="space-y-6">
+                        {isApprover && <UpcomingTeamLeaves />}
+                        <UpcomingTrainings />
+                    </div>
+
+                </div>
             )}
         </div>
     )

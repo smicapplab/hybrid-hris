@@ -21,7 +21,7 @@ export default function PendingAttendanceApprovalsWidget() {
     const { toast } = useToast()
     const [items, setItems] = useState<PendingAdjustmentItem[]>([])
     const [loading, setLoading] = useState(true)
-    
+
     // Action Dialog State
     const [dialogOpen, setDialogOpen] = useState(false)
     const [selectedItem, setSelectedItem] = useState<PendingAdjustmentItem | null>(null)
@@ -90,7 +90,7 @@ export default function PendingAttendanceApprovalsWidget() {
     return (
         <>
             <div className="rounded-xl border bg-white shadow-sm overflow-hidden border-blue-100">
-                <div className="px-4 py-3 border-b bg-gradient-to-r from-blue-50 to-white flex items-center justify-between">
+                <div className="px-4 py-3 border-b bg-linear-to-r from-blue-50 to-white flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <ClipboardList className="w-4 h-4 text-blue-600" />
                         <h3 className="text-sm font-semibold text-blue-900">Pending Attendance Adjustments</h3>
@@ -100,7 +100,7 @@ export default function PendingAttendanceApprovalsWidget() {
                     </div>
                 </div>
 
-                <ul className="divide-y divide-blue-50 max-h-[400px] overflow-y-auto">
+                <ul className="divide-y divide-blue-50 max-h-100 overflow-y-auto">
                     {items.map((item) => (
                         <li key={item.adjustment.id} className="px-4 py-3 hover:bg-blue-50/30 transition-colors">
                             <div className="flex items-start justify-between gap-3">
@@ -123,11 +123,11 @@ export default function PendingAttendanceApprovalsWidget() {
                                     </div>
                                     {item.adjustment.remarks && (
                                         <p className="text-[11px] text-gray-400 italic mt-1 line-clamp-1">
-                                            "{item.adjustment.remarks}"
+                                            &quot;{item.adjustment.remarks}&quot;
                                         </p>
                                     )}
                                 </div>
-                                <div className="flex gap-1.5 flex-shrink-0">
+                                <div className="flex gap-1.5 shrink-0">
                                     <Button
                                         size="sm"
                                         variant="outline"
@@ -170,7 +170,7 @@ export default function PendingAttendanceApprovalsWidget() {
                             {action === 'approve' ? 'Approve' : 'Reject'} Adjustment
                         </DialogTitle>
                     </DialogHeader>
-                    
+
                     {selectedItem && (
                         <div className="py-4 space-y-4">
                             <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-2 text-muted-foreground">

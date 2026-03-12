@@ -17,6 +17,8 @@ import {
     ClipboardCheck,
     ReceiptText,
     UserPlus,
+    GraduationCap,
+    Library,
 } from "lucide-react";
 
 export const navigation: NavCategory[] = [
@@ -36,6 +38,11 @@ export const navigation: NavCategory[] = [
                 title: "Personal Information",
                 url: "/me/my-profile",
                 icon: User,
+            },
+            {
+                title: "My Trainings",
+                url: "/me/my-trainings",
+                icon: GraduationCap,
             },
             {
                 title: "My Organization",
@@ -141,6 +148,16 @@ export const navigation: NavCategory[] = [
                 title: "Leave Types",
                 url: "/admin/leave-types",
                 icon: Settings,
+            },
+            {
+                title: "Skills Taxonomy",
+                url: "/admin/skills",
+                icon: GraduationCap,
+            },
+            {
+                title: "Training Catalog",
+                url: "/admin/training",
+                icon: Library,
             },
             {
                 title: "Team Budgets",

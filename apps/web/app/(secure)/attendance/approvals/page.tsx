@@ -145,23 +145,23 @@ export default function AttendanceApprovalsPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="text-xs text-zinc-600 italic line-clamp-2 max-w-[250px]">
-                                                "{item.adjustment.remarks}"
+                                            <div className="text-xs text-zinc-600 italic line-clamp-2 max-w-62.5">
+                                                &quot;{item.adjustment.remarks}&quot;
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right pr-6">
                                             <div className="flex items-center justify-end gap-2">
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
                                                     className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                                                     onClick={() => handleAction(item.adjustment.id, 'reject')}
                                                     disabled={!!actionLoading}
                                                 >
                                                     <X className="w-4 h-4" />
                                                 </Button>
-                                                <Button 
-                                                    size="sm" 
+                                                <Button
+                                                    size="sm"
                                                     className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 gap-1.5 text-white font-bold"
                                                     onClick={() => handleAction(item.adjustment.id, 'approve')}
                                                     disabled={!!actionLoading}

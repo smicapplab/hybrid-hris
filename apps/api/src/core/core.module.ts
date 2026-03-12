@@ -9,10 +9,38 @@ import { LeaveAccrualsModule } from './leave-accruals/leave-accruals.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { HrSettingsModule } from './hr-settings/hr-settings.module';
 import { ManpowerModule } from './manpower/manpower.module';
+import { SkillsModule } from "./skills/skills.module";
+import { TrainingModule } from "./training/training.module";
 
 @Module({
-    imports: [OrgUnitsModule, PositionsModule, EmployeesModule, LeaveTypesModule, LeavePoliciesModule, LeaveRequestsModule, LeaveAccrualsModule, ExpensesModule, HrSettingsModule, ManpowerModule],
-    exports: [OrgUnitsModule, PositionsModule, EmployeesModule, LeaveTypesModule, LeavePoliciesModule, LeaveRequestsModule, LeaveAccrualsModule, ExpensesModule, HrSettingsModule, ManpowerModule],
+    imports: [
+        OrgUnitsModule,
+        PositionsModule,
+        EmployeesModule,
+        LeaveTypesModule,
+        LeavePoliciesModule,
+        LeaveRequestsModule,
+        LeaveAccrualsModule,
+        ExpensesModule,
+        HrSettingsModule,
+        ManpowerModule,
+        SkillsModule,
+        TrainingModule,
+    ],
+    exports: [
+        OrgUnitsModule,
+        PositionsModule,
+        EmployeesModule,
+        LeaveTypesModule,
+        LeavePoliciesModule,
+        LeaveRequestsModule,
+        LeaveAccrualsModule,
+        ExpensesModule,
+        HrSettingsModule,
+        ManpowerModule,
+        SkillsModule,
+        TrainingModule,
+    ],
 })
 
 export class CoreModule { }

@@ -103,7 +103,7 @@ function RequestRow({
                         <StatusBadge status={request.status} />
                     </div>
                     <p className="text-sm text-gray-600 mt-0.5 flex items-center gap-1.5">
-                        <CalendarDays className="w-3.5 h-3.5 flex-shrink-0" />
+                        <CalendarDays className="w-3.5 h-3.5 shrink-0" />
                         {formatDateRange(request.startDate, request.endDate)}
                         <span className="text-gray-400">·</span>
                         <span>{request.days} {request.days === 1 ? 'day' : 'days'}</span>
@@ -119,7 +119,7 @@ function RequestRow({
                     )}
                 </div>
 
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                     {canCancel && (
                         <Button
                             size="sm"

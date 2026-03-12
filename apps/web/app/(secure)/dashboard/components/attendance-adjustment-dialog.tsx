@@ -130,7 +130,7 @@ export function AttendanceAdjustmentDialog({ open, onOpenChangeAction, initialLo
 
     return (
         <Dialog open={open} onOpenChange={onOpenChangeAction}>
-            <DialogContent className="sm:max-w-[450px]">
+            <DialogContent className="sm:max-w-112.5">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>
@@ -183,14 +183,14 @@ export function AttendanceAdjustmentDialog({ open, onOpenChangeAction, initialLo
                                 value={remarks}
                                 onChange={(e) => setRemarks(e.target.value)}
                                 required
-                                className="min-h-[80px]"
+                                className="min-h-20"
                             />
                         </div>
 
                         <div className="flex gap-2 p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-800">
                             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                             <p className="text-[11px] leading-relaxed">
-                                <strong>Tip:</strong> For night shifts, ensure the 'Out' date is set to the following calendar day if you timed out after midnight.
+                                <strong>Tip:</strong> For night shifts, ensure the &quot;Out&quot; date is set to the following calendar day if you timed out after midnight.
                             </p>
                         </div>
                     </div>

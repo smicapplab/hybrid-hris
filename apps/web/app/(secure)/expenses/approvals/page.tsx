@@ -80,7 +80,7 @@ export default function ExpenseApprovalsPage() {
             })
             toast({ title: 'Expense approved', variant: 'success' })
             loadData()
-        } catch (err) {
+        } catch {
             toast({ title: 'Approval failed', variant: 'destructive' })
         } finally {
             setActionLoading(null)
@@ -147,7 +147,7 @@ export default function ExpenseApprovalsPage() {
                                             </TableCell>
                                             <TableCell>
                                                 <div className="text-xs font-medium">{getCategoryName(item.claim.expenseCategoryId)}</div>
-                                                <div className="text-[11px] text-muted-foreground line-clamp-1 max-w-[200px]">{item.claim.description}</div>
+                                                <div className="text-[11px] text-muted-foreground line-clamp-1 max-w-50">{item.claim.description}</div>
                                                 <div className="text-[10px] text-blue-600 font-medium mt-1 uppercase tracking-tighter">{getPeriodName(item.claim.budgetPeriodId)}</div>
                                             </TableCell>
                                             <TableCell className="text-right font-mono font-bold">
