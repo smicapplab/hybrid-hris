@@ -1,18 +1,207 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { skillCategories, skills, employeeSkills, employeeSkillEndorsements, employees } from '@hybrid-hris/db/schema';
-import { and, eq, asc, sql, isNull, inArray } from 'drizzle-orm';
+import { 
+  skillCategories, 
+  skills, 
+  employeeSkills, 
+  employeeSkillEndorsements, 
+  employees, 
+  orgUnits, 
+  positions, 
+  positionSkills, 
+  leaveRequests, 
+  employeeShiftAssignments, 
+  trainingEnrollments, 
+  trainingPrograms, 
+  trainingSchedules, 
+  positionMandatoryTrainings,
+  users
+} from '@hybrid-hris/db/schema';
+import { and, eq, asc, sql, isNull, inArray, gte } from 'drizzle-orm';
 import { ProficiencyLevel } from '@hybrid-hris/domain';
+
+export interface EndorsementInfo {
+  id: string;
+  employeeSkillId: string;
+  endorserId: string;
+  endorserName: string;
+  message: string | null;
+  createdAt: Date;
+}
+
+export interface EmployeeSkillInfo {
+  id: string;
+  skillId: string;
+  skillName: string;
+  skillType: string;
+  proficiencyLevel: ProficiencyLevel;
+  source: string;
+  verificationStatus: string;
+  acquiredDate: string;
+  expiryDate: string | null;
+  evidenceUrl: string | null;
+  notes: string | null;
+  verifiedAt: Date | null;
+  endorsements?: EndorsementInfo[];
+}
+
+export interface TalentCardData {
+  employee: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    employeeNo: string;
+    positionId: string | null;
+    positionTitle: string | null;
+    orgUnitName: string | null;
+    email: string | null;
+    supervisorId: string | null;
+  };
+  skills: {
+    actual: EmployeeSkillInfo[];
+    required: { skillId: string; skillName: string; requiredLevel: string }[];
+  };
+  training: {
+    enrollments: { id: string; status: string; programId: string; programTitle: string; startAt: Date }[];
+    missingMandatory: { id: string; title: string }[];
+  };
+  upcomingLeaves: any[];
+  schedule: any;
+}
+
+export interface TaxonomySkillInfo {
+  id: string;
+  name: string;
+  type: string;
+  description: string | null;
+  expiryMonths: number | null;
+  isActive: boolean;
+  categoryId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TaxonomyCategoryInfo {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  skills: TaxonomySkillInfo[];
+}
 
 @Injectable()
 export class SkillsService {
   constructor(private readonly db: DatabaseService) {}
 
-  // ... existing taxonomy methods ...
+  async getEmployeeTalentCard(employeeId: string, managerEmployeeId: string): Promise<TalentCardData> {
+    // 1. Verify access (must be direct report or admin)
+    const [employee] = await this.db.db
+      .select({
+        id: employees.id,
+        firstName: employees.firstName,
+        lastName: employees.lastName,
+        employeeNo: employees.employeeNo,
+        positionId: employees.positionId,
+        positionTitle: positions.title,
+        orgUnitName: orgUnits.name,
+        email: users.email,
+        supervisorId: employees.supervisorId,
+      })
+      .from(employees)
+      .leftJoin(positions, eq(employees.positionId, positions.id))
+      .leftJoin(orgUnits, eq(employees.orgUnitId, orgUnits.id))
+      .leftJoin(users, eq(employees.id, users.employeeId))
+      .where(and(eq(employees.id, employeeId), isNull(employees.deletedAt)))
+      .limit(1);
+
+    if (!employee) throw new NotFoundException('Employee not found');
+    
+    // Security check: if not the manager, throw error
+    if (employee.supervisorId !== managerEmployeeId) {
+        throw new UnauthorizedException('You can only view talent cards for your direct reports');
+    }
+
+    // 2. Fetch Actual Skills
+    const actualSkills = await this.getEmployeeSkills(employeeId);
+
+    // 3. Fetch Position Requirements
+    const requirements = employee.positionId ? await this.db.db
+      .select({
+        skillId: skills.id,
+        skillName: skills.name,
+        requiredLevel: positionSkills.requiredProficiencyLevel,
+      })
+      .from(positionSkills)
+      .innerJoin(skills, eq(positionSkills.skillId, skills.id))
+      .where(eq(positionSkills.positionId, employee.positionId)) : [];
+
+    // 4. Fetch Training Roadmap
+    const enrollments = await this.db.db
+      .select({
+        id: trainingEnrollments.id,
+        status: trainingEnrollments.status,
+        programId: trainingPrograms.id,
+        programTitle: trainingPrograms.title,
+        startAt: trainingSchedules.startAt,
+      })
+      .from(trainingEnrollments)
+      .innerJoin(trainingSchedules, eq(trainingEnrollments.scheduleId, trainingSchedules.id))
+      .innerJoin(trainingPrograms, eq(trainingSchedules.programId, trainingPrograms.id))
+      .where(eq(trainingEnrollments.employeeId, employeeId));
+
+    // 5. Identify Missing Mandatory
+    const globalMandatory = await this.db.db
+      .select({ id: trainingPrograms.id, title: trainingPrograms.title })
+      .from(trainingPrograms)
+      .where(eq(trainingPrograms.isMandatory, true));
+
+    const posMandatory = employee.positionId ? await this.db.db
+      .select({ id: trainingPrograms.id, title: trainingPrograms.title })
+      .from(positionMandatoryTrainings)
+      .innerJoin(trainingPrograms, eq(positionMandatoryTrainings.programId, trainingPrograms.id))
+      .where(eq(positionMandatoryTrainings.positionId, employee.positionId)) : [];
+
+    const allRequired = [...globalMandatory, ...posMandatory];
+    const completedProgramIds = new Set(enrollments.filter((e) => e.status === 'COMPLETED').map((e) => e.programId));
+    const missingMandatory = allRequired.filter(r => !completedProgramIds.has(r.id));
+
+    // 6. Upcoming Leaves
+    const upcomingLeaves = await this.db.db
+      .select()
+      .from(leaveRequests)
+      .where(and(
+        eq(leaveRequests.employeeId, employeeId),
+        gte(leaveRequests.startDate, new Date().toISOString().slice(0, 10)),
+        eq(leaveRequests.status, 'APPROVED')
+      ))
+      .limit(5);
+
+    // 7. Schedule
+    const [schedule] = await this.db.db
+      .select()
+      .from(employeeShiftAssignments)
+      .where(eq(employeeShiftAssignments.employeeId, employeeId))
+      .limit(1);
+
+    return {
+      employee,
+      skills: {
+        actual: actualSkills,
+        required: requirements,
+      },
+      training: {
+        enrollments,
+        missingMandatory,
+      },
+      upcomingLeaves,
+      schedule,
+    };
+  }
 
   // --- Employee Skills (Profile) ---
 
-  async getEmployeeSkills(employeeId: string) {
+  async getEmployeeSkills(employeeId: string): Promise<EmployeeSkillInfo[]> {
     const results = await this.db.db
       .select({
         id: employeeSkills.id,
@@ -34,7 +223,7 @@ export class SkillsService {
       .orderBy(asc(skills.name));
 
     // For each skill, get endorsements
-    const skillIds = results.map(r => r.id);
+    const skillIds = results.map((r) => r.id);
     if (skillIds.length === 0) return [];
 
     const endorsements = await this.db.db
@@ -50,9 +239,9 @@ export class SkillsService {
       .innerJoin(employees, eq(employeeSkillEndorsements.endorserId, employees.id))
       .where(inArray(employeeSkillEndorsements.employeeSkillId, skillIds));
 
-    return results.map(r => ({
+    return results.map((r) => ({
       ...r,
-      endorsements: endorsements.filter(e => e.employeeSkillId === r.id),
+      endorsements: endorsements.filter((e) => e.employeeSkillId === r.id),
     }));
   }
 
@@ -196,7 +385,7 @@ export class SkillsService {
       throw new ConflictException(`Category '${data.name}' already exists`);
     }
 
-    const inserted = await this.db.db
+    const [inserted] = await this.db.db
       .insert(skillCategories)
       .values({
         name: data.name,
@@ -204,11 +393,11 @@ export class SkillsService {
       })
       .returning();
 
-    return inserted[0];
+    return inserted;
   }
 
   async updateCategory(id: string, data: { name?: string; description?: string }) {
-    const updated = await this.db.db
+    const [updated] = await this.db.db
       .update(skillCategories)
       .set({
         ...data,
@@ -217,11 +406,11 @@ export class SkillsService {
       .where(eq(skillCategories.id, id))
       .returning();
 
-    if (!updated.length) {
+    if (!updated) {
       throw new NotFoundException('Category not found');
     }
 
-    return updated[0];
+    return updated;
   }
 
   // --- Skills ---
@@ -251,7 +440,7 @@ export class SkillsService {
       throw new ConflictException(`Skill '${data.name}' already exists in this category`);
     }
 
-    const inserted = await this.db.db
+    const [inserted] = await this.db.db
       .insert(skills)
       .values({
         categoryId: data.categoryId,
@@ -263,7 +452,7 @@ export class SkillsService {
       })
       .returning();
 
-    return inserted[0];
+    return inserted;
   }
 
   async updateSkill(
@@ -276,7 +465,7 @@ export class SkillsService {
       isActive?: boolean;
     },
   ) {
-    const updated = await this.db.db
+    const [updated] = await this.db.db
       .update(skills)
       .set({
         ...data,
@@ -285,14 +474,14 @@ export class SkillsService {
       .where(eq(skills.id, id))
       .returning();
 
-    if (!updated.length) {
+    if (!updated) {
       throw new NotFoundException('Skill not found');
     }
 
-    return updated[0];
+    return updated;
   }
 
-  async getTaxonomy() {
+  async getTaxonomy(): Promise<TaxonomyCategoryInfo[]> {
     const categories = await this.getAllCategories();
     const allSkills = await this.db.db.select().from(skills).orderBy(asc(skills.name));
 

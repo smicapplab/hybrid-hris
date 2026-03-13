@@ -8,6 +8,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { skills } from './skills';
+import { positions } from './positions';
 import { trainingTypeEnum, proficiencyLevelEnum } from './enums';
 
 export { trainingTypeEnum };
@@ -64,5 +65,24 @@ export const trainingPrerequisites = pgTable(
   },
   (t) => ({
     uq: uniqueIndex('training_prerequisites_uq').on(t.programId, t.prerequisiteProgramId),
+  })
+);
+
+// NEW: Position-specific mandatory training
+export const positionMandatoryTrainings = pgTable(
+  'position_mandatory_trainings',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    positionId: uuid('position_id')
+      .notNull()
+      .references(() => positions.id, { onDelete: 'cascade' }),
+    programId: uuid('program_id')
+      .notNull()
+      .references(() => trainingPrograms.id, { onDelete: 'cascade' }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uq: uniqueIndex('position_mandatory_trainings_uq').on(t.positionId, t.programId),
   })
 );

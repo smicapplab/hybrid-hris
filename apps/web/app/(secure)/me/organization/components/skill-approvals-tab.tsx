@@ -30,7 +30,7 @@ export function SkillApprovalsTab() {
   const { toast } = useToast();
   const [pending, setPending] = useState<PendingSkill[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Action states
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [actionType, setActionType] = useState<'VERIFIED' | 'REJECTED' | null>(null);
@@ -43,10 +43,10 @@ export function SkillApprovalsTab() {
       setPending(result);
     } catch (err) {
       console.error('Failed to load pending approvals:', err);
-      toast({ 
-        title: 'Failed to load approvals', 
+      toast({
+        title: 'Failed to load approvals',
         description: err instanceof Error ? err.message : 'Please try again later.',
-        variant: 'destructive' 
+        variant: 'destructive'
       });
     } finally {
       setLoading(false);
@@ -69,11 +69,11 @@ export function SkillApprovalsTab() {
         })
       });
 
-      toast({ 
-        title: actionType === 'VERIFIED' ? 'Skill Verified' : 'Skill Rejected', 
-        variant: actionType === 'VERIFIED' ? 'success' : 'default' 
+      toast({
+        title: actionType === 'VERIFIED' ? 'Skill Verified' : 'Skill Rejected',
+        variant: actionType === 'VERIFIED' ? 'success' : 'default'
       });
-      
+
       setProcessingId(null);
       setActionType(null);
       setManagerNote('');
@@ -115,14 +115,14 @@ export function SkillApprovalsTab() {
                     </div>
                   </div>
                   <div className="pt-1 space-y-3">
-                     <div className="space-y-1">
-                       <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Submitted</span>
-                       <p className="text-xs font-semibold text-foreground">{new Date(s.createdAt).toLocaleDateString()}</p>
-                     </div>
-                     <div className="space-y-1">
-                       <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Acquired On</span>
-                       <p className="text-xs font-semibold text-foreground">{new Date(s.acquiredDate).toLocaleDateString()}</p>
-                     </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Submitted</span>
+                      <p className="text-xs font-semibold text-foreground">{new Date(s.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Acquired On</span>
+                      <p className="text-xs font-semibold text-foreground">{new Date(s.acquiredDate).toLocaleDateString()}</p>
+                    </div>
                   </div>
                 </div>
 
@@ -138,11 +138,11 @@ export function SkillApprovalsTab() {
                         {s.proficiencyLevel}
                       </Badge>
                     </div>
-                    
+
                     <div className="flex gap-2 shrink-0">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         className="h-8 text-destructive border-destructive/20 hover:bg-destructive/5 font-bold text-[11px] uppercase tracking-tight shadow-none"
                         onClick={() => {
                           setProcessingId(s.id);
@@ -151,8 +151,8 @@ export function SkillApprovalsTab() {
                       >
                         <XCircle className="w-3.5 h-3.5 mr-1.5" /> Reject
                       </Button>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         className="h-8 bg-green-600 hover:bg-green-700 text-white font-bold text-[11px] uppercase tracking-tight shadow-none"
                         onClick={() => {
                           setProcessingId(s.id);
@@ -174,16 +174,16 @@ export function SkillApprovalsTab() {
                         {s.notes || "No additional notes provided."}
                       </div>
                     </div>
-                    
+
                     {s.evidenceUrl && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
                           <ExternalLink className="w-3 h-3" /> Evidence
                         </div>
-                        <a 
-                          href={s.evidenceUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
+                        <a
+                          href={s.evidenceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="flex items-center justify-center gap-2 p-3 rounded-xl border bg-blue-50/20 border-blue-100 text-blue-600 hover:bg-blue-50/40 transition-colors text-xs font-bold shadow-sm"
                         >
                           <ExternalLink className="w-4 h-4" /> Open Verification Link
@@ -202,7 +202,7 @@ export function SkillApprovalsTab() {
         open={!!processingId}
         onOpenChange={(o) => !o && setProcessingId(null)}
         title={actionType === 'VERIFIED' ? 'Verify Skill Declaration' : 'Reject Skill Declaration'}
-        description={actionType === 'VERIFIED' 
+        description={actionType === 'VERIFIED'
           ? "Are you sure you want to verify this skill? It will be marked as officially recognized on the employee's profile."
           : "Are you sure you want to reject this declaration? The employee will be notified."
         }

@@ -10,15 +10,133 @@ import {
   skills,
   employees,
   orgUnits,
+  positions,
   employeeSkills,
+  positionMandatoryTrainings,
 } from '@hybrid-hris/db/schema';
 import { eq, and, asc, sql, count, inArray, isNull } from 'drizzle-orm';
 import { ProficiencyLevel, TrainingScheduleStatus, TrainingType, TrainingEnrollmentStatus } from '@hybrid-hris/domain';
 import { Tx } from 'src/database/database.types';
 
+export interface TeamComplianceInfo {
+  id: string;
+  firstName: string;
+  lastName: string;
+  employeeNo: string;
+  positionId: string | null;
+  positionTitle: string | null;
+  requiredCount: number;
+  completedCount: number;
+  missingMandatory: { id: string; title: string }[];
+  isCompliant: boolean;
+}
+
+export interface MyTrainingInfo {
+  id: string;
+  programId: string;
+  status: string;
+  trainerId: string | null;
+  externalTrainer: string | null;
+  location: string | null;
+  capacity: number | null;
+  startAt: Date;
+  endAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  enrollmentStatus: string;
+  programTitle: string;
+  programType: string;
+  isMandatory: boolean;
+}
+
+export interface AttendeeInfo {
+  enrollmentId: string;
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  employeeNo: string;
+  orgUnitName: string | null;
+  status: TrainingEnrollmentStatus;
+  processedAt: Date | null;
+}
+
 @Injectable()
 export class TrainingService {
   constructor(private readonly db: DatabaseService) {}
+
+  async getTeamCompliance(managerEmployeeId: string): Promise<TeamComplianceInfo[]> {
+    // 1. Get all direct reports
+    const myTeam = await this.db.db
+      .select({
+        id: employees.id,
+        firstName: employees.firstName,
+        lastName: employees.lastName,
+        employeeNo: employees.employeeNo,
+        positionId: employees.positionId,
+        positionTitle: positions.title,
+      })
+      .from(employees)
+      .leftJoin(positions, eq(employees.positionId, positions.id))
+      .where(and(
+        eq(employees.supervisorId, managerEmployeeId),
+        isNull(employees.deletedAt)
+      ));
+
+    if (myTeam.length === 0) return [];
+
+    const employeeIds = myTeam.map(e => e.id);
+    const positionIds = Array.from(new Set(myTeam.map(e => e.positionId).filter(Boolean))) as string[];
+
+    // 2. Get all Global Mandatory programs
+    const globalMandatory = await this.db.db
+      .select({ id: trainingPrograms.id, title: trainingPrograms.title })
+      .from(trainingPrograms)
+      .where(eq(trainingPrograms.isMandatory, true));
+
+    // 3. Get Position-specific mandatory programs
+    const positionMandatory = positionIds.length > 0 ? await this.db.db
+      .select({ 
+        positionId: positionMandatoryTrainings.positionId, 
+        programId: trainingPrograms.id,
+        title: trainingPrograms.title
+      })
+      .from(positionMandatoryTrainings)
+      .innerJoin(trainingPrograms, eq(positionMandatoryTrainings.programId, trainingPrograms.id))
+      .where(inArray(positionMandatoryTrainings.positionId, positionIds)) : [];
+
+    // 4. Get completions for the team
+    const completions = await this.db.db
+      .select({ 
+        employeeId: trainingEnrollments.employeeId, 
+        programId: trainingPrograms.id 
+      })
+      .from(trainingEnrollments)
+      .innerJoin(trainingSchedules, eq(trainingEnrollments.scheduleId, trainingSchedules.id))
+      .innerJoin(trainingPrograms, eq(trainingSchedules.programId, trainingPrograms.id))
+      .where(and(
+        inArray(trainingEnrollments.employeeId, employeeIds),
+        eq(trainingEnrollments.status, 'COMPLETED')
+      ));
+
+    // 5. Calculate gaps
+    return myTeam.map(emp => {
+      const required = [
+        ...globalMandatory.map(p => ({ id: p.id, title: p.title })),
+        ...positionMandatory.filter(pm => pm.positionId === emp.positionId).map(p => ({ id: p.programId, title: p.title }))
+      ];
+      
+      const finishedIds = new Set(completions.filter(c => c.employeeId === emp.id).map(c => c.programId));
+      const missing = required.filter(r => !finishedIds.has(r.id));
+
+      return {
+        ...emp,
+        requiredCount: required.length,
+        completedCount: required.length - missing.length,
+        missingMandatory: missing,
+        isCompliant: missing.length === 0
+      };
+    });
+  }
 
   async getPublicScheduleDetails(scheduleId: string, currentEmployeeId?: string) {
     const result = await this.db.db
@@ -226,7 +344,7 @@ export class TrainingService {
     return updated[0];
   }
 
-  async getMyTrainings(employeeId: string) {
+  async getMyTrainings(employeeId: string): Promise<MyTrainingInfo[]> {
     const enrollments = await this.db.db
       .select({
         enrollment: trainingEnrollments,
@@ -531,7 +649,7 @@ export class TrainingService {
 
   // --- Attendee Management ---
 
-  async getScheduleAttendees(scheduleId: string) {
+  async getScheduleAttendees(scheduleId: string): Promise<AttendeeInfo[]> {
     return this.db.db
       .select({
         enrollmentId: trainingEnrollments.id,

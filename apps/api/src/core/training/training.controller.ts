@@ -231,4 +231,11 @@ export class TrainingController {
     if (!employeeId) throw new UnauthorizedException('Not linked to an employee profile');
     return this.trainingService.getMyTrainings(employeeId);
   }
+
+  @Get('team-compliance')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
+  async getTeamCompliance(@CurrentUser('employeeId') managerEmployeeId: string) {
+    if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
+    return this.trainingService.getTeamCompliance(managerEmployeeId);
+  }
 }

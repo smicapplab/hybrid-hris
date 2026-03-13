@@ -73,6 +73,16 @@ export class SkillsController {
     return this.skillsService.processSkillApproval(id, managerEmployeeId, data);
   }
 
+  @Get('talent-card/:id')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
+  async getEmployeeTalentCard(
+    @Param('id') id: string,
+    @CurrentUser('employeeId') managerEmployeeId: string
+  ) {
+    if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
+    return this.skillsService.getEmployeeTalentCard(id, managerEmployeeId);
+  }
+
   // --- Taxonomy (Admin) ---
 
   @Get('taxonomy')
