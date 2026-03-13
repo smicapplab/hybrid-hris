@@ -119,9 +119,13 @@ pnpm --filter web dev
 ---
 
 ## 🗺 Roadmap
-- [ ] **S3 Integration:** Direct file uploads for skill evidence and expense receipts.
-- [ ] **Proactive Alerts:** Notifications for expiring certifications and upcoming mandatory deadlines.
-- [ ] **Bulk Enrollment:** One-click enrollment for entire departments into mandatory sessions.
+- [ ] **System Audit Logs:** Global traceability for every sensitive change (who, what, when, old vs new values).
+- [ ] **Time & Attendance Refinement:** Formalized Overtime (OT) workflows, Holiday Calendar management, and shift differential logic.
+- [ ] **Payroll & Compensation:** Base pay tracking, government-mandated deductions (PH context), and immutable salary history.
+- [ ] **Performance Management:** Annual review cycles, KPI/OKR tracking, and 360-degree feedback loops.
+- [ ] **Notification Engine:** In-app, Email, and Slack alerts for pending approvals and critical events.
+- [ ] **Digital 201 File:** Secure document vault for contracts, IDs, and government forms.
+- [ ] **Advanced Analytics:** Company-wide skill density reports and organizational risk analysis heatmaps.
 - [ ] **Job Board API:** Direct posting to LinkedIn and Jobstreet from the Recruitment module.
 
 ---
