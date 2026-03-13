@@ -695,6 +695,9 @@ CREATE TABLE "training_enrollments" (
 	"enrolled_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"processed_at" timestamp with time zone,
 	"processed_by_id" uuid,
+	"feedback_rating" text,
+	"feedback_comments" text,
+	"feedback_submitted_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );

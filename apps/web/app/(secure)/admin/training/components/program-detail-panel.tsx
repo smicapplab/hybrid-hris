@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Pencil, Library, GraduationCap, Link as LinkIcon, Info, Calendar, Plus, X } from 'lucide-react';
+import { Pencil, Library, GraduationCap, Link as LinkIcon, Info, Calendar, Plus, X, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { TrainingProgram } from '@/types/training.types';
 import { Skill } from '@/types/skills.types';
 import { ScheduleList } from './schedule-list';
+import { TrainingFeedbackPanel } from './training-feedback-panel';
 import { AsyncSearchSelect } from '@/components/ui/async-search-select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -58,7 +59,7 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
       });
       await loadProgram();
       toast({ title: 'Skill added', variant: 'success' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to add skill',
         description: err instanceof Error ? err.message : 'Please try again.',
@@ -77,7 +78,7 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
       });
       await loadProgram();
       toast({ title: 'Skill removed', variant: 'success' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to remove skill',
         description: err instanceof Error ? err.message : 'Please try again.',
@@ -98,7 +99,7 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
       });
       await loadProgram();
       toast({ title: 'Prerequisite added', variant: 'success' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to add prerequisite',
         description: err instanceof Error ? err.message : 'Please try again.',
@@ -117,7 +118,7 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
       });
       await loadProgram();
       toast({ title: 'Prerequisite removed', variant: 'success' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to remove prerequisite',
         description: err instanceof Error ? err.message : 'Please try again.',
@@ -163,12 +164,15 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-100 h-10 p-1 bg-muted/50 rounded-lg">
+        <TabsList className="grid w-full grid-cols-3 max-w-120 h-10 p-1 bg-muted/50 rounded-lg">
           <TabsTrigger value="overview" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
             <Info className="w-3.5 h-3.5" /> Overview
           </TabsTrigger>
           <TabsTrigger value="schedules" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
             <Calendar className="w-3.5 h-3.5" /> Schedules
+          </TabsTrigger>
+          <TabsTrigger value="feedback" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
+            <Star className="w-3.5 h-3.5" /> Feedback
           </TabsTrigger>
         </TabsList>
 
@@ -260,6 +264,10 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
             programTitle={program.title}
             onManageAttendeesAction={onManageAttendeesAction} 
           />
+        </TabsContent>
+
+        <TabsContent value="feedback" className="mt-6">
+          <TrainingFeedbackPanel programId={programId} />
         </TabsContent>
       </Tabs>
     </div>

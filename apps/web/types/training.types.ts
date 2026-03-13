@@ -49,3 +49,32 @@ export interface TrainingScheduleSession {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface MandatoryTraining {
+  id: string;
+  programId: string;
+  title: string;
+  positionId?: string;
+  orgUnitId?: string;
+  createdAt: string;
+}
+
+export interface TrainingFeedbackInfo {
+  id: string;
+  programTitle: string;
+  scheduleId: string;
+  employeeName: string;
+  employeeNo: string;
+  trainerName: string | null;
+  rating: number;
+  comments: string | null;
+  submittedAt: string;
+  sessionDate: string;
+}
+
+export interface PaginatedFeedbackResponse {
+  data: TrainingFeedbackInfo[];
+  total: number;
+  averageRating: number;
+  hasMore: boolean;
+}

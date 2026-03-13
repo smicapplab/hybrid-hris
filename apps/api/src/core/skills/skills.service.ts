@@ -40,16 +40,28 @@ import {
 export class SkillsService {
   constructor(private readonly db: DatabaseService) {}
 
-  async getEmployeeTalentCard(employeeId: string, managerEmployeeId: string): Promise<TalentCardData> {
-    // 1. Verify access (must be direct report or in hierarchical downline)
-    const unitFilter = sql`(
-      WITH RECURSIVE downline_units AS (
-        SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${managerEmployeeId} AND deleted_at IS NULL
-        UNION ALL
-        SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
-      )
-      SELECT org_unit_id FROM downline_units
-    )`;
+  async getEmployeeTalentCard(employeeId: string, managerEmployeeId: string, isHr: boolean = false): Promise<TalentCardData> {
+    const whereClauses: (SQL<unknown> | undefined)[] = [
+      eq(employees.id, employeeId),
+      isNull(employees.deletedAt)
+    ];
+
+    if (!isHr) {
+      // 1. Verify access (must be direct report or in hierarchical downline)
+      const unitFilter = sql`(
+        WITH RECURSIVE downline_units AS (
+          SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${managerEmployeeId} AND deleted_at IS NULL
+          UNION ALL
+          SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
+        )
+        SELECT org_unit_id FROM downline_units
+      )`;
+
+      whereClauses.push(or(
+          eq(employees.supervisorId, managerEmployeeId),
+          inArray(employees.orgUnitId, unitFilter)
+      ));
+    }
 
     const [employee] = await this.db.db
       .select({
@@ -68,102 +80,87 @@ export class SkillsService {
       .leftJoin(positions, eq(employees.positionId, positions.id))
       .leftJoin(orgUnits, eq(employees.orgUnitId, orgUnits.id))
       .leftJoin(users, eq(employees.id, users.employeeId))
-      .where(and(
-        eq(employees.id, employeeId), 
-        isNull(employees.deletedAt),
-        or(
-            eq(employees.supervisorId, managerEmployeeId),
-            inArray(employees.orgUnitId, unitFilter)
-        )
-      ))
+      .where(and(...whereClauses))
       .limit(1);
 
     if (!employee) throw new UnauthorizedException('You do not have access to this employee profile');
 
-    // 2. Fetch Actual Skills
-    const actualSkills = await this.getEmployeeSkills(employeeId);
+    // 2. Fetch all related data in parallel
+    const [
+      actualSkills,
+      requirements,
+      enrollments,
+      allRequired,
+      upcomingLeaves,
+      [schedule]
+    ] = await Promise.all([
+      this.getEmployeeSkills(employeeId),
+      
+      employee.positionId ? this.db.db
+        .select({
+          skillId: skills.id,
+          skillName: skills.name,
+          requiredLevel: positionSkills.requiredProficiencyLevel,
+        })
+        .from(positionSkills)
+        .innerJoin(skills, eq(positionSkills.skillId, skills.id))
+        .where(eq(positionSkills.positionId, employee.positionId)) : Promise.resolve([]),
 
-    // 3. Fetch Position Requirements
-    const requirements = employee.positionId ? await this.db.db
-      .select({
-        skillId: skills.id,
-        skillName: skills.name,
-        requiredLevel: positionSkills.requiredProficiencyLevel,
-      })
-      .from(positionSkills)
-      .innerJoin(skills, eq(positionSkills.skillId, skills.id))
-      .where(eq(positionSkills.positionId, employee.positionId)) : [];
+      this.db.db
+        .select({
+          id: trainingEnrollments.id,
+          status: trainingEnrollments.status,
+          programId: trainingPrograms.id,
+          programTitle: trainingPrograms.title,
+          startAt: trainingSchedules.startAt,
+        })
+        .from(trainingEnrollments)
+        .innerJoin(trainingSchedules, eq(trainingEnrollments.scheduleId, trainingSchedules.id))
+        .innerJoin(trainingPrograms, eq(trainingSchedules.programId, trainingPrograms.id))
+        .where(eq(trainingEnrollments.employeeId, employeeId)),
 
-    // 4. Fetch Training Roadmap
-    const enrollments = await this.db.db
-      .select({
-        id: trainingEnrollments.id,
-        status: trainingEnrollments.status,
-        programId: trainingPrograms.id,
-        programTitle: trainingPrograms.title,
-        startAt: trainingSchedules.startAt,
-      })
-      .from(trainingEnrollments)
-      .innerJoin(trainingSchedules, eq(trainingEnrollments.scheduleId, trainingSchedules.id))
-      .innerJoin(trainingPrograms, eq(trainingSchedules.programId, trainingPrograms.id))
-      .where(eq(trainingEnrollments.employeeId, employeeId));
+      // Combined Mandatory Training Query
+      this.db.db
+        .selectDistinct({ id: trainingPrograms.id, title: trainingPrograms.title })
+        .from(trainingPrograms)
+        .leftJoin(positionMandatoryTrainings, eq(trainingPrograms.id, positionMandatoryTrainings.programId))
+        .leftJoin(orgUnitMandatoryTrainings, eq(trainingPrograms.id, orgUnitMandatoryTrainings.programId))
+        .where(or(
+          eq(trainingPrograms.isMandatory, true),
+          employee.positionId ? eq(positionMandatoryTrainings.positionId, employee.positionId) : undefined,
+          employee.orgUnitId ? eq(orgUnitMandatoryTrainings.orgUnitId, employee.orgUnitId) : undefined
+        )),
 
-    // 5. Identify Missing Mandatory
-    const globalMandatory = await this.db.db
-      .select({ id: trainingPrograms.id, title: trainingPrograms.title })
-      .from(trainingPrograms)
-      .where(eq(trainingPrograms.isMandatory, true));
+      this.db.db
+        .select()
+        .from(leaveRequests)
+        .where(and(
+          eq(leaveRequests.employeeId, employeeId),
+          gte(leaveRequests.startDate, new Date().toISOString().slice(0, 10)),
+          eq(leaveRequests.status, 'APPROVED')
+        ))
+        .limit(5),
 
-    const posMandatory = employee.positionId ? await this.db.db
-      .select({ id: trainingPrograms.id, title: trainingPrograms.title })
-      .from(positionMandatoryTrainings)
-      .innerJoin(trainingPrograms, eq(positionMandatoryTrainings.programId, trainingPrograms.id))
-      .where(eq(positionMandatoryTrainings.positionId, employee.positionId)) : [];
+      this.db.db
+        .select()
+        .from(employeeShiftAssignments)
+        .where(eq(employeeShiftAssignments.employeeId, employeeId))
+        .limit(1)
+    ]);
 
-    const orgMandatory = employee.orgUnitId ? await this.db.db
-      .select({ id: trainingPrograms.id, title: trainingPrograms.title })
-      .from(orgUnitMandatoryTrainings)
-      .innerJoin(trainingPrograms, eq(orgUnitMandatoryTrainings.programId, trainingPrograms.id))
-      .where(eq(orgUnitMandatoryTrainings.orgUnitId, employee.orgUnitId)) : [];
+    const completedProgramIds = new Set(enrollments.filter((e: any) => e.status === 'COMPLETED').map((e: any) => e.programId));
+    const enrolledItems = enrollments.filter((e: any) => e.status === 'ENROLLED');
+    const enrolledProgramIds = new Set(enrolledItems.map((e: any) => e.programId));
 
-    const rawRequired = [...globalMandatory, ...posMandatory, ...orgMandatory];
-    
-    // De-duplicate required list by ID
-    const requiredMap = new Map<string, { id: string; title: string }>();
-    rawRequired.forEach(r => requiredMap.set(r.id, r));
-    const allRequired = Array.from(requiredMap.values());
-
-    const completedProgramIds = new Set(enrollments.filter((e) => e.status === 'COMPLETED').map((e) => e.programId));
-    const enrolledItems = enrollments.filter((e) => e.status === 'ENROLLED');
-    const enrolledProgramIds = new Set(enrolledItems.map((e) => e.programId));
-
-    const missingMandatory = allRequired.filter(r => !completedProgramIds.has(r.id) && !enrolledProgramIds.has(r.id));
+    const missingMandatory = (allRequired as any[]).filter((r: any) => !completedProgramIds.has(r.id) && !enrolledProgramIds.has(r.id));
     const scheduledMandatory = enrolledItems
-      .filter(e => requiredMap.has(e.programId))
-      .map(e => ({
+      .filter((e: any) => (allRequired as any[]).some((r: any) => r.id === e.programId))
+      .map((e: any) => ({
         id: e.programId,
-        title: requiredMap.get(e.programId)!.title,
+        title: (allRequired as any[]).find((r: any) => r.id === e.programId)!.title,
         scheduleId: e.id,
         startAt: e.startAt
       }));
-
-    // 6. Upcoming Leaves
-    const upcomingLeaves = await this.db.db
-      .select()
-      .from(leaveRequests)
-      .where(and(
-        eq(leaveRequests.employeeId, employeeId),
-        gte(leaveRequests.startDate, new Date().toISOString().slice(0, 10)),
-        eq(leaveRequests.status, 'APPROVED')
-      ))
-      .limit(5);
-
-    // 7. Schedule
-    const [schedule] = await this.db.db
-      .select()
-      .from(employeeShiftAssignments)
-      .where(eq(employeeShiftAssignments.employeeId, employeeId))
-      .limit(1);
 
     return {
       employee,
@@ -177,7 +174,7 @@ export class SkillsService {
         scheduledMandatory,
       },
       upcomingLeaves,
-      schedule,
+      schedule: schedule || null,
     };
   }
 
@@ -427,16 +424,19 @@ export class SkillsService {
 
   async assignSkillToReport(
     managerEmployeeId: string,
-    data: AssignSkillDto
+    data: AssignSkillDto,
+    isHr: boolean = false
   ) {
-    // 1. Verify direct report
-    const [report] = await this.db.db
-      .select({ id: employees.id })
-      .from(employees)
-      .where(and(eq(employees.id, data.employeeId), eq(employees.supervisorId, managerEmployeeId)))
-      .limit(1);
+    // 1. Verify access
+    if (!isHr) {
+      const [report] = await this.db.db
+        .select({ id: employees.id })
+        .from(employees)
+        .where(and(eq(employees.id, data.employeeId), eq(employees.supervisorId, managerEmployeeId)))
+        .limit(1);
 
-    if (!report) throw new UnauthorizedException('Target employee is not your direct report');
+      if (!report) throw new UnauthorizedException('Target employee is not your direct report');
+    }
 
     // 2. Upsert as VERIFIED
     const [inserted] = await this.db.db
@@ -471,7 +471,16 @@ export class SkillsService {
 
   // --- Manager Skill Approvals ---
 
-  async getPendingSkillsForManager(managerEmployeeId: string) {
+  async getPendingSkillsForManager(managerEmployeeId: string, isHr: boolean = false) {
+    const whereClauses: (SQL<unknown> | undefined)[] = [
+      eq(employeeSkills.verificationStatus, 'PENDING'),
+      isNull(employees.deletedAt)
+    ];
+
+    if (!isHr) {
+      whereClauses.push(eq(employees.supervisorId, managerEmployeeId));
+    }
+
     return this.db.db
       .select({
         id: employeeSkills.id,
@@ -491,37 +500,35 @@ export class SkillsService {
       .from(employeeSkills)
       .innerJoin(skills, eq(employeeSkills.skillId, skills.id))
       .innerJoin(employees, eq(employeeSkills.employeeId, employees.id))
-      .where(
-        and(
-          eq(employees.supervisorId, managerEmployeeId),
-          eq(employeeSkills.verificationStatus, 'PENDING'),
-          isNull(employees.deletedAt)
-        )
-      )
+      .where(and(...whereClauses))
       .orderBy(asc(employeeSkills.createdAt));
   }
 
   async processSkillApproval(
     employeeSkillId: string,
     managerEmployeeId: string,
-    data: ProcessSkillApprovalDto
+    data: ProcessSkillApprovalDto,
+    isHr: boolean = false
   ) {
-    // 1. Verify this is a pending skill for a direct report
+    // 1. Verify this is a pending skill for a direct report (if not HR)
+    const whereClauses: (SQL<unknown> | undefined)[] = [
+      eq(employeeSkills.id, employeeSkillId),
+      eq(employeeSkills.verificationStatus, 'PENDING')
+    ];
+
+    if (!isHr) {
+      whereClauses.push(eq(employees.supervisorId, managerEmployeeId));
+    }
+
     const result = await this.db.db
       .select({ id: employeeSkills.id })
       .from(employeeSkills)
       .innerJoin(employees, eq(employeeSkills.employeeId, employees.id))
-      .where(
-        and(
-          eq(employeeSkills.id, employeeSkillId),
-          eq(employees.supervisorId, managerEmployeeId),
-          eq(employeeSkills.verificationStatus, 'PENDING')
-        )
-      )
+      .where(and(...whereClauses))
       .limit(1);
 
     if (!result.length) {
-      throw new NotFoundException('Pending skill declaration not found for your direct reports');
+      throw new NotFoundException('Pending skill declaration not found');
     }
 
     const [updated] = await this.db.db

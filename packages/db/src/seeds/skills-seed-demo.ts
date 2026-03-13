@@ -209,7 +209,17 @@ export async function seedSkillsDemo(db: any) {
                 employeeId: (emp as any).id,
                 status: status === 'COMPLETED' ? 'COMPLETED' : 'ENROLLED',
                 processedAt: status === 'COMPLETED' ? new Date() : null,
-                processedById: status === 'COMPLETED' ? hrAdmin.id : null
+                processedById: status === 'COMPLETED' ? hrAdmin.id : null,
+                // Add demo ratings for completed items
+                feedbackRating: status === 'COMPLETED' ? faker.helpers.arrayElement(['4', '5', '3', '5', '4']) : null,
+                feedbackComments: status === 'COMPLETED' ? faker.helpers.arrayElement([
+                    'Excellent instructor and practical exercises.',
+                    'Very relevant to my current project.',
+                    'Good overview, though some parts were a bit fast.',
+                    'Highly recommended for all team members.',
+                    'The hands-on labs were very helpful.'
+                ]) : null,
+                feedbackSubmittedAt: status === 'COMPLETED' ? new Date() : null
             }).onConflictDoNothing().returning();
 
             const resolvedEnrollment = enrollment || (await db.select().from(trainingEnrollments).where(and(eq(trainingEnrollments.scheduleId, resolvedSch.id), eq(trainingEnrollments.employeeId, (emp as any).id))))[0];

@@ -80,7 +80,7 @@ export function TeamMembersTab({ onSelectEmployeeAction, recursive, search, scop
       } else {
         setMembers(res.data);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load team members', err);
       toast({
         title: 'Failed to load team members',

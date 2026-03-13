@@ -34,6 +34,11 @@ export const trainingEnrollments = pgTable(
     // Who processed the completion
     processedById: uuid('processed_by_id').references(() => employees.id, { onDelete: 'set null' }),
 
+    // Training Evaluation / Feedback
+    feedbackRating: text('feedback_rating'), // e.g. 1-5
+    feedbackComments: text('feedback_comments'),
+    feedbackSubmittedAt: timestamp('feedback_submitted_at', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

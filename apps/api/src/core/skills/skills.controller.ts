@@ -67,10 +67,12 @@ export class SkillsController {
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
   async assignSkill(
     @CurrentUser('employeeId') managerEmployeeId: string,
+    @CurrentUser('roles') roles: string[],
     @Body() data: AssignSkillDto
   ) {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
-    return this.skillsService.assignSkillToReport(managerEmployeeId, data);
+    const isHr = roles.includes(SystemRole.HR_ADMIN) || roles.includes(SystemRole.ADMIN);
+    return this.skillsService.assignSkillToReport(managerEmployeeId, data, isHr);
   }
 
   @Post('my-skills')
@@ -95,9 +97,13 @@ export class SkillsController {
 
   @Get('approvals/pending')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
-  async getPendingSkills(@CurrentUser('employeeId') managerEmployeeId: string) {
+  async getPendingSkills(
+    @CurrentUser('employeeId') managerEmployeeId: string,
+    @CurrentUser('roles') roles: string[]
+  ) {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
-    return this.skillsService.getPendingSkillsForManager(managerEmployeeId);
+    const isHr = roles.includes(SystemRole.HR_ADMIN) || roles.includes(SystemRole.ADMIN);
+    return this.skillsService.getPendingSkillsForManager(managerEmployeeId, isHr);
   }
 
   @Patch('approvals/:id')
@@ -105,20 +111,24 @@ export class SkillsController {
   async approveSkill(
     @Param('id') id: string,
     @CurrentUser('employeeId') managerEmployeeId: string,
+    @CurrentUser('roles') roles: string[],
     @Body() data: ProcessSkillApprovalDto
   ) {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
-    return this.skillsService.processSkillApproval(id, managerEmployeeId, data);
+    const isHr = roles.includes(SystemRole.HR_ADMIN) || roles.includes(SystemRole.ADMIN);
+    return this.skillsService.processSkillApproval(id, managerEmployeeId, data, isHr);
   }
 
   @Get('talent-card/:id')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
   async getEmployeeTalentCard(
     @Param('id') id: string,
-    @CurrentUser('employeeId') managerEmployeeId: string
+    @CurrentUser('employeeId') managerEmployeeId: string,
+    @CurrentUser('roles') roles: string[]
   ) {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
-    return this.skillsService.getEmployeeTalentCard(id, managerEmployeeId);
+    const isHr = roles.includes(SystemRole.HR_ADMIN) || roles.includes(SystemRole.ADMIN);
+    return this.skillsService.getEmployeeTalentCard(id, managerEmployeeId, isHr);
   }
 
   // --- Taxonomy (Admin) ---

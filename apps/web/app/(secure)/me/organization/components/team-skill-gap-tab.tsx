@@ -78,7 +78,7 @@ export function TeamSkillGapTab({ recursive, search, scope = 'downline' }: Props
       } else {
         setRows(res.grid);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to load readiness data',
         description: err instanceof Error ? err.message : 'Please try again.',

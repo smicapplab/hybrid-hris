@@ -32,6 +32,38 @@ export interface MyTrainingInfo {
   programTitle: string;
   programType: string;
   isMandatory: boolean;
+  feedbackRating: string | null;
+  feedbackComments: string | null;
+  feedbackSubmittedAt: Date | null;
+}
+
+export class SubmitTrainingFeedbackDto {
+  @IsString()
+  rating!: string; // 1-5
+
+  @IsOptional()
+  @IsString()
+  comments?: string;
+}
+
+export interface TrainingFeedbackInfo {
+  id: string;
+  programTitle: string;
+  scheduleId: string;
+  employeeName: string;
+  employeeNo: string;
+  trainerName: string | null;
+  rating: number;
+  comments: string | null;
+  submittedAt: Date;
+  sessionDate: Date;
+}
+
+export interface PaginatedFeedbackResponse {
+  data: TrainingFeedbackInfo[];
+  total: number;
+  averageRating: number;
+  hasMore: boolean;
 }
 
 export interface AttendeeInfo {

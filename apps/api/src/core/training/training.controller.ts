@@ -24,7 +24,8 @@ import {
   UpdateTrainingScheduleDto, 
   UpdateAttendeeStatusDto, 
   BulkUpdateAttendeeStatusDto,
-  AddMandatoryTrainingDto
+  AddMandatoryTrainingDto,
+  SubmitTrainingFeedbackDto
 } from './dto/training.dto';
 
 @Controller('training')
@@ -103,8 +104,10 @@ export class TrainingController {
     @Param('id') id: string,
     @Body('employeeId') employeeId: string,
     @CurrentUser('employeeId') processorId: string,
+    @CurrentUser('roles') roles: string[],
   ) {
-    return this.trainingService.addAttendee(id, employeeId, processorId);
+    const isHr = roles.includes(SystemRole.HR_ADMIN) || roles.includes(SystemRole.ADMIN);
+    return this.trainingService.addAttendee(id, employeeId, processorId, isHr);
   }
 
   @Post('schedules/:id/enroll-org')
@@ -113,8 +116,10 @@ export class TrainingController {
     @Param('id') id: string,
     @Body('orgUnitId') orgUnitId: string,
     @CurrentUser('employeeId') processorId: string,
+    @CurrentUser('roles') roles: string[],
   ) {
-    return this.trainingService.enrollOrgUnit(id, orgUnitId, processorId);
+    const isHr = roles.includes(SystemRole.HR_ADMIN) || roles.includes(SystemRole.ADMIN);
+    return this.trainingService.enrollOrgUnit(id, orgUnitId, processorId, isHr);
   }
 
   @Post('schedules/:id/enroll-eligible')
@@ -122,8 +127,10 @@ export class TrainingController {
   async enrollAllEligible(
     @Param('id') id: string,
     @CurrentUser('employeeId') processorId: string,
+    @CurrentUser('roles') roles: string[],
   ) {
-    return this.trainingService.enrollAllEligible(id, processorId);
+    const isHr = roles.includes(SystemRole.HR_ADMIN) || roles.includes(SystemRole.ADMIN);
+    return this.trainingService.enrollAllEligible(id, processorId, isHr);
   }
 
   @Patch('enrollments/bulk-status')
@@ -176,6 +183,16 @@ export class TrainingController {
     return this.trainingService.enroll(id, employeeId);
   }
 
+  @Patch('schedules/:id/feedback')
+  async submitFeedback(
+    @Param('id') id: string,
+    @CurrentUser('employeeId') employeeId: string,
+    @Body() data: SubmitTrainingFeedbackDto,
+  ) {
+    if (!employeeId) throw new UnauthorizedException('Not linked to an employee profile');
+    return this.trainingService.submitFeedback(id, employeeId, data);
+  }
+
   @Delete('schedules/:id/enroll')
   async cancelEnrollment(
     @Param('id') id: string,
@@ -211,6 +228,20 @@ export class TrainingController {
       limit: limit ? parseInt(limit, 10) : undefined,
       scope,
       isHr,
+    });
+  }
+
+  @Get('feedback')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async getTrainingFeedback(
+    @Query('offset') offset?: string,
+    @Query('limit') limit?: string,
+    @Query('programId') programId?: string,
+  ) {
+    return this.trainingService.getTrainingFeedback({
+      offset: offset ? parseInt(offset, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      programId,
     });
   }
 

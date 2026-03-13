@@ -3,19 +3,26 @@
 import { useEffect, useState, useCallback } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, MapPin, Users, Info, Clock, Library, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, Users, Info, Clock, Library, Trash2, Star, MessageSquare } from 'lucide-react';
 import { TrainingProgram, TrainingSchedule, TrainingScheduleSession } from '@/types/training.types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { TrainingFeedbackDialog } from './training-feedback-dialog';
 
 interface PublicScheduleDetails extends TrainingSchedule {
   program: TrainingProgram;
   sessions: TrainingScheduleSession[];
   attendeeCount: number;
-  myEnrollment: { id: string; status: string } | null;
+  myEnrollment: { 
+    id: string; 
+    status: string;
+    feedbackRating: string | null;
+    feedbackComments: string | null;
+    feedbackSubmittedAt: string | null;
+  } | null;
   attendees: { id: string; firstName: string; lastName: string; orgUnitName: string | null }[];
 }
 
@@ -30,13 +37,14 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [showUnenrollConfirm, setShowUnenrollConfirm] = useState(false);
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
 
   const loadDetails = useCallback(async () => {
     try {
       setLoading(true);
       const result = await apiFetch<PublicScheduleDetails>(`/training/schedules/${scheduleId}/public`);
       setData(result);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to load training details',
         description: err instanceof Error ? err.message : 'Please try again.',
@@ -58,7 +66,7 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
       toast({ title: 'Successfully un-enrolled', variant: 'success' });
       setShowUnenrollConfirm(false);
       onUnenrollAction();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to un-enroll',
         description: err instanceof Error ? err.message : 'Please try again.',
@@ -80,7 +88,9 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
   if (!data) return null;
 
   const isEnrolled = data.myEnrollment?.status === 'ENROLLED';
+  const isCompleted = data.myEnrollment?.status === 'COMPLETED';
   const isUpcoming = new Date(data.startAt) >= new Date();
+  const hasFeedback = !!data.myEnrollment?.feedbackSubmittedAt;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto pb-12 text-foreground">
@@ -101,21 +111,60 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
             </div>
           </div>
         </div>
-        {isEnrolled && isUpcoming && (
-          <Button
-            variant="destructive"
-            size="sm"
-            className="gap-2 shadow-sm font-bold text-xs uppercase"
-            disabled={actionLoading}
-            onClick={() => setShowUnenrollConfirm(true)}
-          >
-            <Trash2 className="w-3.5 h-3.5" /> Un-enroll
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {isEnrolled && isUpcoming && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-2 shadow-sm font-bold text-xs uppercase"
+              disabled={actionLoading}
+              onClick={() => setShowUnenrollConfirm(true)}
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Un-enroll
+            </Button>
+          )}
+          {isCompleted && !hasFeedback && (
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-2 shadow-sm font-bold text-xs uppercase bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={() => setShowFeedbackDialog(true)}
+            >
+              <Star className="w-3.5 h-3.5 fill-current" /> Rate Training
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="lg:col-span-2 space-y-8">
+          {/* Feedback Display if exists */}
+          {hasFeedback && (
+            <div className="p-5 rounded-2xl border border-amber-100 bg-amber-50/10 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-amber-600 flex items-center gap-2">
+                  <Star className="w-4 h-4 fill-current" /> Your Evaluation
+                </h3>
+                <span className="text-[10px] text-muted-foreground font-medium">Submitted on {new Date(data.myEnrollment!.feedbackSubmittedAt!).toLocaleDateString()}</span>
+              </div>
+              <div className="space-y-3">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className={cn("w-4 h-4", s <= Number(data.myEnrollment!.feedbackRating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/20")} />
+                  ))}
+                </div>
+                {data.myEnrollment?.feedbackComments && (
+                  <div className="flex gap-3 items-start p-3 rounded-xl bg-background/50 border border-amber-100/50">
+                    <MessageSquare className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-muted-foreground italic leading-relaxed">
+                      &quot;{data.myEnrollment.feedbackComments}&quot;
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 rounded-2xl border bg-muted/20 space-y-1.5">
@@ -230,6 +279,14 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
         onConfirm={handleConfirmUnenroll}
         variant="destructive"
         confirmText="Un-enroll"
+      />
+
+      <TrainingFeedbackDialog 
+        open={showFeedbackDialog}
+        onOpenChangeAction={setShowFeedbackDialog}
+        scheduleId={scheduleId}
+        programTitle={data.program.title}
+        onSuccessAction={loadDetails}
       />
     </div>
   );

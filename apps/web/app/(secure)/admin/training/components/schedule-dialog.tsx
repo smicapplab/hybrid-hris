@@ -94,8 +94,7 @@ export function ScheduleDialog({ open, onOpenChangeAction, programId, scheduleId
 
     try {
       setLoading(true);
-      const body = {
-        programId,
+      const commonBody = {
         location: location.trim() || null,
         capacity: capacity > 0 ? capacity : null,
         startAt,
@@ -108,13 +107,16 @@ export function ScheduleDialog({ open, onOpenChangeAction, programId, scheduleId
       if (isEdit) {
         await apiFetch(`/training/schedules/${scheduleId}`, {
           method: 'PATCH',
-          body: JSON.stringify(body),
+          body: JSON.stringify(commonBody),
         });
         toast({ title: 'Schedule updated', variant: 'success' });
       } else {
         await apiFetch('/training/schedules', {
           method: 'POST',
-          body: JSON.stringify(body),
+          body: JSON.stringify({
+            ...commonBody,
+            programId,
+          }),
         });
         toast({ title: 'Schedule created', variant: 'success' });
       }

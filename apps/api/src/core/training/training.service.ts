@@ -15,7 +15,7 @@ import {
   positionMandatoryTrainings,
   orgUnitMandatoryTrainings,
 } from '@hybrid-hris/db/schema';
-import { eq, and, asc, sql, count, inArray, isNull, or, SQL } from 'drizzle-orm';
+import { eq, and, asc, desc, sql, count, inArray, isNull, or, SQL } from 'drizzle-orm';
 import { TrainingEnrollmentStatus } from '@hybrid-hris/domain';
 import { Tx } from 'src/database/database.types';
 import { 
@@ -25,10 +25,11 @@ import {
   CreateTrainingProgramDto,
   UpdateTrainingProgramDto,
   CreateTrainingScheduleDto,
-  UpdateTrainingScheduleDto,
+  UpdateTrainingScheduleDto, 
   UpdateAttendeeStatusDto,
-} from './dto/training.dto';
-
+  SubmitTrainingFeedbackDto,
+  PaginatedFeedbackResponse
+  } from './dto/training.dto';
 @Injectable()
 export class TrainingService {
   constructor(private readonly db: DatabaseService) {}
@@ -225,7 +226,13 @@ export class TrainingService {
           )
         )
         .limit(1);
-      myEnrollment = enrollment || null;
+      myEnrollment = enrollment ? {
+        id: enrollment.id,
+        status: enrollment.status,
+        feedbackRating: enrollment.feedbackRating,
+        feedbackComments: enrollment.feedbackComments,
+        feedbackSubmittedAt: enrollment.feedbackSubmittedAt,
+      } : null;
     }
 
     const attendees = await this.db.db
@@ -315,9 +322,9 @@ export class TrainingService {
     return inserted;
   }
 
-  async enrollOrgUnit(scheduleId: string, orgUnitId: string, processorId: string | null) {
-    // 1. Security Check: If processor is not an admin, they must have authority over the target org unit
-    if (processorId) {
+  async enrollOrgUnit(scheduleId: string, orgUnitId: string, processorId: string | null, isHr: boolean = false) {
+    // 1. Security Check: If processor is not an HR admin, they must have authority over the target org unit
+    if (processorId && !isHr) {
         const unitFilter = sql`(
             WITH RECURSIVE downline_units AS (
                 SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${processorId} AND deleted_at IS NULL
@@ -355,7 +362,7 @@ export class TrainingService {
         .where(and(
           inArray(employees.orgUnitId, orgUnitIds),
           isNull(employees.deletedAt),
-          inArray(employees.status, ['ACTIVE', 'PROBATION'])
+          inArray(employees.status, ['ACTIVE', 'PROBATION', 'SUSPENDED'])
         ));
 
       if (!targetEmployees.length) return { count: 0 };
@@ -425,7 +432,111 @@ export class TrainingService {
       programTitle: e.program.title,
       programType: e.program.type,
       isMandatory: e.program.isMandatory,
+      feedbackRating: e.enrollment.feedbackRating,
+      feedbackComments: e.enrollment.feedbackComments,
+      feedbackSubmittedAt: e.enrollment.feedbackSubmittedAt,
     }));
+  }
+
+  async submitFeedback(scheduleId: string, employeeId: string, data: SubmitTrainingFeedbackDto) {
+    // 1. Verify enrollment and completion
+    const [enrollment] = await this.db.db
+      .select()
+      .from(trainingEnrollments)
+      .where(and(
+        eq(trainingEnrollments.scheduleId, scheduleId),
+        eq(trainingEnrollments.employeeId, employeeId),
+        eq(trainingEnrollments.status, 'COMPLETED')
+      ))
+      .limit(1);
+
+    if (!enrollment) {
+      throw new UnauthorizedException('You can only provide feedback for completed trainings');
+    }
+
+    const [updated] = await this.db.db
+      .update(trainingEnrollments)
+      .set({
+        feedbackRating: data.rating,
+        feedbackComments: data.comments ?? null,
+        feedbackSubmittedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(trainingEnrollments.id, enrollment.id))
+      .returning();
+
+    return updated;
+  }
+
+  async getTrainingFeedback(options: { offset?: number; limit?: number; programId?: string } = {}): Promise<PaginatedFeedbackResponse> {
+    const { offset = 0, limit = 20, programId } = options;
+
+    const whereClauses: (SQL<unknown> | undefined)[] = [
+      sql`${trainingEnrollments.feedbackRating} IS NOT NULL`
+    ];
+
+    if (programId) {
+      whereClauses.push(eq(trainingSchedules.programId, programId));
+    }
+
+    const trainers = this.db.db.$with('trainers').as(
+      this.db.db
+        .select({
+          id: employees.id,
+          name: sql<string>`${employees.firstName} || ' ' || ${employees.lastName}`.as('name')
+        })
+        .from(employees)
+    );
+
+    const [countResult, avgResult] = await Promise.all([
+      this.db.db
+        .select({ count: sql<number>`cast(count(${trainingEnrollments.id}) as int)` })
+        .from(trainingEnrollments)
+        .innerJoin(trainingSchedules, eq(trainingEnrollments.scheduleId, trainingSchedules.id))
+        .where(and(...whereClauses)),
+      this.db.db
+        .select({ avg: sql<number>`cast(avg(cast(${trainingEnrollments.feedbackRating} as float)) as float)` })
+        .from(trainingEnrollments)
+        .innerJoin(trainingSchedules, eq(trainingEnrollments.scheduleId, trainingSchedules.id))
+        .where(and(...whereClauses))
+    ]);
+
+    const total = countResult[0]?.count ?? 0;
+    const averageRating = avgResult[0]?.avg ?? 0;
+
+    const data = await this.db.db
+      .with(trainers)
+      .select({
+        id: trainingEnrollments.id,
+        programTitle: trainingPrograms.title,
+        scheduleId: trainingSchedules.id,
+        employeeName: sql<string>`${employees.firstName} || ' ' || ${employees.lastName}`,
+        employeeNo: employees.employeeNo,
+        trainerName: sql<string>`COALESCE(${trainers.name}, ${trainingSchedules.externalTrainer})`,
+        rating: sql<number>`cast(${trainingEnrollments.feedbackRating} as int)`,
+        comments: trainingEnrollments.feedbackComments,
+        submittedAt: trainingEnrollments.feedbackSubmittedAt,
+        sessionDate: trainingSchedules.startAt,
+      })
+      .from(trainingEnrollments)
+      .innerJoin(trainingSchedules, eq(trainingEnrollments.scheduleId, trainingSchedules.id))
+      .innerJoin(trainingPrograms, eq(trainingSchedules.programId, trainingPrograms.id))
+      .innerJoin(employees, eq(trainingEnrollments.employeeId, employees.id))
+      .leftJoin(trainers, eq(trainingSchedules.trainerId, trainers.id))
+      .where(and(...whereClauses))
+      .orderBy(desc(trainingEnrollments.feedbackSubmittedAt))
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      data: data.map(d => ({
+        ...d,
+        submittedAt: d.submittedAt!, // We filtered for not null
+      })),
+      total,
+      averageRating,
+      hasMore: offset + limit < total,
+    };
   }
 
   // --- Training Programs (Templates) ---
@@ -783,9 +894,9 @@ export class TrainingService {
     });
   }
 
-  async addAttendee(scheduleId: string, employeeId: string, processorId: string | null) {
-    // 1. Security Check: If processor is not an admin, they must have downline authority
-    if (processorId) {
+  async addAttendee(scheduleId: string, employeeId: string, processorId: string | null, isHr: boolean = false) {
+    // 1. Security Check: If processor is not an HR admin, they must have downline authority
+    if (processorId && !isHr) {
         const unitFilter = sql`(
             WITH RECURSIVE downline_units AS (
                 SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${processorId} AND deleted_at IS NULL
@@ -801,6 +912,7 @@ export class TrainingService {
             .where(and(
                 eq(employees.id, employeeId),
                 isNull(employees.deletedAt),
+                inArray(employees.status, ['ACTIVE', 'PROBATION', 'SUSPENDED']),
                 or(
                     eq(employees.supervisorId, processorId),
                     inArray(employees.orgUnitId, unitFilter)
@@ -869,7 +981,7 @@ export class TrainingService {
     });
   }
 
-  async enrollAllEligible(scheduleId: string, processorId: string | null) {
+  async enrollAllEligible(scheduleId: string, processorId: string | null, isHr: boolean = false) {
     // 1. Get Program context via Schedule
     const [row] = await this.db.db
       .select({
@@ -901,11 +1013,11 @@ export class TrainingService {
     // (Global OR matched Position OR matched Org Unit)
     const targetConditions: (SQL<unknown> | undefined)[] = [
         isNull(employees.deletedAt),
-        inArray(employees.status, ['ACTIVE', 'PROBATION'])
+        inArray(employees.status, ['ACTIVE', 'PROBATION', 'SUSPENDED'])
     ];
 
-    // If processor is not admin, they can ONLY enroll their downline
-    if (processorId) {
+    // If processor is not HR admin, they can ONLY enroll their downline
+    if (processorId && !isHr) {
         const authorityFilter = sql`(
             WITH RECURSIVE downline_units AS (
                 SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${processorId} AND deleted_at IS NULL

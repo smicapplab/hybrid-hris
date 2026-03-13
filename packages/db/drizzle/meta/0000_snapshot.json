@@ -1,5 +1,5 @@
 {
-  "id": "4877765a-e389-446f-81e8-09e16332e16d",
+  "id": "73488cd8-d2ee-43dc-a744-e5c1a7bb49b3",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -6656,6 +6656,24 @@
         "processed_by_id": {
           "name": "processed_by_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "feedback_rating": {
+          "name": "feedback_rating",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "feedback_comments": {
+          "name": "feedback_comments",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "feedback_submitted_at": {
+          "name": "feedback_submitted_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },

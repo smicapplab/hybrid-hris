@@ -81,12 +81,35 @@ export async function seedSystem() {
         code: 'STD_POLICY', name: 'Standard Leave Policy', isDefault: true, isActive: true, effectiveFrom: '2020-01-01'
     }).onConflictDoNothing().returning();
 
+    const [probPolicy] = await db.insert(leavePolicies).values({
+        code: 'PROB_POLICY', name: 'Probationary Policy', isDefault: false, isActive: true, effectiveFrom: '2020-01-01'
+    }).onConflictDoNothing().returning();
+
+    const [contractPolicy] = await db.insert(leavePolicies).values({
+        code: 'CONTRACT_POLICY', name: 'Contractual / Consultant Policy', isDefault: false, isActive: true, effectiveFrom: '2020-01-01'
+    }).onConflictDoNothing().returning();
+
     const policyId = stdPolicy?.id || (await db.select().from(leavePolicies).where(eq(leavePolicies.code, 'STD_POLICY')))[0].id;
+    const probPolicyId = probPolicy?.id || (await db.select().from(leavePolicies).where(eq(leavePolicies.code, 'PROB_POLICY')))[0].id;
+    const contractPolicyId = contractPolicy?.id || (await db.select().from(leavePolicies).where(eq(leavePolicies.code, 'CONTRACT_POLICY')))[0].id;
 
     if (vlType && slType) {
+        // Standard Rules
         await db.insert(leavePolicyRules).values([
             { policyId, leaveTypeId: vlType.id, accrualMethod: 'MONTHLY', accrualRatePerMonth: '1.25', maxBalance: '30' },
             { policyId, leaveTypeId: slType.id, accrualMethod: 'MONTHLY', accrualRatePerMonth: '1.25', maxBalance: '15' },
+        ]).onConflictDoNothing();
+
+        // Probationary Rules (Example: lower accrual or lower max balance)
+        await db.insert(leavePolicyRules).values([
+            { policyId: probPolicyId, leaveTypeId: vlType.id, accrualMethod: 'MONTHLY', accrualRatePerMonth: '0.833', maxBalance: '5' },
+            { policyId: probPolicyId, leaveTypeId: slType.id, accrualMethod: 'MONTHLY', accrualRatePerMonth: '0.833', maxBalance: '5' },
+        ]).onConflictDoNothing();
+
+        // Contractual (Example: No accruals, usually just SL/VL but maybe unpaid or fixed - for now let's just seed a record with 0 accrual)
+        await db.insert(leavePolicyRules).values([
+            { policyId: contractPolicyId, leaveTypeId: vlType.id, accrualMethod: 'MONTHLY', accrualRatePerMonth: '0', maxBalance: '0' },
+            { policyId: contractPolicyId, leaveTypeId: slType.id, accrualMethod: 'MONTHLY', accrualRatePerMonth: '0', maxBalance: '0' },
         ]).onConflictDoNothing();
     }
 

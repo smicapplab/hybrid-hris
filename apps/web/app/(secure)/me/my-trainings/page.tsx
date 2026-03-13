@@ -25,6 +25,9 @@ export interface MyTraining {
   startAt: string;
   endAt: string;
   status: string;
+  feedbackRating: string | null;
+  feedbackComments: string | null;
+  feedbackSubmittedAt: string | null;
 }
 
 export default function MyTrainingsPage() {
