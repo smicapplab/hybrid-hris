@@ -14,6 +14,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard'
 import { RolesGuard } from 'src/auth/guards/roles.guard'
 import { Roles } from 'src/auth/decorators/roles.decorator'
 import { SystemRole, AccrualMethod } from '@hybrid-hris/domain'
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator'
 
 import { LeavePoliciesService } from './leave-policies.service'
 
@@ -66,8 +67,9 @@ export class LeavePoliciesController {
             effectiveFrom: string
             effectiveTo?: string
         },
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.create(body)
+        return this.service.create(body, actorId)
     }
 
     @UseGuards(RolesGuard)
@@ -83,29 +85,39 @@ export class LeavePoliciesController {
             effectiveFrom?: string
             effectiveTo?: string | null
         },
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.update(id, body)
+        return this.service.update(id, body, actorId)
     }
 
     @UseGuards(RolesGuard)
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     @Delete(':id')
-    async deactivate(@Param('id') id: string) {
-        return this.service.deactivate(id)
+    async deactivate(
+        @Param('id') id: string,
+        @CurrentUser('id') actorId: string,
+    ) {
+        return this.service.deactivate(id, actorId)
     }
 
     @UseGuards(RolesGuard)
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     @Patch(':id/activate')
-    async activate(@Param('id') id: string) {
-        return this.service.activate(id)
+    async activate(
+        @Param('id') id: string,
+        @CurrentUser('id') actorId: string,
+    ) {
+        return this.service.activate(id, actorId)
     }
 
     @UseGuards(RolesGuard)
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     @Patch(':id/set-default')
-    async setDefault(@Param('id') id: string) {
-        return this.service.setDefault(id)
+    async setDefault(
+        @Param('id') id: string,
+        @CurrentUser('id') actorId: string,
+    ) {
+        return this.service.setDefault(id, actorId)
     }
 
     // ─── Policy Rules ────────────────────────────────────────────────────────────

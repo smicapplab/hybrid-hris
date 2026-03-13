@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
+import { AuditService } from '../audit/audit.service';
 import {
   trainingPrograms,
   trainingProgramSkills,
@@ -32,7 +33,10 @@ import {
   } from './dto/training.dto';
 @Injectable()
 export class TrainingService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async getTeamCompliance(
     managerEmployeeId: string,
@@ -262,7 +266,7 @@ export class TrainingService {
     };
   }
 
-  async enroll(scheduleId: string, employeeId: string) {
+  async enroll(scheduleId: string, employeeId: string, actorId?: string) {
     const schedule = await this.db.db
       .select()
       .from(trainingSchedules)
@@ -301,11 +305,24 @@ export class TrainingService {
 
     if (existing.length) {
       if (existing[0].status === 'CANCELLED') {
-        return (await this.db.db
+        const [updated] = await this.db.db
           .update(trainingEnrollments)
           .set({ status: 'ENROLLED', enrolledAt: new Date(), updatedAt: new Date() })
           .where(eq(trainingEnrollments.id, existing[0].id))
-          .returning())[0];
+          .returning();
+
+        if (actorId && updated) {
+          await this.auditService.log({
+            userId: actorId,
+            action: 'UPDATE',
+            entityType: 'TRAINING_ENROLLMENT',
+            entityId: updated.id,
+            oldValue: existing[0],
+            newValue: updated,
+            metadata: { action: 'RE-ENROLL' }
+          });
+        }
+        return updated;
       }
       throw new ConflictException('You are already enrolled in this session');
     }
@@ -318,6 +335,16 @@ export class TrainingService {
         status: 'ENROLLED',
       })
       .returning();
+
+    if (actorId && inserted) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'CREATE',
+        entityType: 'TRAINING_ENROLLMENT',
+        entityId: inserted.id,
+        newValue: inserted,
+      });
+    }
 
     return inserted;
   }
@@ -390,13 +417,10 @@ export class TrainingService {
     });
   }
 
-  async cancelEnrollment(scheduleId: string, employeeId: string) {
-    const updated = await this.db.db
-      .update(trainingEnrollments)
-      .set({ 
-        status: 'CANCELLED',
-        updatedAt: new Date() 
-      })
+  async cancelEnrollment(scheduleId: string, employeeId: string, actorId?: string) {
+    const existing = await this.db.db
+      .select()
+      .from(trainingEnrollments)
       .where(
         and(
           eq(trainingEnrollments.scheduleId, scheduleId),
@@ -404,13 +428,34 @@ export class TrainingService {
           eq(trainingEnrollments.status, 'ENROLLED')
         )
       )
-      .returning();
+      .limit(1);
 
-    if (!updated.length) {
+    if (!existing.length) {
       throw new NotFoundException('Active enrollment not found');
     }
 
-    return updated[0];
+    const [updated] = await this.db.db
+      .update(trainingEnrollments)
+      .set({ 
+        status: 'CANCELLED',
+        updatedAt: new Date() 
+      })
+      .where(eq(trainingEnrollments.id, existing[0].id))
+      .returning();
+
+    if (actorId && updated) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'UPDATE',
+        entityType: 'TRAINING_ENROLLMENT',
+        entityId: updated.id,
+        oldValue: existing[0],
+        newValue: updated,
+        metadata: { action: 'CANCEL' }
+      });
+    }
+
+    return updated;
   }
 
   async getMyTrainings(employeeId: string): Promise<MyTrainingInfo[]> {
@@ -590,10 +635,10 @@ export class TrainingService {
     };
   }
 
-  async createProgram(data: CreateTrainingProgramDto) {
+  async createProgram(data: CreateTrainingProgramDto, actorId?: string) {
     const { skillIds, prerequisiteIds, ...programData } = data;
 
-    return await this.db.db.transaction(async (tx) => {
+    const inserted = await this.db.db.transaction(async (tx) => {
       const [inserted] = await tx
         .insert(trainingPrograms)
         .values({
@@ -623,15 +668,38 @@ export class TrainingService {
 
       return inserted;
     });
+
+    if (actorId && inserted) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'CREATE',
+        entityType: 'TRAINING_PROGRAM',
+        entityId: inserted.id,
+        newValue: inserted,
+      });
+    }
+
+    return inserted;
   }
 
   async updateProgram(
     id: string,
-    data: UpdateTrainingProgramDto
+    data: UpdateTrainingProgramDto,
+    actorId?: string
   ) {
     const { skillIds, prerequisiteIds, ...programData } = data;
 
-    return await this.db.db.transaction(async (tx) => {
+    const existing = await this.db.db
+      .select()
+      .from(trainingPrograms)
+      .where(eq(trainingPrograms.id, id))
+      .limit(1);
+
+    if (!existing.length) {
+      throw new NotFoundException('Training program not found');
+    }
+
+    const updated = await this.db.db.transaction(async (tx) => {
       const [updated] = await tx
         .update(trainingPrograms)
         .set({
@@ -640,10 +708,6 @@ export class TrainingService {
         })
         .where(eq(trainingPrograms.id, id))
         .returning();
-
-      if (!updated) {
-        throw new NotFoundException('Training program not found');
-      }
 
       if (skillIds !== undefined) {
         await tx.delete(trainingProgramSkills).where(eq(trainingProgramSkills.programId, id));
@@ -672,6 +736,20 @@ export class TrainingService {
 
       return updated;
     });
+
+    if (actorId && updated) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'UPDATE',
+        entityType: 'TRAINING_PROGRAM',
+        entityId: id,
+        oldValue: existing[0],
+        newValue: updated,
+        metadata: { dto: data }
+      });
+    }
+
+    return updated;
   }
 
   // --- Training Schedules (Instances) ---
@@ -822,9 +900,18 @@ export class TrainingService {
     enrollmentId: string,
     data: UpdateAttendeeStatusDto,
     processorId: string | null,
+    actorId?: string,
     tx?: Tx
   ) {
     const db = tx || this.db.db;
+
+    const existing = await db
+      .select()
+      .from(trainingEnrollments)
+      .where(eq(trainingEnrollments.id, enrollmentId))
+      .limit(1);
+
+    if (!existing.length) throw new NotFoundException('Enrollment not found');
 
     const [enrollment] = await db
       .update(trainingEnrollments)
@@ -838,7 +925,17 @@ export class TrainingService {
       .where(eq(trainingEnrollments.id, enrollmentId))
       .returning();
 
-    if (!enrollment) throw new NotFoundException('Enrollment not found');
+    if (actorId && enrollment) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'UPDATE',
+        entityType: 'TRAINING_ENROLLMENT',
+        entityId: enrollmentId,
+        oldValue: existing[0],
+        newValue: enrollment,
+        metadata: { dto: data }
+      });
+    }
 
     if (data.status === 'COMPLETED') {
       const results = await db
@@ -885,11 +982,12 @@ export class TrainingService {
   async bulkUpdateAttendeeStatus(
     enrollmentIds: string[],
     data: UpdateAttendeeStatusDto,
-    processorId: string | null
+    processorId: string | null,
+    actorId?: string
   ) {
     return await this.db.db.transaction(async (tx) => {
       return await Promise.all(
-        enrollmentIds.map(id => this.updateAttendeeStatus(id, data, processorId, tx))
+        enrollmentIds.map(id => this.updateAttendeeStatus(id, data, processorId, actorId, tx))
       );
     });
   }

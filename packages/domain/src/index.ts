@@ -1,6 +1,7 @@
 export * from './enum/system-role.enum'
 export * from './enum/employee.enum'
 export * from './enum/shift.enums'
+export * from './enum/attendance.enums'
 export * from './enum/timezone.enum'
 export * from './enum/leave.enums'
 export * from './enum/expense.enums'

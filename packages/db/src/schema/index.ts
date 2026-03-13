@@ -7,6 +7,8 @@ export * from './roles';
 export * from './user-roles';
 export * from './user-refresh-tokens';
 export * from './user-identities';
+export * from './audit-logs';
+export * from './overtime-requests';
 export * from './positions';
 export * from './org-units';
 export * from './org-unit-positions';

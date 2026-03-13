@@ -8,6 +8,7 @@ import {
     uniqueIndex,
     index,
 } from 'drizzle-orm/pg-core';
+import { holidayTypeEnum } from './enums';
 
 export const holidays = pgTable(
     'holidays',
@@ -17,6 +18,8 @@ export const holidays = pgTable(
         date: date('date').notNull(),
 
         name: varchar('name', { length: 150 }).notNull(),
+
+        type: holidayTypeEnum('type').default('REGULAR').notNull(),
 
         countryCode: varchar('country_code', { length: 10 })
             .default('PH')

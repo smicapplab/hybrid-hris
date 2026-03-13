@@ -8,10 +8,14 @@ import { DatabaseService } from 'src/database/database.service'
 import { leavePolicies, leavePolicyRules, leaveTypes, employeeLeavePolicies, employees } from '@hybrid-hris/db/schema'
 import { AccrualMethod } from '@hybrid-hris/domain'
 import { and, eq, ilike, or, asc, sql, isNull, SQL } from 'drizzle-orm'
+import { AuditService } from '../audit/audit.service'
 
 @Injectable()
 export class LeavePoliciesService {
-    constructor(private readonly db: DatabaseService) { }
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly auditService: AuditService,
+    ) { }
 
     // ─── Policies ───────────────────────────────────────────────────────────────
 
@@ -154,7 +158,7 @@ export class LeavePoliciesService {
         description?: string
         effectiveFrom: string
         effectiveTo?: string
-    }) {
+    }, actorId?: string) {
         const existing = await this.db.db
             .select({ id: leavePolicies.id })
             .from(leavePolicies)
@@ -177,7 +181,19 @@ export class LeavePoliciesService {
             })
             .returning()
 
-        return inserted[0]
+        const policy = inserted[0]
+
+        if (actorId && policy) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'CREATE',
+                entityType: 'LEAVE_POLICY',
+                entityId: policy.id,
+                newValue: policy,
+            });
+        }
+
+        return policy
     }
 
     async update(
@@ -189,6 +205,7 @@ export class LeavePoliciesService {
             effectiveFrom?: string
             effectiveTo?: string | null
         },
+        actorId?: string,
     ) {
         const existing = await this.getById(id)
 
@@ -210,54 +227,102 @@ export class LeavePoliciesService {
                 ...data,
                 updatedAt: new Date(),
             })
-            .where(eq(leavePolicies.id, existing.id))
+            .where(eq(leavePolicies.id, id))
             .returning()
 
-        return updated[0]
+        const policy = updated[0]
+
+        if (actorId && policy) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'UPDATE',
+                entityType: 'LEAVE_POLICY',
+                entityId: id,
+                oldValue: existing,
+                newValue: policy,
+            });
+        }
+
+        return policy
     }
 
-    async deactivate(id: string) {
+    async deactivate(id: string, actorId?: string) {
         const existing = await this.getById(id)
 
-        await this.db.db
+        const updatedRows = await this.db.db
             .update(leavePolicies)
             .set({ isActive: false, updatedAt: new Date() })
-            .where(eq(leavePolicies.id, existing.id))
+            .where(eq(leavePolicies.id, id))
+            .returning()
+
+        if (actorId && updatedRows[0]) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'DEACTIVATE',
+                entityType: 'LEAVE_POLICY',
+                entityId: id,
+                oldValue: existing,
+                newValue: updatedRows[0],
+            });
+        }
 
         return { success: true }
     }
 
-    async activate(id: string) {
+    async activate(id: string, actorId?: string) {
         const existing = await this.getById(id)
 
-        await this.db.db
+        const updatedRows = await this.db.db
             .update(leavePolicies)
             .set({ isActive: true, updatedAt: new Date() })
-            .where(eq(leavePolicies.id, existing.id))
+            .where(eq(leavePolicies.id, id))
+            .returning()
+
+        if (actorId && updatedRows[0]) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'ACTIVATE',
+                entityType: 'LEAVE_POLICY',
+                entityId: id,
+                oldValue: existing,
+                newValue: updatedRows[0],
+            });
+        }
 
         return { success: true }
     }
-
-    async setDefault(id: string) {
+    async setDefault(id: string, actorId?: string) {
         // Ensure the target policy exists
-        await this.getById(id)
+        const existing = await this.getById(id)
 
-        return this.db.withTransaction(async (tx) => {
+        const result = await this.db.withTransaction(async (tx) => {
             // Clear any existing default first (partial unique index only allows one)
             await tx
                 .update(leavePolicies)
                 .set({ isDefault: false, updatedAt: new Date() })
                 .where(eq(leavePolicies.isDefault, true))
 
-            // Set this policy as the default
-            const updated = await tx
+            const [updated] = await tx
                 .update(leavePolicies)
                 .set({ isDefault: true, updatedAt: new Date() })
                 .where(eq(leavePolicies.id, id))
                 .returning()
-
-            return updated[0]
+            
+            return updated
         })
+
+        if (actorId && result) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'SET_DEFAULT',
+                entityType: 'LEAVE_POLICY',
+                entityId: id,
+                oldValue: existing,
+                newValue: result,
+            });
+        }
+
+        return { success: true }
     }
 
     // ─── Policy Rules ────────────────────────────────────────────────────────────

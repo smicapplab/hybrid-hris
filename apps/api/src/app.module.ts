@@ -7,6 +7,7 @@ import { DatabaseModule } from './database/database.module';
 import { RolesModule } from './identity/roles/roles.module';
 import { IdentityModule } from './identity/identity.module';
 import { CoreModule } from './core/core.module';
+import { AuditModule } from './core/audit/audit.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { ProfileModule } from './profile/profile.module';
 
@@ -18,6 +19,7 @@ import { ProfileModule } from './profile/profile.module';
     RolesModule,
     IdentityModule,
     CoreModule,
+    AuditModule,
     AttendanceModule,
     ProfileModule,
   ],

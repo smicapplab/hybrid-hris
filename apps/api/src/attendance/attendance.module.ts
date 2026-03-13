@@ -3,22 +3,28 @@ import { AttendanceEventsModule } from './attendance-events/attendance-events.mo
 import { ShiftTemplatesModule } from './shift-templates/shift-templates.module';
 import { ShiftAssignmentsModule } from './shift-assignments/shift-assignments.module';
 import { AttendanceAdjustmentsModule } from './attendance-adjustments/attendance-adjustments.module';
-import { AttendanceComputeService } from './attendance-compute/attendance-compute.service';
+import { OvertimeRequestsModule } from './overtime-requests/overtime-requests.module';
+import { AttendanceComputeModule } from './attendance-compute/attendance-compute.module';
+import { CoreModule } from '../core/core.module';
 
 @Module({
     imports: [
+        CoreModule,
         ShiftAssignmentsModule,
         ShiftTemplatesModule,
         AttendanceAdjustmentsModule,
+        OvertimeRequestsModule,
         AttendanceEventsModule,
+        AttendanceComputeModule,
     ],
-    providers: [AttendanceComputeService],
+    providers: [],
     exports: [
         AttendanceEventsModule,
         ShiftTemplatesModule,
         ShiftAssignmentsModule,
         AttendanceAdjustmentsModule,
-        AttendanceComputeService,
+        OvertimeRequestsModule,
+        AttendanceComputeModule,
     ],
 })
 

@@ -165,8 +165,11 @@ export class SkillsController {
 
   @Post('skills')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-  async createSkill(@Body() data: CreateSkillDto) {
-    return this.skillsService.createSkill(data);
+  async createSkill(
+    @Body() data: CreateSkillDto,
+    @CurrentUser('id') actorId: string,
+  ) {
+    return this.skillsService.createSkill(data, actorId);
   }
 
   @Patch('skills/:id')
@@ -174,8 +177,9 @@ export class SkillsController {
   async updateSkill(
     @Param('id') id: string,
     @Body() data: UpdateSkillDto,
+    @CurrentUser('id') actorId: string,
   ) {
-    return this.skillsService.updateSkill(id, data);
+    return this.skillsService.updateSkill(id, data, actorId);
   }
 
   // --- Position Skills (Role Competencies) ---

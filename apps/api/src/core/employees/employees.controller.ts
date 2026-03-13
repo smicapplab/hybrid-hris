@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common'
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common'
 import { EmployeesService } from './employees.service'
 import { EmployeeFilterDto } from './dto/employee-filter.dto'
 import { CreateEmployeeDto } from './dto/create-employee.dto'
@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { Roles } from '../../auth/decorators/roles.decorator'
 import { SystemRole } from '@hybrid-hris/domain'
 import { ChangeEmployeeStatusDto } from './dto/change-employee-status.dto'
+import { CurrentUser } from '../../auth/decorators/current-user.decorator'
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('employees')
@@ -44,8 +45,11 @@ export class EmployeesController {
 
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     @Post()
-    async create(@Body() dto: CreateEmployeeDto) {
-        return this.employeesService.create(dto)
+    async create(
+        @Body() dto: CreateEmployeeDto,
+        @CurrentUser('id') actorId: string,
+    ) {
+        return this.employeesService.create(dto, actorId)
     }
 
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
@@ -53,8 +57,9 @@ export class EmployeesController {
     async update(
         @Param('id') id: string,
         @Body() dto: UpdateEmployeeDto,
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.employeesService.update(id, dto)
+        return this.employeesService.update(id, dto, actorId)
     }
 
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
@@ -62,7 +67,17 @@ export class EmployeesController {
     async changeStatus(
         @Param('id') id: string,
         @Body() dto: ChangeEmployeeStatusDto,
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.employeesService.changeStatus(id, dto.status)
+        return this.employeesService.changeStatus(id, dto.status, actorId)
+    }
+
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+    @Delete(':id')
+    async remove(
+        @Param('id') id: string,
+        @CurrentUser('id') actorId: string,
+    ) {
+        return this.employeesService.softDelete(id, actorId)
     }
 }

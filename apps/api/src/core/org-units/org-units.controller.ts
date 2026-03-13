@@ -14,6 +14,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { SystemRole } from '@hybrid-hris/domain';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @Controller('org-units')
 @UseGuards(JwtAuthGuard)
@@ -54,8 +55,11 @@ export class OrgUnitsController {
     @Post()
     @UseGuards(RolesGuard)
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-    create(@Body() body: { name: string; code: string; parentId?: string | null }) {
-        return this.service.createOrgUnit(body);
+    create(
+        @Body() body: { name: string; code: string; parentId?: string | null },
+        @CurrentUser('id') actorId: string,
+    ) {
+        return this.service.createOrgUnit(body, actorId);
     }
 
     @Patch(':id')
@@ -70,22 +74,29 @@ export class OrgUnitsController {
             parentId?: string | null;
             isActive?: boolean;
         },
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.updateOrgUnit(id, body);
+        return this.service.updateOrgUnit(id, body, actorId);
     }
 
     @Delete(':id')
     @UseGuards(RolesGuard)
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-    remove(@Param('id') id: string) {
-        return this.service.softDeleteOrgUnit(id);
+    remove(
+        @Param('id') id: string,
+        @CurrentUser('id') actorId: string,
+    ) {
+        return this.service.softDeleteOrgUnit(id, actorId);
     }
 
     @Patch(':id/restore')
     @UseGuards(RolesGuard)
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-    restore(@Param('id') id: string) {
-        return this.service.restoreOrgUnit(id);
+    restore(
+        @Param('id') id: string,
+        @CurrentUser('id') actorId: string,
+    ) {
+        return this.service.restoreOrgUnit(id, actorId);
     }
 
     @Get(':id/positions')

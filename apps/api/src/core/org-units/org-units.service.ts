@@ -3,6 +3,7 @@ import { DatabaseService } from 'src/database/database.service'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { InferSelectModel } from 'drizzle-orm'
 import { orgUnits, employees, positions, orgUnitPositions, orgUnitLeaders } from '@hybrid-hris/db/schema'
+import { AuditService } from '../audit/audit.service'
 
 type OrgUnit = InferSelectModel<typeof orgUnits>
 
@@ -13,7 +14,10 @@ export interface OrgUnitNode extends OrgUnit {
 
 @Injectable()
 export class OrgUnitsService {
-  constructor(private readonly db: DatabaseService) { }
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly auditService: AuditService,
+  ) { }
 
   async getFlat(showDeleted = false, leavesOnly = false, search?: string): Promise<OrgUnit[]> {
     let query = this.db.db.select().from(orgUnits).$dynamic();
@@ -102,7 +106,7 @@ export class OrgUnitsService {
     name: string
     code: string
     parentId?: string | null
-  }): Promise<OrgUnit> {
+  }, actorId?: string): Promise<OrgUnit> {
     const inserted = await this.db.db
       .insert(orgUnits)
       .values({
@@ -112,7 +116,19 @@ export class OrgUnitsService {
       })
       .returning()
 
-    return inserted[0]
+    const org = inserted[0]
+
+    if (actorId && org) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'CREATE',
+        entityType: 'ORG_UNIT',
+        entityId: org.id,
+        newValue: org,
+      });
+    }
+
+    return org
   }
 
   async updateOrgUnit(
@@ -123,6 +139,7 @@ export class OrgUnitsService {
       parentId?: string | null
       isActive?: boolean
     },
+    actorId?: string,
   ): Promise<OrgUnit> {
     const existing = await this.getById(id)
     if (!existing) throw new NotFoundException('Org unit not found')
@@ -133,32 +150,58 @@ export class OrgUnitsService {
       .where(eq(orgUnits.id, id))
       .returning()
 
-    return updated[0]
+    const org = updated[0]
+
+    if (actorId && org) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'UPDATE',
+        entityType: 'ORG_UNIT',
+        entityId: id,
+        oldValue: existing,
+        newValue: org,
+        metadata: { data }
+      });
+    }
+
+    return org
   }
 
-  async softDeleteOrgUnit(id: string): Promise<{ success: true }> {
+  async softDeleteOrgUnit(id: string, actorId?: string): Promise<{ success: true }> {
     const existing = await this.getById(id)
     if (!existing) throw new NotFoundException('Org unit not found')
 
     const children = await this.db.db
       .select({ id: orgUnits.id })
       .from(orgUnits)
-      .where(eq(orgUnits.parentId, id))
+      .where(and(eq(orgUnits.parentId, id), isNull(orgUnits.deletedAt)))
       .limit(1)
 
     if (children.length) {
       throw new BadRequestException('Cannot delete org unit with child units')
     }
 
-    await this.db.db
+    const updatedRows = await this.db.db
       .update(orgUnits)
       .set({ deletedAt: new Date(), isActive: false, updatedAt: new Date() })
       .where(eq(orgUnits.id, id))
+      .returning()
+
+    if (actorId && updatedRows[0]) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'DELETE',
+        entityType: 'ORG_UNIT',
+        entityId: id,
+        oldValue: existing,
+        newValue: updatedRows[0],
+      });
+    }
 
     return { success: true }
   }
 
-  async restoreOrgUnit(id: string): Promise<{ success: true }> {
+  async restoreOrgUnit(id: string, actorId?: string): Promise<{ success: true }> {
     const existing = await this.db.db
       .select()
       .from(orgUnits)
@@ -169,10 +212,22 @@ export class OrgUnitsService {
       throw new NotFoundException('Org unit not found')
     }
 
-    await this.db.db
+    const updatedRows = await this.db.db
       .update(orgUnits)
       .set({ deletedAt: null, isActive: true, updatedAt: new Date() })
       .where(eq(orgUnits.id, id))
+      .returning()
+
+    if (actorId && updatedRows[0]) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'RESTORE',
+        entityType: 'ORG_UNIT',
+        entityId: id,
+        oldValue: existing[0],
+        newValue: updatedRows[0],
+      });
+    }
 
     return { success: true }
   }

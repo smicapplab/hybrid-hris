@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
+import { AuditService } from '../audit/audit.service';
 import { 
   skillCategories, 
   skills, 
@@ -38,7 +39,10 @@ import {
 
 @Injectable()
 export class SkillsService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async getEmployeeTalentCard(employeeId: string, managerEmployeeId: string, isHr: boolean = false): Promise<TalentCardData> {
     const whereClauses: (SQL<unknown> | undefined)[] = [
@@ -606,7 +610,7 @@ export class SkillsService {
       .orderBy(asc(skills.name));
   }
 
-  async createSkill(data: CreateSkillDto) {
+  async createSkill(data: CreateSkillDto, actorId?: string) {
     const existing = await this.db.db
       .select({ id: skills.id })
       .from(skills)
@@ -629,13 +633,34 @@ export class SkillsService {
       })
       .returning();
 
+    if (actorId && inserted) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'CREATE',
+        entityType: 'SKILL',
+        entityId: inserted.id,
+        newValue: inserted,
+      });
+    }
+
     return inserted;
   }
 
   async updateSkill(
     id: string,
     data: UpdateSkillDto,
+    actorId?: string,
   ) {
+    const existing = await this.db.db
+      .select()
+      .from(skills)
+      .where(eq(skills.id, id))
+      .limit(1);
+
+    if (!existing.length) {
+      throw new NotFoundException('Skill not found');
+    }
+
     const [updated] = await this.db.db
       .update(skills)
       .set({
@@ -645,8 +670,15 @@ export class SkillsService {
       .where(eq(skills.id, id))
       .returning();
 
-    if (!updated) {
-      throw new NotFoundException('Skill not found');
+    if (actorId && updated) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'UPDATE',
+        entityType: 'SKILL',
+        entityId: id,
+        oldValue: existing[0],
+        newValue: updated,
+      });
     }
 
     return updated;

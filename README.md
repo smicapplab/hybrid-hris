@@ -119,8 +119,12 @@ pnpm --filter web dev
 ---
 
 ## 🗺 Roadmap
-- [ ] **System Audit Logs:** Global traceability for every sensitive change (who, what, when, old vs new values).
-- [ ] **Time & Attendance Refinement:** Formalized Overtime (OT) workflows, Holiday Calendar management, and shift differential logic.
+
+### 🎯 Completed Recently
+- [x] **System Audit Logs (#6):** Global traceability for every sensitive change (who, what, when, old vs new values).
+- [x] **Time & Attendance Refinement (#2):** Formalized Overtime (OT) workflows, Holiday Calendar management, and shift differential logic.
+
+### 🚀 Future Enhancements
 - [ ] **Payroll & Compensation:** Base pay tracking, government-mandated deductions (PH context), and immutable salary history.
 - [ ] **Performance Management:** Annual review cycles, KPI/OKR tracking, and 360-degree feedback loops.
 - [ ] **Notification Engine:** In-app, Email, and Slack alerts for pending approvals and critical events.

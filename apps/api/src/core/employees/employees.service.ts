@@ -8,6 +8,7 @@ import { employees, leavePolicies, employeeLeavePolicies, userRoles, users } fro
 import { InferSelectModel, eq, and, isNull } from 'drizzle-orm'
 import { DatabaseService } from 'src/database/database.service'
 import { Tx } from 'src/database/database.types'
+import { AuditService } from '../audit/audit.service'
 
 type EmployeeDbStatus = InferSelectModel<typeof employees>['status']
 
@@ -16,6 +17,7 @@ export class EmployeesService {
     constructor(
         private readonly employeesRepository: EmployeesRepository,
         private readonly db: DatabaseService,
+        private readonly auditService: AuditService,
     ) { }
 
     private readonly allowedStatusTransitions: Record<EmployeeDbStatus, readonly EmployeeDbStatus[]> = {
@@ -103,11 +105,11 @@ export class EmployeesService {
         }
     }
 
-    async create(dto: CreateEmployeeDto) {
+    async create(dto: CreateEmployeeDto, actorId?: string) {
         const hireDate = new Date(dto.hireDate)
         hireDate.setHours(0, 0, 0, 0)
 
-        return this.db.withTransaction(async (tx) => {
+        const employee = await this.db.withTransaction(async (tx) => {
             const employeeNo = dto.employeeNo ?? await this.generateEmployeeNo(tx)
 
             if (!await this.employeesRepository.findPositionById(tx, dto.positionId)) {
@@ -197,10 +199,22 @@ export class EmployeesService {
 
             return employee
         })
+
+        if (employee && actorId) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'CREATE',
+                entityType: 'EMPLOYEE',
+                entityId: employee.id,
+                newValue: employee,
+            });
+        }
+
+        return employee
     }
 
-    async update(id: string, dto: UpdateEmployeeDto) {
-        return this.db.withTransaction(async (tx) => {
+    async update(id: string, dto: UpdateEmployeeDto, actorId?: string) {
+        const result = await this.db.withTransaction(async (tx) => {
             const existing = await this.employeesRepository.findEmployee(tx, id)
 
             if (!existing) {
@@ -419,12 +433,26 @@ export class EmployeesService {
                 }
             }
 
-            return updated
+            return { existing, updated }
         })
+
+        if (actorId && result.updated) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'UPDATE',
+                entityType: 'EMPLOYEE',
+                entityId: id,
+                oldValue: result.existing,
+                newValue: result.updated,
+                metadata: { dto }
+            });
+        }
+
+        return result.updated
     }
 
-    async changeStatus(id: string, status: EmployeeDbStatus) {
-        return this.db.withTransaction(async (tx) => {
+    async changeStatus(id: string, status: EmployeeDbStatus, actorId?: string) {
+        const result = await this.db.withTransaction(async (tx) => {
             const employee = await this.employeesRepository.findEmployee(tx, id)
 
             if (!employee) {
@@ -466,7 +494,7 @@ export class EmployeesService {
 
                 // TODO: Reset leave balances (implement once leave module exists)
 
-                return rehired
+                return { existing: employee, updated: rehired }
             }
 
             if (status === 'TERMINATED') {
@@ -479,19 +507,38 @@ export class EmployeesService {
                 await this.employeesRepository.setUserActive(tx, id, false)
             }
 
-            return this.employeesRepository.updateEmployee(tx, id, {
+            const updated = await this.employeesRepository.updateEmployee(tx, id, {
                 status,
                 updatedAt: new Date(),
             })
+
+            return { existing: employee, updated }
         })
+
+        if (actorId && result.updated) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'STATUS_CHANGE',
+                entityType: 'EMPLOYEE',
+                entityId: id,
+                oldValue: { status: result.existing.status },
+                newValue: { status: result.updated.status },
+            });
+        }
+
+        return result.updated
     }
 
-    async softDelete(id: string) {
-        return this.db.withTransaction(async (tx) => {
+    async softDelete(id: string, actorId?: string) {
+        const result = await this.db.withTransaction(async (tx) => {
             const employee = await this.employeesRepository.findEmployee(tx, id)
 
             if (!employee) {
                 throw new NotFoundException('Employee not found')
+            }
+
+            if (employee.deletedAt) {
+                return null
             }
 
             if (await this.hasActiveSubordinates(tx, id)) {
@@ -502,11 +549,26 @@ export class EmployeesService {
 
             await this.employeesRepository.setUserActive(tx, id, false)
 
-            return this.employeesRepository.updateEmployee(tx, id, {
+            const updated = await this.employeesRepository.updateEmployee(tx, id, {
                 deletedAt: new Date(),
                 status: 'TERMINATED',
                 updatedAt: new Date(),
             })
+
+            return { existing: employee, updated }
         })
+
+        if (actorId && result?.updated) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'DELETE',
+                entityType: 'EMPLOYEE',
+                entityId: id,
+                oldValue: result.existing,
+                newValue: result.updated,
+            });
+        }
+
+        return result?.updated
     }
 }

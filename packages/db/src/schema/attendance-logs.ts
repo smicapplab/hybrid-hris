@@ -7,6 +7,8 @@ import {
     index,
     uniqueIndex,
     date,
+    decimal,
+    varchar,
 } from 'drizzle-orm/pg-core'
 
 import { employees } from './employees'
@@ -39,6 +41,15 @@ export const attendanceLogs = pgTable(
 
         actualInAt: timestamp('actual_in_at', { withTimezone: true }),
         actualOutAt: timestamp('actual_out_at', { withTimezone: true }),
+
+        // Computed values
+        totalHours: decimal('total_hours', { precision: 4, scale: 2 }).default('0').notNull(),
+        nightDiffHours: decimal('night_diff_hours', { precision: 4, scale: 2 }).default('0').notNull(),
+        holidayHours: decimal('holiday_hours', { precision: 4, scale: 2 }).default('0').notNull(),
+        overtimeHours: decimal('overtime_hours', { precision: 4, scale: 2 }).default('0').notNull(),
+        
+        // e.g., 'PRESENT', 'LATE', 'UNDERTIME', 'ABSENT', 'ON_LEAVE'
+        status: varchar('status', { length: 50 }).default('PRESENT').notNull(),
 
         // Source recorded separately for in and out — employee may punch in via kiosk, out via web.
         sourceIn: attendanceSourceEnum('source_in'),

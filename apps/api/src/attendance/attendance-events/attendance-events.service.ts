@@ -18,12 +18,14 @@ import {
     AttendanceSource,
 } from '@hybrid-hris/domain'
 import { ShiftAssignmentsService } from '../shift-assignments/shift-assignments.service'
+import { AttendanceComputeService } from '../attendance-compute/attendance-compute.service'
 
 @Injectable()
 export class AttendanceEventsService {
     constructor(
         private readonly db: DatabaseService,
         private readonly shiftAssignmentsService: ShiftAssignmentsService,
+        private readonly computeService: AttendanceComputeService,
     ) { }
 
     /* ============================================================
@@ -362,6 +364,10 @@ export class AttendanceEventsService {
             })
             .where(eq(attendanceLogs.id, openRow.id))
             .returning()
+
+        if (updated) {
+            await this.computeService.computeForLog(updated.id)
+        }
 
         return updated
     }

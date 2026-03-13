@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { DatabaseService } from 'src/database/database.service'
 import { positions, employees } from '@hybrid-hris/db/schema'
 import { and, eq, ilike, asc, or, sql } from 'drizzle-orm'
+import { AuditService } from '../audit/audit.service'
 
 @Injectable()
 export class PositionsService {
-    constructor(private readonly db: DatabaseService) { }
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly auditService: AuditService,
+    ) { }
 
     async getAll(filters?: {
         active?: boolean
@@ -88,11 +92,14 @@ export class PositionsService {
         return result[0]
     }
 
-    async create(data: {
-        code: string
-        title: string
-        description?: string
-    }) {
+    async create(
+        data: {
+            code: string
+            title: string
+            description?: string
+        },
+        actorId?: string,
+    ) {
         const inserted = await this.db.db
             .insert(positions)
             .values({
@@ -103,7 +110,19 @@ export class PositionsService {
             })
             .returning()
 
-        return inserted[0]
+        const result = inserted[0]
+
+        if (actorId && result) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'CREATE',
+                entityType: 'POSITION',
+                entityId: result.id,
+                newValue: result,
+            })
+        }
+
+        return result
     }
 
     async update(
@@ -114,6 +133,7 @@ export class PositionsService {
             description?: string
             isActive?: boolean
         },
+        actorId?: string,
     ) {
         const existing = await this.getById(id)
 
@@ -126,33 +146,75 @@ export class PositionsService {
             .where(eq(positions.id, existing.id))
             .returning()
 
-        return updated[0]
+        const result = updated[0]
+
+        if (actorId && result) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'UPDATE',
+                entityType: 'POSITION',
+                entityId: id,
+                oldValue: existing,
+                newValue: result,
+            })
+        }
+
+        return result
     }
 
-    async softDelete(id: string) {
+    async softDelete(id: string, actorId?: string) {
         const existing = await this.getById(id)
 
-        await this.db.db
+        const updated = await this.db.db
             .update(positions)
             .set({
                 isActive: false,
                 updatedAt: new Date(),
             })
             .where(eq(positions.id, existing.id))
+            .returning()
+
+        const result = updated[0]
+
+        if (actorId && result) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'DELETE',
+                entityType: 'POSITION',
+                entityId: id,
+                oldValue: existing,
+                newValue: result,
+            })
+        }
 
         return { success: true }
     }
 
-    async restore(id: string) {
+    async restore(id: string, actorId?: string) {
         const existing = await this.getById(id)
 
-        await this.db.db
+        const updated = await this.db.db
             .update(positions)
             .set({
                 isActive: true,
                 updatedAt: new Date(),
             })
             .where(eq(positions.id, existing.id))
+            .returning()
+
+        const result = updated[0]
+
+        if (actorId && result) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'UPDATE',
+                entityType: 'POSITION',
+                entityId: id,
+                oldValue: existing,
+                newValue: result,
+                metadata: { action: 'RESTORE' }
+            })
+        }
 
         return { success: true }
     }
