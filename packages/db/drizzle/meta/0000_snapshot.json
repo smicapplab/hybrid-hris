@@ -1,5 +1,5 @@
 {
-  "id": "b64f04b3-2a87-41e4-a1c0-7e068e43e90b",
+  "id": "319388c9-66ee-40a7-a42f-ff1ddcc85a30",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -6003,6 +6003,94 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.org_unit_mandatory_trainings": {
+      "name": "org_unit_mandatory_trainings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "org_unit_id": {
+          "name": "org_unit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "program_id": {
+          "name": "program_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "org_unit_mandatory_trainings_uq": {
+          "name": "org_unit_mandatory_trainings_uq",
+          "columns": [
+            {
+              "expression": "org_unit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "org_unit_mandatory_trainings_org_unit_id_org_units_id_fk": {
+          "name": "org_unit_mandatory_trainings_org_unit_id_org_units_id_fk",
+          "tableFrom": "org_unit_mandatory_trainings",
+          "tableTo": "org_units",
+          "columnsFrom": [
+            "org_unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "org_unit_mandatory_trainings_program_id_training_programs_id_fk": {
+          "name": "org_unit_mandatory_trainings_program_id_training_programs_id_fk",
+          "tableFrom": "org_unit_mandatory_trainings",
+          "tableTo": "training_programs",
+          "columnsFrom": [
+            "program_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.position_mandatory_trainings": {
       "name": "position_mandatory_trainings",
       "schema": "",
@@ -6762,7 +6850,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "position_skills_position_skill_uq": {
+          "name": "position_skills_position_skill_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "position_id",
+            "skill_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

@@ -102,7 +102,7 @@ export function TeamComplianceTab({ onSelectEmployeeAction }: Props) {
                   )}
                 </TableCell>
                 <TableCell className="w-40">
-                  <div className="space-y-1.5 mx-auto max-w-[120px]">
+                  <div className="space-y-1.5 mx-auto max-w-30">
                     <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
                       <span>{r.completedCount}/{r.requiredCount}</span>
                       <span>{r.requiredCount > 0 ? Math.round((r.completedCount / r.requiredCount) * 100) : 100}%</span>

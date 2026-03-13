@@ -3,8 +3,11 @@
 import { Button } from '@/components/ui/button'
 import type { Position } from '@/types/position.types'
 import { format } from 'date-fns'
-import { Briefcase, Info, Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { Briefcase, Info, Pencil, RotateCcw, Trash2, ListChecks, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { RoleSkillsRequirementPanel } from '@/components/requirements/role-skills-requirement-panel'
+import { MandatoryTrainingRequirementPanel } from '@/components/requirements/mandatory-training-requirement-panel'
 
 type Props = {
     position: Position
@@ -35,11 +38,11 @@ export function PositionDetailPanel({
     onRestoreAction,
 }: Props) {
     return (
-        <div className="h-full overflow-y-auto space-y-4 pr-1">
+        <div className="h-full flex flex-col gap-6 pr-1">
 
             {/* ── Header card ── */}
             <div className={cn(
-                'rounded-xl border p-5 space-y-4',
+                'rounded-xl border p-5 space-y-4 shrink-0',
                 !position.isActive
                     ? 'bg-zinc-50/60 border-zinc-200'
                     : 'bg-linear-to-br from-card to-muted/20 border-border shadow-sm',
@@ -129,15 +132,35 @@ export function PositionDetailPanel({
                 )}
             </div>
 
-            {/* ── Description card ── */}
-            <div className="rounded-xl border bg-card p-5">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">Description</p>
-                {position.description ? (
-                    <p className="text-sm leading-relaxed">{position.description}</p>
-                ) : (
-                    <p className="text-sm italic text-muted-foreground">No description provided.</p>
-                )}
-            </div>
+            {/* ── Content Tabs ── */}
+            <Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
+                <TabsList className="grid w-full grid-cols-2 max-w-100 bg-muted/50 p-1 rounded-lg shrink-0">
+                    <TabsTrigger value="overview" className="gap-2 text-xs font-bold uppercase tracking-tight data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <ListChecks className="w-3.5 h-3.5" /> Overview
+                    </TabsTrigger>
+                    <TabsTrigger value="requirements" className="gap-2 text-xs font-bold uppercase tracking-tight data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <Target className="w-3.5 h-3.5" /> Job Requirements
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="overview" className="mt-4 space-y-4 flex-1 overflow-y-auto outline-hidden">
+                    <div className="rounded-xl border bg-card p-5">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">Description</p>
+                        {position.description ? (
+                            <p className="text-sm leading-relaxed">{position.description}</p>
+                        ) : (
+                            <p className="text-sm italic text-muted-foreground">No description provided.</p>
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="requirements" className="mt-4 space-y-8 flex-1 overflow-y-auto outline-hidden pb-8">
+                    <RoleSkillsRequirementPanel positionId={position.id} />
+                    <div className="pt-4 border-t border-dashed">
+                        <MandatoryTrainingRequirementPanel targetId={position.id} type="position" />
+                    </div>
+                </TabsContent>
+            </Tabs>
         </div>
     )
 }

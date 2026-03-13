@@ -5,13 +5,33 @@ import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import {
   ArrowLeft, Mail, Calendar, Briefcase, GraduationCap,
-  Clock, ShieldAlert, CheckCircle2, UserPlus, Info, MapPin
+  Clock, ShieldAlert, CheckCircle2, UserPlus, Info, MapPin, Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TrainingSchedule } from '@/types/training.types';
+import { 
+    Dialog, 
+    DialogContent, 
+    DialogDescription, 
+    DialogFooter, 
+    DialogHeader, 
+    DialogTitle, 
+    DialogTrigger 
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { 
+    Select, 
+    SelectContent, 
+    SelectItem, 
+    SelectTrigger, 
+    SelectValue 
+} from '@/components/ui/select';
+import { PROFICIENCY_LEVEL_OPTIONS } from '@/lib/employee.enum';
+import { AsyncSearchSelect } from '@/components/ui/async-search-select';
+import { Textarea } from '@/components/ui/textarea';
 
 interface TalentCardData {
   employee: {
@@ -40,6 +60,18 @@ interface TalentCardData {
   };
   upcomingLeaves: { id: string; startDate: string; days: string }[];
   schedule: { startTime: string; endTime: string } | null;
+}
+
+interface SkillOption {
+    id: string;
+    label: string;
+    category: string;
+}
+
+interface TaxonomyCategory {
+    id: string;
+    name: string;
+    skills: { id: string; name: string }[];
 }
 
 type Props = {
@@ -74,14 +106,20 @@ export function EmployeeTalentCard({ employeeId, onBackAction }: Props) {
   return (
     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300 text-foreground">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBackAction} className="text-foreground">
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-foreground">Talent Profile</h2>
-          <p className="text-sm text-muted-foreground">Team Member Performance & Development</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={onBackAction} className="text-foreground">
+            <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">Talent Profile</h2>
+            <p className="text-sm text-muted-foreground">Team Member Performance & Development</p>
+            </div>
         </div>
+        <DirectSkillAssignmentDialog 
+            employeeId={employeeId} 
+            onSuccessAction={loadData} 
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -193,6 +231,65 @@ export function EmployeeTalentCard({ employeeId, onBackAction }: Props) {
                     </div>
                   );
                 })}
+
+                {/* ADDITIONAL SKILLS (Verified but not in baseline) */}
+                {(() => {
+                    const additional = data.skills.actual.filter(s => 
+                        s.verificationStatus === 'VERIFIED' && 
+                        !data.skills.required.some(r => r.skillId === s.skillId)
+                    );
+                    if (additional.length === 0) return null;
+                    return (
+                        <div className="pt-4 space-y-3">
+                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                                <Info className="w-3.5 h-3.5" /> Additional Verified Skills
+                            </h4>
+                            <div className="grid grid-cols-1 gap-2">
+                                {additional.map(s => (
+                                    <div key={s.id} className="flex items-center justify-between p-3 rounded-xl border border-dashed bg-muted/5">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-foreground">{s.skillName}</p>
+                                            <Badge variant="secondary" className="text-[9px] h-4 font-bold mt-1 shadow-none">
+                                                {s.proficiencyLevel}
+                                            </Badge>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-full bg-primary/5 text-primary flex items-center justify-center border border-primary/10">
+                                            <CheckCircle2 className="w-4 h-4" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* PENDING SKILLS (Needs Manager Action) */}
+                {(() => {
+                    const pending = data.skills.actual.filter(s => s.verificationStatus === 'PENDING');
+                    if (pending.length === 0) return null;
+                    return (
+                        <div className="pt-4 space-y-3">
+                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-orange-600 flex items-center gap-2">
+                                <Clock className="w-3.5 h-3.5" /> Awaiting Verification
+                            </h4>
+                            <div className="grid grid-cols-1 gap-2">
+                                {pending.map(s => (
+                                    <div key={s.id} className="flex items-center justify-between p-3 rounded-xl border border-orange-100 bg-orange-50/20">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-foreground">{s.skillName}</p>
+                                            <Badge variant="outline" className="text-[9px] h-4 font-bold mt-1 border-orange-200 text-orange-700">
+                                                Self-Declared: {s.proficiencyLevel}
+                                            </Badge>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center border border-orange-200 animate-pulse">
+                                            <Clock className="w-4 h-4" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })()}
               </div>
             </CardContent>
           </Card>
@@ -256,6 +353,113 @@ export function EmployeeTalentCard({ employeeId, onBackAction }: Props) {
       </div>
     </div>
   );
+}
+
+function DirectSkillAssignmentDialog({ employeeId, onSuccessAction }: { employeeId: string; onSuccessAction: () => void }) {
+    const { toast } = useToast();
+    const [open, setOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+    
+    const [skillId, setSkillId] = useState<string | null>(null);
+    const [level, setLevel] = useState<string>('BEGINNER');
+    const [notes, setNotes] = useState('');
+
+    const fetchSkills = async (s: string): Promise<SkillOption[]> => {
+        const res = await apiFetch<TaxonomyCategory[]>(`/skills/taxonomy`);
+        const list: SkillOption[] = [];
+        res.forEach(cat => {
+            cat.skills.forEach((sk) => {
+                if (sk.name.toLowerCase().includes(s.toLowerCase())) {
+                    list.push({ id: sk.id, label: sk.name, category: cat.name });
+                }
+            });
+        });
+        return list;
+    };
+
+    const handleAssign = async () => {
+        if (!skillId) return;
+        try {
+            setSaving(true);
+            await apiFetch('/skills/assign', {
+                method: 'POST',
+                body: JSON.stringify({
+                    employeeId,
+                    skillId,
+                    proficiencyLevel: level,
+                    notes
+                })
+            });
+            toast({ title: 'Skill assigned successfully', variant: 'success' });
+            setOpen(false);
+            setSkillId(null);
+            setNotes('');
+            onSuccessAction();
+        } catch {
+            toast({ title: 'Assignment failed', variant: 'destructive' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" className="gap-2 font-bold uppercase text-[10px]">
+                    <Plus className="w-3.5 h-3.5" /> Assign Skill
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-106.25 text-foreground">
+                <DialogHeader>
+                    <DialogTitle>Assign Verified Skill</DialogTitle>
+                    <DialogDescription>
+                        Directly assign and verify a skill for this team member. This action does not require further approval.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Select Skill</Label>
+                        <AsyncSearchSelect
+                            placeholder="Search skill catalog..."
+                            value={skillId}
+                            onChangeAction={setSkillId}
+                            fetchOptions={fetchSkills}
+                            getOptionLabel={(o) => o.label}
+                            getOptionValue={(o) => o.id}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Proficiency Level</Label>
+                        <Select value={level} onValueChange={setLevel}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {PROFICIENCY_LEVEL_OPTIONS.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Manager Notes (Optional)</Label>
+                        <Textarea 
+                            placeholder="Reason for assignment or evidence noted..." 
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            className="h-20"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
+                    <Button onClick={handleAssign} disabled={!skillId || saving}>
+                        {saving ? 'Assigning...' : 'Confirm Assignment'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
 }
 
 function EnrollButton({ programId, employeeId }: { programId: string; employeeId: string }) {

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Briefcase, ChevronRight, User, Users, ArrowUpRight, ShieldCheck, GraduationCap } from 'lucide-react'
+import { Building2, Briefcase, ChevronRight, User, Users, ArrowUpRight, ShieldCheck, GraduationCap, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OrgContext } from '@/types/org.type'
 import { ORG_LEADER_ROLE_BADGE, ORG_LEADER_ROLE_LABEL } from '@/lib/org.enum'
@@ -12,6 +12,7 @@ import { EMPLOYEE_STATUS_BADGE, EMPLOYMENT_TYPE_LABELS } from '@/lib/employee.en
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SkillApprovalsTab } from './components/skill-approvals-tab'
 import { TeamComplianceTab } from './components/team-compliance-tab'
+import { TeamSkillGapTab } from './components/team-skill-gap-tab'
 import { EmployeeTalentCard } from './components/employee-talent-card'
 import { Badge } from '@/components/ui/badge'
 
@@ -76,7 +77,7 @@ export default function OrganizationPage() {
     return (
         <div className="p-6 space-y-6 max-w-5xl text-foreground">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 max-w-162.5 h-10 p-1 bg-muted/50 rounded-lg">
+                <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 max-w-200 h-10 p-1 bg-muted/50 rounded-lg">
                     <TabsTrigger value="my-org" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
                         <Building2 className="w-4 h-4" /> My Organization
                     </TabsTrigger>
@@ -86,9 +87,12 @@ export default function OrganizationPage() {
                     <TabsTrigger value="compliance" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
                         <ShieldCheck className="w-4 h-4" /> Team Compliance
                     </TabsTrigger>
+                    <TabsTrigger value="gap" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
+                        <GraduationCap className="w-4 h-4" /> Skill Gap
+                    </TabsTrigger>
                     {canSeeApprovals && (
                         <TabsTrigger value="approvals" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
-                            <GraduationCap className="w-4 h-4" /> Skill Approvals
+                            <Info className="w-4 h-4" /> Approvals
                         </TabsTrigger>
                     )}
                 </TabsList>
@@ -303,6 +307,16 @@ export default function OrganizationPage() {
                             </section>
                         </div>
                     )}
+                </TabsContent>
+
+                <TabsContent value="gap" className="mt-6">
+                    <div className="space-y-4">
+                        <div className="px-1">
+                            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">Team Skill Analysis</h3>
+                            <p className="text-xs text-muted-foreground mt-1">Visualization of actual proficiency levels vs position requirements.</p>
+                        </div>
+                        <TeamSkillGapTab />
+                    </div>
                 </TabsContent>
 
                 <TabsContent value="compliance" className="mt-6">

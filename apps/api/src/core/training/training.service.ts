@@ -13,6 +13,7 @@ import {
   positions,
   employeeSkills,
   positionMandatoryTrainings,
+  orgUnitMandatoryTrainings,
 } from '@hybrid-hris/db/schema';
 import { eq, and, asc, sql, count, inArray, isNull } from 'drizzle-orm';
 import { ProficiencyLevel, TrainingScheduleStatus, TrainingType, TrainingEnrollmentStatus } from '@hybrid-hris/domain';
@@ -24,6 +25,7 @@ export interface TeamComplianceInfo {
   lastName: string;
   employeeNo: string;
   positionId: string | null;
+  orgUnitId: string | null;
   positionTitle: string | null;
   requiredCount: number;
   completedCount: number;
@@ -73,6 +75,7 @@ export class TrainingService {
         lastName: employees.lastName,
         employeeNo: employees.employeeNo,
         positionId: employees.positionId,
+        orgUnitId: employees.orgUnitId,
         positionTitle: positions.title,
       })
       .from(employees)
@@ -86,6 +89,7 @@ export class TrainingService {
 
     const employeeIds = myTeam.map(e => e.id);
     const positionIds = Array.from(new Set(myTeam.map(e => e.positionId).filter(Boolean))) as string[];
+    const orgUnitIds = Array.from(new Set(myTeam.map(e => e.orgUnitId).filter(Boolean))) as string[];
 
     // 2. Get all Global Mandatory programs
     const globalMandatory = await this.db.db
@@ -104,7 +108,18 @@ export class TrainingService {
       .innerJoin(trainingPrograms, eq(positionMandatoryTrainings.programId, trainingPrograms.id))
       .where(inArray(positionMandatoryTrainings.positionId, positionIds)) : [];
 
-    // 4. Get completions for the team
+    // 4. Get Org Unit-specific mandatory programs
+    const orgMandatory = orgUnitIds.length > 0 ? await this.db.db
+      .select({
+        orgUnitId: orgUnitMandatoryTrainings.orgUnitId,
+        programId: trainingPrograms.id,
+        title: trainingPrograms.title
+      })
+      .from(orgUnitMandatoryTrainings)
+      .innerJoin(trainingPrograms, eq(orgUnitMandatoryTrainings.programId, trainingPrograms.id))
+      .where(inArray(orgUnitMandatoryTrainings.orgUnitId, orgUnitIds)) : [];
+
+    // 5. Get completions for the team
     const completions = await this.db.db
       .select({ 
         employeeId: trainingEnrollments.employeeId, 
@@ -118,12 +133,18 @@ export class TrainingService {
         eq(trainingEnrollments.status, 'COMPLETED')
       ));
 
-    // 5. Calculate gaps
+    // 6. Calculate gaps
     return myTeam.map(emp => {
-      const required = [
+      const rawRequired = [
         ...globalMandatory.map(p => ({ id: p.id, title: p.title })),
-        ...positionMandatory.filter(pm => pm.positionId === emp.positionId).map(p => ({ id: p.programId, title: p.title }))
+        ...positionMandatory.filter(pm => pm.positionId === emp.positionId).map(p => ({ id: p.programId, title: p.title })),
+        ...orgMandatory.filter(om => om.orgUnitId === emp.orgUnitId).map(p => ({ id: p.programId, title: p.title }))
       ];
+      
+      // De-duplicate required list by ID
+      const requiredMap = new Map<string, { id: string; title: string }>();
+      rawRequired.forEach(r => requiredMap.set(r.id, r));
+      const required = Array.from(requiredMap.values());
       
       const finishedIds = new Set(completions.filter(c => c.employeeId === emp.id).map(c => c.programId));
       const missing = required.filter(r => !finishedIds.has(r.id));
@@ -799,5 +820,65 @@ export class TrainingService {
 
       return deleted;
     });
+  }
+
+  // --- Mandatory Training Requirements ---
+
+  async getPositionMandatoryTrainings(positionId: string) {
+    return this.db.db
+      .select({
+        id: positionMandatoryTrainings.id,
+        programId: trainingPrograms.id,
+        title: trainingPrograms.title,
+        type: trainingPrograms.type,
+      })
+      .from(positionMandatoryTrainings)
+      .innerJoin(trainingPrograms, eq(positionMandatoryTrainings.programId, trainingPrograms.id))
+      .where(eq(positionMandatoryTrainings.positionId, positionId));
+  }
+
+  async addMandatoryTrainingToPosition(positionId: string, programId: string) {
+    const [inserted] = await this.db.db
+      .insert(positionMandatoryTrainings)
+      .values({ positionId, programId })
+      .onConflictDoNothing()
+      .returning();
+    return inserted;
+  }
+
+  async removeMandatoryTrainingFromPosition(positionId: string, programId: string) {
+    await this.db.db
+      .delete(positionMandatoryTrainings)
+      .where(and(eq(positionMandatoryTrainings.positionId, positionId), eq(positionMandatoryTrainings.programId, programId)));
+    return { success: true };
+  }
+
+  async getOrgUnitMandatoryTrainings(orgUnitId: string) {
+    return this.db.db
+      .select({
+        id: orgUnitMandatoryTrainings.id,
+        programId: trainingPrograms.id,
+        title: trainingPrograms.title,
+        type: trainingPrograms.type,
+      })
+      .from(orgUnitMandatoryTrainings)
+      .innerJoin(trainingPrograms, eq(orgUnitMandatoryTrainings.programId, trainingPrograms.id))
+      .where(eq(orgUnitMandatoryTrainings.orgUnitId, orgUnitId));
+  }
+
+  async addMandatoryTrainingToOrgUnit(orgUnitId: string, programId: string) {
+    const [inserted] = await this.db.db
+      .insert(orgUnitMandatoryTrainings)
+      .values({ orgUnitId, programId })
+      .onConflictDoNothing()
+      .returning();
+    return inserted;
+  }
+
+  async removeMandatoryTrainingFromOrgUnit(orgUnitId: string, programId: string) {
+    await this.db.db
+      .delete(orgUnitMandatoryTrainings)
+      .where(and(eq(orgUnitMandatoryTrainings.orgUnitId, orgUnitId), eq(orgUnitMandatoryTrainings.programId, programId)));
+    return { success: true };
   }
 }

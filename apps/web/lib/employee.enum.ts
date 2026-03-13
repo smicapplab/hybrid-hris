@@ -136,6 +136,13 @@ export const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
     CONSULTANT: 'Consultant', INTERN: 'Intern',
 }
 
+export const PROFICIENCY_LEVEL_OPTIONS = [
+    { value: 'BEGINNER', label: 'Beginner' },
+    { value: 'INTERMEDIATE', label: 'Intermediate' },
+    { value: 'ADVANCED', label: 'Advanced' },
+    { value: 'EXPERT', label: 'Expert' },
+]
+
 /** Combined Tailwind classes for inline status badge components (bg + text + border) */
 export const EMPLOYEE_STATUS_BADGE: Record<string, string> = {
     ACTIVE:     'bg-emerald-50 text-emerald-700 border-emerald-200',

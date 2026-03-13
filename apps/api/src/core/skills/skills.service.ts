@@ -15,6 +15,7 @@ import {
   trainingPrograms, 
   trainingSchedules, 
   positionMandatoryTrainings,
+  orgUnitMandatoryTrainings,
   users
 } from '@hybrid-hris/db/schema';
 import { and, eq, asc, sql, isNull, inArray, gte } from 'drizzle-orm';
@@ -53,6 +54,7 @@ export interface TalentCardData {
     employeeNo: string;
     positionId: string | null;
     positionTitle: string | null;
+    orgUnitId: string | null;
     orgUnitName: string | null;
     email: string | null;
     supervisorId: string | null;
@@ -104,6 +106,7 @@ export class SkillsService {
         employeeNo: employees.employeeNo,
         positionId: employees.positionId,
         positionTitle: positions.title,
+        orgUnitId: employees.orgUnitId,
         orgUnitName: orgUnits.name,
         email: users.email,
         supervisorId: employees.supervisorId,
@@ -162,7 +165,19 @@ export class SkillsService {
       .innerJoin(trainingPrograms, eq(positionMandatoryTrainings.programId, trainingPrograms.id))
       .where(eq(positionMandatoryTrainings.positionId, employee.positionId)) : [];
 
-    const allRequired = [...globalMandatory, ...posMandatory];
+    const orgMandatory = employee.orgUnitId ? await this.db.db
+      .select({ id: trainingPrograms.id, title: trainingPrograms.title })
+      .from(orgUnitMandatoryTrainings)
+      .innerJoin(trainingPrograms, eq(orgUnitMandatoryTrainings.programId, trainingPrograms.id))
+      .where(eq(orgUnitMandatoryTrainings.orgUnitId, employee.orgUnitId)) : [];
+
+    const rawRequired = [...globalMandatory, ...posMandatory, ...orgMandatory];
+    
+    // De-duplicate required list by ID
+    const requiredMap = new Map<string, { id: string; title: string }>();
+    rawRequired.forEach(r => requiredMap.set(r.id, r));
+    const allRequired = Array.from(requiredMap.values());
+
     const completedProgramIds = new Set(enrollments.filter((e) => e.status === 'COMPLETED').map((e) => e.programId));
     const missingMandatory = allRequired.filter(r => !completedProgramIds.has(r.id));
 
@@ -291,6 +306,143 @@ export class SkillsService {
     }
 
     return { success: true };
+  }
+
+  // --- Manager Skill Management ---
+
+  async getTeamSkillGap(managerEmployeeId: string) {
+    const myTeam = await this.db.db
+      .select({
+        id: employees.id,
+        firstName: employees.firstName,
+        lastName: employees.lastName,
+        positionId: employees.positionId,
+        positionTitle: positions.title,
+      })
+      .from(employees)
+      .leftJoin(positions, eq(employees.positionId, positions.id))
+      .where(and(eq(employees.supervisorId, managerEmployeeId), isNull(employees.deletedAt)))
+      .orderBy(asc(employees.lastName));
+
+    if (myTeam.length === 0) return { skills: [], grid: [] };
+
+    const employeeIds = myTeam.map(e => e.id);
+    const positionIds = Array.from(new Set(myTeam.map(e => e.positionId).filter(Boolean))) as string[];
+
+    const requirements = positionIds.length > 0 ? await this.db.db
+      .select({
+        skillId: skills.id,
+        skillName: skills.name,
+        positionId: positionSkills.positionId,
+        requiredLevel: positionSkills.requiredProficiencyLevel,
+      })
+      .from(positionSkills)
+      .innerJoin(skills, eq(positionSkills.skillId, skills.id))
+      .where(inArray(positionSkills.positionId, positionIds)) : [];
+
+    const actuals = await this.db.db
+      .select({
+        employeeId: employeeSkills.employeeId,
+        skillId: employeeSkills.skillId,
+        proficiencyLevel: employeeSkills.proficiencyLevel,
+        status: employeeSkills.verificationStatus,
+      })
+      .from(employeeSkills)
+      .where(and(
+        inArray(employeeSkills.employeeId, employeeIds),
+        eq(employeeSkills.verificationStatus, 'VERIFIED')
+      ));
+
+    // Union of all skills required by the team
+    const uniqueSkillMap = new Map<string, string>();
+    requirements.forEach(r => uniqueSkillMap.set(r.skillId, r.skillName));
+    const headerSkills = Array.from(uniqueSkillMap.entries()).map(([id, name]) => ({ id, name }));
+
+    const levels = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'];
+
+    const grid = myTeam.map(emp => {
+      const empReqs = requirements.filter(r => r.positionId === emp.positionId);
+      const empSkills = actuals.filter(a => a.employeeId === emp.id);
+
+      const skillCells = headerSkills.map(s => {
+        const req = empReqs.find(r => r.skillId === s.id);
+        const actual = empSkills.find(a => a.skillId === s.id);
+
+        if (!req) return { skillId: s.id, status: 'NA' };
+        if (!actual) return { skillId: s.id, status: 'MISSING', target: req.requiredLevel };
+
+        const actualIdx = levels.indexOf(actual.proficiencyLevel);
+        const targetIdx = levels.indexOf(req.requiredLevel);
+
+        return {
+          skillId: s.id,
+          status: actualIdx >= targetIdx ? 'MET' : 'BELOW',
+          actual: actual.proficiencyLevel,
+          target: req.requiredLevel
+        };
+      });
+
+      return {
+        employeeId: emp.id,
+        employeeName: `${emp.firstName} ${emp.lastName}`,
+        positionTitle: emp.positionTitle,
+        cells: skillCells
+      };
+    });
+
+    return {
+      skills: headerSkills,
+      grid
+    };
+  }
+
+  async assignSkillToReport(
+    managerEmployeeId: string,
+    data: {
+      employeeId: string;
+      skillId: string;
+      proficiencyLevel: ProficiencyLevel;
+      notes?: string;
+    }
+  ) {
+    // 1. Verify direct report
+    const [report] = await this.db.db
+      .select({ id: employees.id })
+      .from(employees)
+      .where(and(eq(employees.id, data.employeeId), eq(employees.supervisorId, managerEmployeeId)))
+      .limit(1);
+
+    if (!report) throw new UnauthorizedException('Target employee is not your direct report');
+
+    // 2. Upsert as VERIFIED
+    const [inserted] = await this.db.db
+      .insert(employeeSkills)
+      .values({
+        employeeId: data.employeeId,
+        skillId: data.skillId,
+        proficiencyLevel: data.proficiencyLevel,
+        source: 'MANAGER_ASSIGNED',
+        verificationStatus: 'VERIFIED',
+        acquiredDate: sql`CURRENT_DATE`,
+        verifiedById: managerEmployeeId,
+        verifiedAt: new Date(),
+        notes: data.notes ?? null,
+      })
+      .onConflictDoUpdate({
+        target: [employeeSkills.employeeId, employeeSkills.skillId],
+        set: {
+          proficiencyLevel: data.proficiencyLevel,
+          verificationStatus: 'VERIFIED',
+          source: 'MANAGER_ASSIGNED',
+          verifiedById: managerEmployeeId,
+          verifiedAt: new Date(),
+          updatedAt: new Date(),
+          notes: data.notes ?? null,
+        }
+      })
+      .returning();
+
+    return inserted;
   }
 
   // --- Manager Skill Approvals ---
@@ -489,5 +641,51 @@ export class SkillsService {
       ...cat,
       skills: allSkills.filter((s) => s.categoryId === cat.id),
     }));
+  }
+
+  // --- Position Skills (Role Competencies) ---
+
+  async getPositionSkills(positionId: string) {
+    return this.db.db
+      .select({
+        id: positionSkills.id,
+        skillId: skills.id,
+        skillName: skills.name,
+        skillType: skills.type,
+        requiredProficiencyLevel: positionSkills.requiredProficiencyLevel,
+      })
+      .from(positionSkills)
+      .innerJoin(skills, eq(positionSkills.skillId, skills.id))
+      .where(eq(positionSkills.positionId, positionId))
+      .orderBy(asc(skills.name));
+  }
+
+  async addSkillToPosition(data: {
+    positionId: string;
+    skillId: string;
+    requiredProficiencyLevel: ProficiencyLevel;
+  }) {
+    const [inserted] = await this.db.db
+      .insert(positionSkills)
+      .values({
+        positionId: data.positionId,
+        skillId: data.skillId,
+        requiredProficiencyLevel: data.requiredProficiencyLevel,
+      })
+      .onConflictDoUpdate({
+        target: [positionSkills.positionId, positionSkills.skillId],
+        set: { requiredProficiencyLevel: data.requiredProficiencyLevel, updatedAt: new Date() },
+      })
+      .returning();
+
+    return inserted;
+  }
+
+  async removeSkillFromPosition(positionId: string, skillId: string) {
+    await this.db.db
+      .delete(positionSkills)
+      .where(and(eq(positionSkills.positionId, positionId), eq(positionSkills.skillId, skillId)));
+    
+    return { success: true };
   }
 }

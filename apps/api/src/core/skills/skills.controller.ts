@@ -29,6 +29,28 @@ export class SkillsController {
     return this.skillsService.getEmployeeSkills(employeeId);
   }
 
+  @Get('team-gap')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
+  async getTeamSkillGap(@CurrentUser('employeeId') managerEmployeeId: string) {
+    if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
+    return this.skillsService.getTeamSkillGap(managerEmployeeId);
+  }
+
+  @Post('assign')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
+  async assignSkill(
+    @CurrentUser('employeeId') managerEmployeeId: string,
+    @Body() data: {
+      employeeId: string;
+      skillId: string;
+      proficiencyLevel: ProficiencyLevel;
+      notes?: string;
+    }
+  ) {
+    if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
+    return this.skillsService.assignSkillToReport(managerEmployeeId, data);
+  }
+
   @Post('my-skills')
   async declareSkill(
     @CurrentUser('employeeId') employeeId: string,
@@ -144,5 +166,33 @@ export class SkillsController {
     },
   ) {
     return this.skillsService.updateSkill(id, data);
+  }
+
+  // --- Position Skills (Role Competencies) ---
+
+  @Get('positions/:positionId')
+  async getPositionSkills(@Param('positionId') positionId: string) {
+    return this.skillsService.getPositionSkills(positionId);
+  }
+
+  @Post('positions')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async addSkillToPosition(
+    @Body() data: {
+      positionId: string;
+      skillId: string;
+      requiredProficiencyLevel: ProficiencyLevel;
+    }
+  ) {
+    return this.skillsService.addSkillToPosition(data);
+  }
+
+  @Delete('positions/:positionId/:skillId')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async removeSkillFromPosition(
+    @Param('positionId') positionId: string,
+    @Param('skillId') skillId: string
+  ) {
+    return this.skillsService.removeSkillFromPosition(positionId, skillId);
   }
 }

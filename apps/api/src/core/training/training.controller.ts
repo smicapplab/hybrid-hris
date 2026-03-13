@@ -238,4 +238,46 @@ export class TrainingController {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
     return this.trainingService.getTeamCompliance(managerEmployeeId);
   }
+
+  // --- Mandatory Training Requirements ---
+
+  @Get('mandatory/positions/:positionId')
+  async getPositionMandatoryTrainings(@Param('positionId') positionId: string) {
+    return this.trainingService.getPositionMandatoryTrainings(positionId);
+  }
+
+  @Post('mandatory/positions')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async addMandatoryTrainingToPosition(@Body() data: { positionId: string; programId: string }) {
+    return this.trainingService.addMandatoryTrainingToPosition(data.positionId, data.programId);
+  }
+
+  @Delete('mandatory/positions/:positionId/:programId')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async removeMandatoryTrainingFromPosition(
+    @Param('positionId') positionId: string,
+    @Param('programId') programId: string
+  ) {
+    return this.trainingService.removeMandatoryTrainingFromPosition(positionId, programId);
+  }
+
+  @Get('mandatory/org-units/:orgUnitId')
+  async getOrgUnitMandatoryTrainings(@Param('orgUnitId') orgUnitId: string) {
+    return this.trainingService.getOrgUnitMandatoryTrainings(orgUnitId);
+  }
+
+  @Post('mandatory/org-units')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async addMandatoryTrainingToOrgUnit(@Body() data: { orgUnitId: string; programId: string }) {
+    return this.trainingService.addMandatoryTrainingToOrgUnit(data.orgUnitId, data.programId);
+  }
+
+  @Delete('mandatory/org-units/:orgUnitId/:programId')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async removeMandatoryTrainingFromOrgUnit(
+    @Param('orgUnitId') orgUnitId: string,
+    @Param('programId') programId: string
+  ) {
+    return this.trainingService.removeMandatoryTrainingFromOrgUnit(orgUnitId, programId);
+  }
 }

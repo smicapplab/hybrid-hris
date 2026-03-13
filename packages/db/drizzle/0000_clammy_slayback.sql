@@ -620,6 +620,13 @@ CREATE TABLE "employee_skills" (
 	CONSTRAINT "employee_skills_employee_skill_uq" UNIQUE("employee_id","skill_id")
 );
 --> statement-breakpoint
+CREATE TABLE "org_unit_mandatory_trainings" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_unit_id" uuid NOT NULL,
+	"program_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "position_mandatory_trainings" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"position_id" uuid NOT NULL,
@@ -698,7 +705,8 @@ CREATE TABLE "position_skills" (
 	"skill_id" uuid NOT NULL,
 	"required_proficiency_level" "proficiency_level" NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "position_skills_position_skill_uq" UNIQUE("position_id","skill_id")
 );
 --> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -767,6 +775,8 @@ ALTER TABLE "employee_skills" ADD CONSTRAINT "employee_skills_employee_id_employ
 ALTER TABLE "employee_skills" ADD CONSTRAINT "employee_skills_skill_id_skills_id_fk" FOREIGN KEY ("skill_id") REFERENCES "public"."skills"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employee_skills" ADD CONSTRAINT "employee_skills_training_enrollment_id_training_enrollments_id_fk" FOREIGN KEY ("training_enrollment_id") REFERENCES "public"."training_enrollments"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employee_skills" ADD CONSTRAINT "employee_skills_verified_by_id_employees_id_fk" FOREIGN KEY ("verified_by_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_unit_mandatory_trainings" ADD CONSTRAINT "org_unit_mandatory_trainings_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_unit_mandatory_trainings" ADD CONSTRAINT "org_unit_mandatory_trainings_program_id_training_programs_id_fk" FOREIGN KEY ("program_id") REFERENCES "public"."training_programs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "position_mandatory_trainings" ADD CONSTRAINT "position_mandatory_trainings_position_id_positions_id_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "position_mandatory_trainings" ADD CONSTRAINT "position_mandatory_trainings_program_id_training_programs_id_fk" FOREIGN KEY ("program_id") REFERENCES "public"."training_programs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "training_prerequisites" ADD CONSTRAINT "training_prerequisites_program_id_training_programs_id_fk" FOREIGN KEY ("program_id") REFERENCES "public"."training_programs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -885,6 +895,7 @@ CREATE INDEX "skills_category_idx" ON "skills" USING btree ("category_id");--> s
 CREATE INDEX "employee_skills_employee_idx" ON "employee_skills" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "employee_skills_skill_idx" ON "employee_skills" USING btree ("skill_id");--> statement-breakpoint
 CREATE INDEX "employee_skills_status_idx" ON "employee_skills" USING btree ("skill_verification_status");--> statement-breakpoint
+CREATE UNIQUE INDEX "org_unit_mandatory_trainings_uq" ON "org_unit_mandatory_trainings" USING btree ("org_unit_id","program_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "position_mandatory_trainings_uq" ON "position_mandatory_trainings" USING btree ("position_id","program_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "training_prerequisites_uq" ON "training_prerequisites" USING btree ("program_id","prerequisite_program_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "training_enrollments_schedule_employee_uq" ON "training_enrollments" USING btree ("schedule_id","employee_id");--> statement-breakpoint

@@ -8,9 +8,11 @@ import { OrgPlantillaTable } from "./org-plantilla-table"
 import { OrgPlantillaSummary } from "./org-plantilla-summary"
 import { OrgManpowerRequestsTable } from "./org-manpower-requests-table"
 import { format } from "date-fns"
-import { Building2, Pencil, Plus, Trash2, RotateCcw } from "lucide-react"
+import { Building2, Pencil, Plus, Trash2, RotateCcw, ListChecks, BookOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { MandatoryTrainingRequirementPanel } from '@/components/requirements/mandatory-training-requirement-panel'
 
 interface OrgDetailsPanelProps {
     org: OrgUnitNode | null
@@ -71,11 +73,11 @@ export function OrgDetailsPanel({
     const isDeleted = !!org.deletedAt
 
     return (
-        <div className="h-full overflow-y-auto space-y-5 pr-1">
+        <div className="h-full flex flex-col gap-6 pr-1">
 
             {/* ── Header card ── */}
             <div className={cn(
-                'rounded-xl border p-5 space-y-4',
+                'rounded-xl border p-5 space-y-4 shrink-0',
                 isDeleted
                     ? 'bg-red-50/50 border-red-200'
                     : 'bg-linear-to-br from-card to-muted/20 border-border shadow-sm',
@@ -171,10 +173,22 @@ export function OrgDetailsPanel({
                 )}
             </div>
 
-            {/* ── Quick Summary ── */}
-            {!isDeleted && (
-                <OrgPlantillaSummary key={`summary-${refreshKey}`} orgId={org.id} />
-            )}
+            {/* ── Content Tabs ── */}
+            <Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
+                <TabsList className="grid w-full grid-cols-2 max-w-100 bg-muted/50 p-1 rounded-lg shrink-0">
+                    <TabsTrigger value="overview" className="gap-2 text-xs font-bold uppercase tracking-tight data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <ListChecks className="w-3.5 h-3.5" /> Overview
+                    </TabsTrigger>
+                    <TabsTrigger value="compliance" className="gap-2 text-xs font-bold uppercase tracking-tight data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <BookOpen className="w-3.5 h-3.5" /> Training Compliance
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="overview" className="mt-4 space-y-5 flex-1 overflow-y-auto outline-hidden pb-8">
+                    {/* ── Quick Summary ── */}
+                    {!isDeleted && (
+                        <OrgPlantillaSummary key={`summary-${refreshKey}`} orgId={org.id} />
+                    )}
 
             {/* ── Leaders section ── */}
             {!isDeleted && (
@@ -226,6 +240,12 @@ export function OrgDetailsPanel({
                     <OrgMembersTable orgId={org.id} />
                 </div>
             )}
+                </TabsContent>
+
+                <TabsContent value="compliance" className="mt-4 flex-1 overflow-y-auto outline-hidden pb-8">
+                    <MandatoryTrainingRequirementPanel targetId={org.id} type="org-unit" />
+                </TabsContent>
+            </Tabs>
         </div>
     )
 }

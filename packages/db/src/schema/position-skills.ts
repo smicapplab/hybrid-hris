@@ -3,6 +3,7 @@ import {
   uuid,
   timestamp,
   index,
+  unique,
 } from 'drizzle-orm/pg-core';
 import { positions } from './positions';
 import { skills } from './skills';
@@ -27,5 +28,7 @@ export const positionSkills = pgTable(
   (t) => ({
     positionIdx: index('position_skills_position_idx').on(t.positionId),
     skillIdx: index('position_skills_skill_idx').on(t.skillId),
+    // Ensure one skill can only be assigned once to a position
+    uq: unique('position_skills_position_skill_uq').on(t.positionId, t.skillId),
   })
 );
