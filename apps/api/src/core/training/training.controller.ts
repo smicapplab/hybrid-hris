@@ -7,6 +7,7 @@ import {
   Body,
   Query,
   UseGuards,
+  Delete,
 } from '@nestjs/common';
 import { TrainingService } from './training.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
@@ -116,6 +117,12 @@ export class TrainingController {
     return this.trainingService.getScheduleWithSessions(id);
   }
 
+  @Get('schedules/:id/attendees')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async getScheduleAttendees(@Param('id') id: string) {
+    return this.trainingService.getScheduleAttendees(id);
+  }
+
   // --- Enrollment (Admin/Manager Flow) ---
 
   @Post('schedules/:id/enroll')
@@ -139,6 +146,12 @@ export class TrainingController {
     return this.trainingService.updateAttendeeStatus(enrollmentId, data, processorId, actorId);
   }
 
+  @Delete('enrollments/:id')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async removeAttendee(@Param('id') enrollmentId: string) {
+    return this.trainingService.removeAttendee(enrollmentId);
+  }
+
   // --- Self-Service Flow ---
 
   @Get('my-training')
@@ -153,6 +166,15 @@ export class TrainingController {
     @CurrentUser('id') actorId: string,
   ) {
     return this.trainingService.enroll(scheduleId, employeeId, actorId);
+  }
+
+  @Post('schedules/:id/cancel')
+  async cancelEnrollment(
+    @Param('id') scheduleId: string,
+    @CurrentUser('employeeId') employeeId: string,
+    @CurrentUser('id') actorId: string,
+  ) {
+    return this.trainingService.cancelEnrollment(scheduleId, employeeId, actorId);
   }
 
   @Post('enrollments/:id/feedback')
