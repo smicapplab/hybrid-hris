@@ -1,3 +1,4 @@
+export * from './enums';
 export * from './employees';
 export * from './employee-identifiers';
 export * from './employee-profiles';

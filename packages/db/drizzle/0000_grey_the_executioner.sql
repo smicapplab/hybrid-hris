@@ -1,3 +1,12 @@
+CREATE TYPE "public"."holiday_type" AS ENUM('REGULAR', 'SPECIAL');--> statement-breakpoint
+CREATE TYPE "public"."overtime_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED');--> statement-breakpoint
+CREATE TYPE "public"."overtime_type" AS ENUM('REGULAR_OT', 'REST_DAY_OT', 'HOLIDAY_OT');--> statement-breakpoint
+CREATE TYPE "public"."proficiency_level" AS ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT');--> statement-breakpoint
+CREATE TYPE "public"."skill_source" AS ENUM('INTERNAL_TRAINING', 'EXTERNAL_EXPERIENCE', 'MANAGER_ASSIGNED');--> statement-breakpoint
+CREATE TYPE "public"."skill_verification_status" AS ENUM('PENDING', 'VERIFIED', 'REJECTED');--> statement-breakpoint
+CREATE TYPE "public"."training_enrollment_status" AS ENUM('ENROLLED', 'COMPLETED', 'CANCELLED', 'WAITLISTED', 'DID_NOT_ATTEND');--> statement-breakpoint
+CREATE TYPE "public"."training_schedule_status" AS ENUM('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');--> statement-breakpoint
+CREATE TYPE "public"."training_type" AS ENUM('INTERNAL', 'EXTERNAL');--> statement-breakpoint
 CREATE TYPE "public"."employee_status" AS ENUM('ACTIVE', 'PROBATION', 'SUSPENDED', 'RESIGNED', 'TERMINATED');--> statement-breakpoint
 CREATE TYPE "public"."employment_type" AS ENUM('REGULAR', 'PROBATIONARY', 'CONTRACTUAL', 'CONSULTANT', 'INTERN');--> statement-breakpoint
 CREATE TYPE "public"."civil_status" AS ENUM('SINGLE', 'MARRIED', 'SEPARATED', 'WIDOWED', 'ANNULLED');--> statement-breakpoint
@@ -21,12 +30,6 @@ CREATE TYPE "public"."manpower_request_type" AS ENUM('NEW_HEADCOUNT', 'REPLACEME
 CREATE TYPE "public"."request_priority" AS ENUM('LOW', 'NORMAL', 'HIGH', 'URGENT');--> statement-breakpoint
 CREATE TYPE "public"."manpower_approval_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
 CREATE TYPE "public"."job_posting_status" AS ENUM('DRAFT', 'OPEN', 'CLOSED');--> statement-breakpoint
-CREATE TYPE "public"."proficiency_level" AS ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT');--> statement-breakpoint
-CREATE TYPE "public"."skill_source" AS ENUM('INTERNAL_TRAINING', 'EXTERNAL_EXPERIENCE', 'MANAGER_ASSIGNED');--> statement-breakpoint
-CREATE TYPE "public"."skill_verification_status" AS ENUM('PENDING', 'VERIFIED', 'REJECTED');--> statement-breakpoint
-CREATE TYPE "public"."training_type" AS ENUM('INTERNAL', 'EXTERNAL');--> statement-breakpoint
-CREATE TYPE "public"."training_schedule_status" AS ENUM('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');--> statement-breakpoint
-CREATE TYPE "public"."training_enrollment_status" AS ENUM('ENROLLED', 'COMPLETED', 'CANCELLED', 'WAITLISTED', 'DID_NOT_ATTEND');--> statement-breakpoint
 CREATE TABLE "employees" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"employee_no" varchar(50) NOT NULL,
@@ -155,6 +158,36 @@ CREATE TABLE "user_identities" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "audit_logs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid,
+	"action" varchar(50) NOT NULL,
+	"entity_type" varchar(100) NOT NULL,
+	"entity_id" varchar(255),
+	"old_value" jsonb,
+	"new_value" jsonb,
+	"ip_address" varchar(45),
+	"user_agent" text,
+	"metadata" jsonb,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "overtime_requests" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"employee_id" uuid NOT NULL,
+	"date" timestamp with time zone NOT NULL,
+	"hours" numeric(4, 2) NOT NULL,
+	"type" "overtime_type" DEFAULT 'REGULAR_OT' NOT NULL,
+	"status" "overtime_status" DEFAULT 'PENDING' NOT NULL,
+	"reason" text NOT NULL,
+	"approver_id" uuid,
+	"approved_at" timestamp with time zone,
+	"rejection_reason" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone
+);
+--> statement-breakpoint
 CREATE TABLE "positions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"code" varchar(100) NOT NULL,
@@ -207,6 +240,7 @@ CREATE TABLE "holidays" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"date" date NOT NULL,
 	"name" varchar(150) NOT NULL,
+	"type" "holiday_type" DEFAULT 'REGULAR' NOT NULL,
 	"country_code" varchar(10) DEFAULT 'PH' NOT NULL,
 	"is_recurring" boolean DEFAULT false NOT NULL,
 	"deleted_at" timestamp with time zone,
@@ -407,6 +441,11 @@ CREATE TABLE "attendance_logs" (
 	"scheduled_out_at" timestamp with time zone,
 	"actual_in_at" timestamp with time zone,
 	"actual_out_at" timestamp with time zone,
+	"total_hours" numeric(4, 2) DEFAULT '0' NOT NULL,
+	"night_diff_hours" numeric(4, 2) DEFAULT '0' NOT NULL,
+	"holiday_hours" numeric(4, 2) DEFAULT '0' NOT NULL,
+	"overtime_hours" numeric(4, 2) DEFAULT '0' NOT NULL,
+	"status" varchar(50) DEFAULT 'PRESENT' NOT NULL,
 	"source_in" "attendance_source",
 	"source_out" "attendance_source",
 	"is_locked" boolean DEFAULT false NOT NULL,
@@ -724,6 +763,9 @@ ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_user_id_users_id_fk" FOREIGN
 ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_refresh_tokens" ADD CONSTRAINT "user_refresh_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_identities" ADD CONSTRAINT "user_identities_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "overtime_requests" ADD CONSTRAINT "overtime_requests_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "overtime_requests" ADD CONSTRAINT "overtime_requests_approver_id_employees_id_fk" FOREIGN KEY ("approver_id") REFERENCES "public"."employees"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "org_units" ADD CONSTRAINT "org_units_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."org_units"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "org_unit_positions" ADD CONSTRAINT "org_unit_positions_org_unit_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "org_unit_positions" ADD CONSTRAINT "org_unit_positions_position_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -832,6 +874,9 @@ CREATE INDEX "user_refresh_tokens_user_idx" ON "user_refresh_tokens" USING btree
 CREATE UNIQUE INDEX "user_refresh_tokens_jti_uq" ON "user_refresh_tokens" USING btree ("jti");--> statement-breakpoint
 CREATE INDEX "user_refresh_tokens_token_hash_idx" ON "user_refresh_tokens" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_identities_provider_id_uq" ON "user_identities" USING btree ("provider","provider_id");--> statement-breakpoint
+CREATE INDEX "ot_requests_employee_idx" ON "overtime_requests" USING btree ("employee_id");--> statement-breakpoint
+CREATE INDEX "ot_requests_status_idx" ON "overtime_requests" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "ot_requests_date_idx" ON "overtime_requests" USING btree ("date");--> statement-breakpoint
 CREATE INDEX "positions_title_idx" ON "positions" USING btree ("title");--> statement-breakpoint
 CREATE INDEX "org_units_parent_idx" ON "org_units" USING btree ("parent_id");--> statement-breakpoint
 CREATE INDEX "org_unit_leaders_org_unit_idx" ON "org_unit_leaders" USING btree ("org_unit_id");--> statement-breakpoint

@@ -1,5 +1,5 @@
 {
-  "id": "d8a0f520-cd8e-44bb-9ad6-e685f40efb34",
+  "id": "a0903267-937f-47cb-bcc6-bf0874944c58",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1517,6 +1517,272 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.audit_logs": {
+      "name": "audit_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "old_value": {
+          "name": "old_value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_value": {
+          "name": "new_value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ip_address": {
+          "name": "ip_address",
+          "type": "varchar(45)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "audit_logs_user_id_users_id_fk": {
+          "name": "audit_logs_user_id_users_id_fk",
+          "tableFrom": "audit_logs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.overtime_requests": {
+      "name": "overtime_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "employee_id": {
+          "name": "employee_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hours": {
+          "name": "hours",
+          "type": "numeric(4, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "overtime_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'REGULAR_OT'"
+        },
+        "status": {
+          "name": "status",
+          "type": "overtime_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PENDING'"
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "approver_id": {
+          "name": "approver_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approved_at": {
+          "name": "approved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rejection_reason": {
+          "name": "rejection_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "ot_requests_employee_idx": {
+          "name": "ot_requests_employee_idx",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ot_requests_status_idx": {
+          "name": "ot_requests_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ot_requests_date_idx": {
+          "name": "ot_requests_date_idx",
+          "columns": [
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "overtime_requests_employee_id_employees_id_fk": {
+          "name": "overtime_requests_employee_id_employees_id_fk",
+          "tableFrom": "overtime_requests",
+          "tableTo": "employees",
+          "columnsFrom": [
+            "employee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "overtime_requests_approver_id_employees_id_fk": {
+          "name": "overtime_requests_approver_id_employees_id_fk",
+          "tableFrom": "overtime_requests",
+          "tableTo": "employees",
+          "columnsFrom": [
+            "approver_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.positions": {
       "name": "positions",
       "schema": "",
@@ -1965,6 +2231,14 @@
           "type": "varchar(150)",
           "primaryKey": false,
           "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "holiday_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'REGULAR'"
         },
         "country_code": {
           "name": "country_code",
@@ -3738,6 +4012,41 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "total_hours": {
+          "name": "total_hours",
+          "type": "numeric(4, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "night_diff_hours": {
+          "name": "night_diff_hours",
+          "type": "numeric(4, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "holiday_hours": {
+          "name": "holiday_hours",
+          "type": "numeric(4, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "overtime_hours": {
+          "name": "overtime_hours",
+          "type": "numeric(4, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PRESENT'"
         },
         "source_in": {
           "name": "source_in",
@@ -6884,6 +7193,90 @@
     }
   },
   "enums": {
+    "public.holiday_type": {
+      "name": "holiday_type",
+      "schema": "public",
+      "values": [
+        "REGULAR",
+        "SPECIAL"
+      ]
+    },
+    "public.overtime_status": {
+      "name": "overtime_status",
+      "schema": "public",
+      "values": [
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
+        "CANCELLED"
+      ]
+    },
+    "public.overtime_type": {
+      "name": "overtime_type",
+      "schema": "public",
+      "values": [
+        "REGULAR_OT",
+        "REST_DAY_OT",
+        "HOLIDAY_OT"
+      ]
+    },
+    "public.proficiency_level": {
+      "name": "proficiency_level",
+      "schema": "public",
+      "values": [
+        "BEGINNER",
+        "INTERMEDIATE",
+        "ADVANCED",
+        "EXPERT"
+      ]
+    },
+    "public.skill_source": {
+      "name": "skill_source",
+      "schema": "public",
+      "values": [
+        "INTERNAL_TRAINING",
+        "EXTERNAL_EXPERIENCE",
+        "MANAGER_ASSIGNED"
+      ]
+    },
+    "public.skill_verification_status": {
+      "name": "skill_verification_status",
+      "schema": "public",
+      "values": [
+        "PENDING",
+        "VERIFIED",
+        "REJECTED"
+      ]
+    },
+    "public.training_enrollment_status": {
+      "name": "training_enrollment_status",
+      "schema": "public",
+      "values": [
+        "ENROLLED",
+        "COMPLETED",
+        "CANCELLED",
+        "WAITLISTED",
+        "DID_NOT_ATTEND"
+      ]
+    },
+    "public.training_schedule_status": {
+      "name": "training_schedule_status",
+      "schema": "public",
+      "values": [
+        "SCHEDULED",
+        "IN_PROGRESS",
+        "COMPLETED",
+        "CANCELLED"
+      ]
+    },
+    "public.training_type": {
+      "name": "training_type",
+      "schema": "public",
+      "values": [
+        "INTERNAL",
+        "EXTERNAL"
+      ]
+    },
     "public.employee_status": {
       "name": "employee_status",
       "schema": "public",
@@ -7108,63 +7501,6 @@
         "DRAFT",
         "OPEN",
         "CLOSED"
-      ]
-    },
-    "public.proficiency_level": {
-      "name": "proficiency_level",
-      "schema": "public",
-      "values": [
-        "BEGINNER",
-        "INTERMEDIATE",
-        "ADVANCED",
-        "EXPERT"
-      ]
-    },
-    "public.skill_source": {
-      "name": "skill_source",
-      "schema": "public",
-      "values": [
-        "INTERNAL_TRAINING",
-        "EXTERNAL_EXPERIENCE",
-        "MANAGER_ASSIGNED"
-      ]
-    },
-    "public.skill_verification_status": {
-      "name": "skill_verification_status",
-      "schema": "public",
-      "values": [
-        "PENDING",
-        "VERIFIED",
-        "REJECTED"
-      ]
-    },
-    "public.training_type": {
-      "name": "training_type",
-      "schema": "public",
-      "values": [
-        "INTERNAL",
-        "EXTERNAL"
-      ]
-    },
-    "public.training_schedule_status": {
-      "name": "training_schedule_status",
-      "schema": "public",
-      "values": [
-        "SCHEDULED",
-        "IN_PROGRESS",
-        "COMPLETED",
-        "CANCELLED"
-      ]
-    },
-    "public.training_enrollment_status": {
-      "name": "training_enrollment_status",
-      "schema": "public",
-      "values": [
-        "ENROLLED",
-        "COMPLETED",
-        "CANCELLED",
-        "WAITLISTED",
-        "DID_NOT_ATTEND"
       ]
     }
   },
