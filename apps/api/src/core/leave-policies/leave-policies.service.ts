@@ -338,6 +338,7 @@ export class LeavePoliciesService {
             maxCarryOver?: string
             allowNegativeBalance?: boolean
         },
+        actorId?: string,
     ) {
         // Ensure policy exists
         await this.getById(policyId)
@@ -392,7 +393,20 @@ export class LeavePoliciesService {
             })
             .returning()
 
-        return inserted[0]
+        const result = inserted[0]
+
+        if (actorId && result) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'ADD_RULE',
+                entityType: 'LEAVE_POLICY_RULE',
+                entityId: result.id,
+                newValue: result,
+                metadata: { policyId }
+            });
+        }
+
+        return result
     }
 
     async updateRule(
@@ -406,6 +420,7 @@ export class LeavePoliciesService {
             maxCarryOver?: string | null
             allowNegativeBalance?: boolean
         },
+        actorId?: string,
     ) {
         // Ensure policy exists
         await this.getById(policyId)
@@ -450,15 +465,29 @@ export class LeavePoliciesService {
             .where(eq(leavePolicyRules.id, ruleId))
             .returning()
 
-        return updated[0]
+        const result = updated[0]
+
+        if (actorId && result) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'UPDATE_RULE',
+                entityType: 'LEAVE_POLICY_RULE',
+                entityId: ruleId,
+                oldValue: rule,
+                newValue: result,
+                metadata: { policyId }
+            });
+        }
+
+        return result
     }
 
-    async removeRule(policyId: string, ruleId: string) {
+    async removeRule(policyId: string, ruleId: string, actorId?: string) {
         // Ensure policy exists
         await this.getById(policyId)
 
         const ruleResult = await this.db.db
-            .select({ id: leavePolicyRules.id })
+            .select()
             .from(leavePolicyRules)
             .where(
                 and(
@@ -472,9 +501,22 @@ export class LeavePoliciesService {
             throw new NotFoundException('Policy rule not found')
         }
 
+        const existing = ruleResult[0]
+
         await this.db.db
             .delete(leavePolicyRules)
             .where(eq(leavePolicyRules.id, ruleId))
+
+        if (actorId) {
+            await this.auditService.log({
+                userId: actorId,
+                action: 'REMOVE_RULE',
+                entityType: 'LEAVE_POLICY_RULE',
+                entityId: ruleId,
+                oldValue: existing,
+                metadata: { policyId }
+            });
+        }
 
         return { success: true }
     }

@@ -349,7 +349,7 @@ export class TrainingService {
     return inserted;
   }
 
-  async enrollOrgUnit(scheduleId: string, orgUnitId: string, processorId: string | null, isHr: boolean = false) {
+  async enrollOrgUnit(scheduleId: string, orgUnitId: string, processorId: string | null, isHr: boolean = false, actorId?: string) {
     // 1. Security Check: If processor is not an HR admin, they must have authority over the target org unit
     if (processorId && !isHr) {
         const unitFilter = sql`(
@@ -412,6 +412,20 @@ export class TrainingService {
           processedById: processorId,
         }))
       );
+
+      if (actorId) {
+        await this.auditService.log({
+          userId: actorId,
+          action: 'BULK_CREATE',
+          entityType: 'TRAINING_ENROLLMENT',
+          metadata: { 
+            action: 'ENROLL_ORG_UNIT',
+            scheduleId,
+            orgUnitId,
+            count: toEnroll.length
+          }
+        });
+      }
 
       return { count: toEnroll.length };
     });
@@ -513,8 +527,17 @@ export class TrainingService {
     return updated;
   }
 
-  async getTrainingFeedback(options: { offset?: number; limit?: number; programId?: string } = {}): Promise<PaginatedFeedbackResponse> {
+  async getProgramFeedback(options: { offset?: number; limit?: number; programId?: string } = {}, actorId?: string): Promise<PaginatedFeedbackResponse> {
     const { offset = 0, limit = 20, programId } = options;
+
+    if (actorId) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'READ',
+        entityType: 'TRAINING_PROGRAM_FEEDBACK',
+        metadata: { programId }
+      });
+    }
 
     const whereClauses: (SQL<unknown> | undefined)[] = [
       sql`${trainingEnrollments.feedbackRating} IS NOT NULL`
@@ -762,10 +785,10 @@ export class TrainingService {
       .orderBy(asc(trainingSchedules.startAt));
   }
 
-  async createSchedule(data: CreateTrainingScheduleDto) {
+  async createSchedule(data: CreateTrainingScheduleDto, actorId?: string) {
     const { sessions, ...scheduleData } = data;
 
-    return await this.db.db.transaction(async (tx) => {
+    const inserted = await this.db.db.transaction(async (tx) => {
       const [inserted] = await tx
         .insert(trainingSchedules)
         .values({
@@ -789,15 +812,38 @@ export class TrainingService {
 
       return inserted;
     });
+
+    if (actorId && inserted) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'CREATE',
+        entityType: 'TRAINING_SCHEDULE',
+        entityId: inserted.id,
+        newValue: inserted,
+      });
+    }
+
+    return inserted;
   }
 
   async updateSchedule(
     id: string,
-    data: UpdateTrainingScheduleDto
+    data: UpdateTrainingScheduleDto,
+    actorId?: string
   ) {
     const { sessions, ...scheduleData } = data;
 
-    return await this.db.db.transaction(async (tx) => {
+    const existing = await this.db.db
+      .select()
+      .from(trainingSchedules)
+      .where(eq(trainingSchedules.id, id))
+      .limit(1);
+
+    if (!existing.length) {
+      throw new NotFoundException('Schedule not found');
+    }
+
+    const updated = await this.db.db.transaction(async (tx) => {
       const { startAt, endAt, ...rest } = scheduleData;
       const patch: Partial<typeof trainingSchedules.$inferInsert> = { 
         ...rest, 
@@ -832,6 +878,20 @@ export class TrainingService {
 
       return updated;
     });
+
+    if (actorId && updated) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'UPDATE',
+        entityType: 'TRAINING_SCHEDULE',
+        entityId: id,
+        oldValue: existing[0],
+        newValue: updated,
+        metadata: { dto: data }
+      });
+    }
+
+    return updated;
   }
 
   async getUpcomingSchedules() {
@@ -992,7 +1052,22 @@ export class TrainingService {
     });
   }
 
-  async addAttendee(scheduleId: string, employeeId: string, processorId: string | null, isHr: boolean = false) {
+  async enrollEmployees(scheduleId: string, employeeIds: string[], actorId?: string) {
+    const results = [];
+    for (const employeeId of employeeIds) {
+      try {
+        const result = await this.enroll(scheduleId, employeeId, actorId);
+        results.push(result);
+      } catch (e) {
+        if (!(e instanceof ConflictException)) {
+          throw e;
+        }
+      }
+    }
+    return { count: results.length };
+  }
+
+  async addAttendee(scheduleId: string, employeeId: string, processorId: string | null, isHr: boolean = false, actorId?: string) {
     // 1. Security Check: If processor is not an HR admin, they must have downline authority
     if (processorId && !isHr) {
         const unitFilter = sql`(
@@ -1046,6 +1121,17 @@ export class TrainingService {
         processedById: processorId ?? null,
       })
       .returning();
+
+    if (actorId && inserted) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'CREATE',
+        entityType: 'TRAINING_ENROLLMENT',
+        entityId: inserted.id,
+        newValue: inserted,
+      });
+    }
+
     return inserted;
   }
 
@@ -1079,7 +1165,7 @@ export class TrainingService {
     });
   }
 
-  async enrollAllEligible(scheduleId: string, processorId: string | null, isHr: boolean = false) {
+  async enrollAllEligible(scheduleId: string, processorId: string | null, isHr: boolean = false, actorId?: string) {
     // 1. Get Program context via Schedule
     const [row] = await this.db.db
       .select({
@@ -1193,6 +1279,19 @@ export class TrainingService {
             processedById: processorId
         }))
     ).onConflictDoNothing();
+
+    if (actorId) {
+      await this.auditService.log({
+        userId: actorId,
+        action: 'BULK_CREATE',
+        entityType: 'TRAINING_ENROLLMENT',
+        metadata: { 
+          action: 'ENROLL_ALL_ELIGIBLE',
+          scheduleId,
+          count: finalTargetIds.length
+        }
+      });
+    }
 
     return { count: finalTargetIds.length };
   }

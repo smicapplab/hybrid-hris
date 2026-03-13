@@ -137,8 +137,9 @@ export class LeavePoliciesController {
             maxCarryOver?: string
             allowNegativeBalance?: boolean
         },
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.addRule(policyId, body)
+        return this.service.addRule(policyId, body, actorId)
     }
 
     @UseGuards(RolesGuard)
@@ -156,8 +157,9 @@ export class LeavePoliciesController {
             maxCarryOver?: string | null
             allowNegativeBalance?: boolean
         },
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.updateRule(policyId, ruleId, body)
+        return this.service.updateRule(policyId, ruleId, body, actorId)
     }
 
     @UseGuards(RolesGuard)
@@ -166,7 +168,8 @@ export class LeavePoliciesController {
     async removeRule(
         @Param('id') policyId: string,
         @Param('ruleId') ruleId: string,
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.removeRule(policyId, ruleId)
+        return this.service.removeRule(policyId, ruleId, actorId)
     }
 }
