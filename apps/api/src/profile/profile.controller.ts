@@ -6,12 +6,18 @@ import {
     Req,
     UseGuards,
     UnprocessableEntityException,
+    Query,
 } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { Request } from 'express'
 import { ProfileService } from './profile.service'
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
+import { 
+    MyProfileResponse, 
+    OrgContextResponse, 
+    PaginatedTeamMembersResponse 
+} from './dto/profile.dto'
 
 type AuthRequest = Request & {
     user: { id: string; email: string; employeeId: string | null; roles: string[] }
@@ -23,18 +29,37 @@ export class ProfileController {
     constructor(private readonly profileService: ProfileService) { }
 
     @Get('me')
-    async getMyProfile(@Req() req: AuthRequest) {
+    async getMyProfile(@Req() req: AuthRequest): Promise<MyProfileResponse> {
         if (!req.user.employeeId) {
             throw new UnprocessableEntityException('No employee record linked to this account')
         }
         return this.profileService.getMyProfile(req.user.employeeId, req.user.email)
     }
 
+    @Get('me/team-members')
+    async getMyTeamMembers(
+        @Req() req: AuthRequest,
+        @Query('recursive') recursive?: string,
+        @Query('search') search?: string,
+        @Query('offset') offset?: string,
+        @Query('limit') limit?: string,
+    ): Promise<PaginatedTeamMembersResponse> {
+        if (!req.user.employeeId) {
+            throw new UnprocessableEntityException('No employee record linked to this account')
+        }
+        return this.profileService.getMyTeamMembers(req.user.employeeId, {
+            recursive: recursive === 'true',
+            search,
+            offset: offset ? parseInt(offset, 10) : undefined,
+            limit: limit ? parseInt(limit, 10) : undefined,
+        })
+    }
+
     @Patch('me')
     async updateMyProfile(
         @Req() req: AuthRequest,
         @Body() body: UpdateMyProfileDto,
-    ) {
+    ): Promise<MyProfileResponse> {
         if (!req.user.employeeId) {
             throw new UnprocessableEntityException('No employee record linked to this account')
         }
@@ -51,7 +76,7 @@ export class ProfileController {
     }
 
     @Get('me/organization')
-    async getMyOrganization(@Req() req: AuthRequest) {
+    async getMyOrganization(@Req() req: AuthRequest): Promise<OrgContextResponse> {
         if (!req.user.employeeId) {
             throw new UnprocessableEntityException('No employee record linked to this account')
         }

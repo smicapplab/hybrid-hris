@@ -17,22 +17,22 @@ The system focuses on deterministic background processing, clean domain separati
 
 ### Core Modules
 
-- **Employee Management** – Master records, employment type, status, and organizational assignment.
-- **Organizational Structure** – Hierarchical Org Units (3-level depth), shared Positions, and Org Unit Leaders (HEAD / CO_HEAD / ACTING_HEAD).
+- **Employee Management** – Master records with PH-standard validation (Mobile/Landline), employment type, status, and movement tracking.
+- **Organizational Structure** – Hierarchical Org Units, shared Positions, and recursive leadership authority models.
 - **Manpower Request Workflow** – Formalized hiring requests with multi-level approval (HR Admin → Root Leader).
 - **Plantilla & Headcount Inventory** – Real-time tracking of authorized vs. filled vs. vacant slots across the entire organization.
-- **Leave Management (Ledger-Based)** – Robust leave tracking using an append-only financial-style ledger. Supports accrual, consumption, and manual adjustments.
-- **Expense & Team Budgets** – Hierarchical budget allocation per Org Unit and category. Append-only budget ledger for consumption tracking.
-- **Attendance & Shift Management** – Shift templates, employee shift assignments, and attendance logging with 30-day historical tracking.
-- **Identity & RBAC** – Users, roles, and user-role mappings with hardened database-first authorization.
-- **Skills & Training Management** – Centralized skill taxonomy, 360-degree employee skill profiles, and internal/external training programs with automated skill granting.
+- **Leave Management (Ledger-Based)** – Robust leave tracking using an append-only financial-style ledger with deterministic monthly accruals.
+- **Expense & Team Budgets** – Hierarchical budget allocation per Org Unit and category with real-time balance validation.
+- **Attendance & Shift Management** – Shift templates, employee assignments, and localized timezone-aware attendance logging.
+- **Skills & Training Management** – End-to-end professional development with automated skill granting, compliance tracking, and team readiness analytics.
+- **Identity & RBAC** – Hardened database-first authorization with support for Supervisor/Manager hierarchical overrides.
 
 ### Design Philosophy
 
 - **Immutable Ledgers:** Both Leave and Budget balances are derived from append-only ledgers, ensuring a perfect audit trail.
+- **Hierarchical Recursive Authority:** Leaders automatically inherit authority over their entire downline (sub-units), powered by PostgreSQL Recursive CTEs for high-performance discovery.
+- **Exception-Based Dashboards:** Management views focus on "Exceptions" (Missing Skills, Non-Compliance) rather than walls of data, enabling faster decision-making.
 - **Real-time Plantilla Integrity:** Authorized headcount limits are strictly enforced; expansion is only possible through approved "New Headcount" workflows.
-- **Database-First Authorization:** Security is enforced at the service level by re-fetching user roles and leadership status directly from the database.
-- **Deterministic Accruals:** Monthly accruals use idempotent deterministic keys to prevent duplicate credits.
 - **Monorepo Architecture:** Clean package boundaries using pnpm workspaces.
 
 ### Screenshots
@@ -81,7 +81,7 @@ Ensure Docker is running, then run migrations and seed the **Enterprise Environm
 pnpm --filter @hybrid-hris/db run db:migrate
 LOAD_TEST_DATA=true pnpm --filter @hybrid-hris/db run seed
 ```
-*The seed generates ~90 realistic employees, a 3-level org tree, 30 days of attendance, and full budget/leave history.*
+*The seed generates ~90 realistic employees, a 3-level org tree, 30 days of attendance, and full professional development history.*
 
 ### 5. Start Applications
 
@@ -96,33 +96,28 @@ LOAD_TEST_DATA=true pnpm --filter @hybrid-hris/db run seed
 - **Operational Vacancy Detection:** Managers can see "Available" slots in their Org Unit and trigger hiring requests directly from the Org Structure view.
 - **Approval Workflow:** Strict **HR Admin → Root Leader** chain for all recruitment needs.
 - **Automated Headcount Expansion:** Final approval of a "New Headcount" request automatically increments the authorized Plantilla limit for that unit.
-- **Rich Text Job Postings:** Integrated WYSIWYG editor for drafting professional job descriptions (Summary, Responsibilities, Qualifications) compatible with external boards like LinkedIn.
+
+### Skills & Professional Development
+- **Team Readiness Dashboard:** Visual "Role Fit" analysis for managers. Replaces complex heatmaps with actionable cards highlighting **Critical Gaps** (missing required skills) and **Growth Needs** (below target proficiency).
+- **3-Layer Mandatory Training:** Define requirements at the **Global** (Company-wide), **Position** (Job Role), and **Org Unit** (Department) levels.
+- **Automated Skill Pipeline:** Completing an internal training program automatically updates employee profiles with verified skills and proficiency levels.
+- **Manager Direct Assignment:** Supervisors can directly assign and verify skills for their team, bypassing approval workflows for authoritative development.
+- **Hierarchical Oversight:** Heads of Divisions can "Zoom Out" to see compliance and skill health for their entire downline (hundreds of employees) with server-side pagination and search.
 
 ### Leave & Accrual
 - **Policy Engine:** Define different leave policies (e.g., Standard, Intern) with specific monthly accrual rates and carry-over limits.
-- **Process Accruals:** Trigger organization-wide monthly credits with a single click.
+- **Ledger Integrity:** Every credit and debit is a recorded transaction, making balance disputes impossible to occur without a clear audit trail.
 
 ### Expense & Budget Matrix
 - **Budget Matrix:** Global view of allocations across all Organizational Units and Categories.
 - **Real-time Consumption:** Expense filing includes immediate balance validation against the team's allocated budget.
-
-### Employee Lifecycle
-- PH-centric tracking (TIN, SSS, PhilHealth, Pag-IBIG).
-- Full movement tracking from Probation to Regular/Resigned.
-
-### Skills & Professional Development
-- **Skill Taxonomy:** HR-managed global catalog of skills categorized by domain (e.g., Programming, Leadership) with support for expiration and recertification.
-- **360 Skill Profiles:** Employees maintain verified skill inventories sourced from internal training, external experience, or manager assignments.
-- **Trust Hierarchy:** Automated verification for "Internal Training" skills, manager-verified "Assigned" skills, and pending "Self-Claimed" skills.
-- **Training Lifecycle:** Manage reusable Training Programs (templates) and multiple Schedules (instances) with capacity tracking and automated attendance-to-skill workflows.
-- **Skill Gap Heatmaps (Planned):** Compare employee proficiency levels against Position-specific requirements to identify organizational capabilities and training needs.
 
 ---
 
 ## Next Steps
 
 - [ ] Add Receipt File Upload support (S3/Local strategy).
-- [ ] Implement multi-level approval logic for Leaves (currently single-level).
+- [ ] Implement Skill Expiry & Recertification proactive alerts.
 - [ ] Add hybrid background job execution (BullMQ + Lambda/EventBridge).
 - [ ] Integrate external Job Boards API (LinkedIn/Indeed/Jobstreet).
 

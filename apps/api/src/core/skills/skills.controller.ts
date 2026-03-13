@@ -8,13 +8,24 @@ import {
   Delete,
   UseGuards,
   UnauthorizedException,
+  Query,
 } from '@nestjs/common';
 import { SkillsService } from './skills.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-import { SystemRole, ProficiencyLevel } from '@hybrid-hris/domain';
+import { SystemRole } from '@hybrid-hris/domain';
+import { 
+  AssignSkillDto, 
+  DeclareSkillDto, 
+  ProcessSkillApprovalDto,
+  CreateSkillCategoryDto,
+  UpdateSkillCategoryDto,
+  CreateSkillDto,
+  UpdateSkillDto,
+  AddSkillToPositionDto
+} from './dto/skills.dto';
 
 @Controller('skills')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -31,21 +42,27 @@ export class SkillsController {
 
   @Get('team-gap')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
-  async getTeamSkillGap(@CurrentUser('employeeId') managerEmployeeId: string) {
+  async getTeamSkillGap(
+    @CurrentUser('employeeId') managerEmployeeId: string,
+    @Query('recursive') recursive?: string,
+    @Query('search') search?: string,
+    @Query('offset') offset?: string,
+    @Query('limit') limit?: string,
+  ) {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
-    return this.skillsService.getTeamSkillGap(managerEmployeeId);
+    return this.skillsService.getTeamSkillGap(managerEmployeeId, {
+      recursive: recursive === 'true',
+      search,
+      offset: offset ? parseInt(offset, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
   }
 
   @Post('assign')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
   async assignSkill(
     @CurrentUser('employeeId') managerEmployeeId: string,
-    @Body() data: {
-      employeeId: string;
-      skillId: string;
-      proficiencyLevel: ProficiencyLevel;
-      notes?: string;
-    }
+    @Body() data: AssignSkillDto
   ) {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
     return this.skillsService.assignSkillToReport(managerEmployeeId, data);
@@ -54,13 +71,7 @@ export class SkillsController {
   @Post('my-skills')
   async declareSkill(
     @CurrentUser('employeeId') employeeId: string,
-    @Body() data: {
-      skillId: string;
-      proficiencyLevel: ProficiencyLevel;
-      acquiredDate: string;
-      evidenceUrl?: string;
-      notes?: string;
-    }
+    @Body() data: DeclareSkillDto
   ) {
     if (!employeeId) throw new UnauthorizedException('Not linked to an employee profile');
     return this.skillsService.declareSkill(employeeId, data);
@@ -89,7 +100,7 @@ export class SkillsController {
   async approveSkill(
     @Param('id') id: string,
     @CurrentUser('employeeId') managerEmployeeId: string,
-    @Body() data: { status: 'VERIFIED' | 'REJECTED'; notes?: string }
+    @Body() data: ProcessSkillApprovalDto
   ) {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
     return this.skillsService.processSkillApproval(id, managerEmployeeId, data);
@@ -119,7 +130,7 @@ export class SkillsController {
 
   @Post('categories')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-  async createCategory(@Body() data: { name: string; description?: string }) {
+  async createCategory(@Body() data: CreateSkillCategoryDto) {
     return this.skillsService.createCategory(data);
   }
 
@@ -127,7 +138,7 @@ export class SkillsController {
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async updateCategory(
     @Param('id') id: string,
-    @Body() data: { name?: string; description?: string },
+    @Body() data: UpdateSkillCategoryDto,
   ) {
     return this.skillsService.updateCategory(id, data);
   }
@@ -139,16 +150,7 @@ export class SkillsController {
 
   @Post('skills')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-  async createSkill(
-    @Body()
-    data: {
-      categoryId: string;
-      name: string;
-      type?: string;
-      description?: string;
-      expiryMonths?: number;
-    },
-  ) {
+  async createSkill(@Body() data: CreateSkillDto) {
     return this.skillsService.createSkill(data);
   }
 
@@ -156,14 +158,7 @@ export class SkillsController {
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async updateSkill(
     @Param('id') id: string,
-    @Body()
-    data: {
-      name?: string;
-      type?: string;
-      description?: string;
-      expiryMonths?: number | null;
-      isActive?: boolean;
-    },
+    @Body() data: UpdateSkillDto,
   ) {
     return this.skillsService.updateSkill(id, data);
   }
@@ -177,13 +172,7 @@ export class SkillsController {
 
   @Post('positions')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-  async addSkillToPosition(
-    @Body() data: {
-      positionId: string;
-      skillId: string;
-      requiredProficiencyLevel: ProficiencyLevel;
-    }
-  ) {
+  async addSkillToPosition(@Body() data: AddSkillToPositionDto) {
     return this.skillsService.addSkillToPosition(data);
   }
 

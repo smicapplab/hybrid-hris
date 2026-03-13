@@ -16,88 +16,41 @@ import {
   trainingSchedules, 
   positionMandatoryTrainings,
   orgUnitMandatoryTrainings,
-  users
+  users,
 } from '@hybrid-hris/db/schema';
-import { and, eq, asc, sql, isNull, inArray, gte } from 'drizzle-orm';
-import { ProficiencyLevel } from '@hybrid-hris/domain';
-
-export interface EndorsementInfo {
-  id: string;
-  employeeSkillId: string;
-  endorserId: string;
-  endorserName: string;
-  message: string | null;
-  createdAt: Date;
-}
-
-export interface EmployeeSkillInfo {
-  id: string;
-  skillId: string;
-  skillName: string;
-  skillType: string;
-  proficiencyLevel: ProficiencyLevel;
-  source: string;
-  verificationStatus: string;
-  acquiredDate: string;
-  expiryDate: string | null;
-  evidenceUrl: string | null;
-  notes: string | null;
-  verifiedAt: Date | null;
-  endorsements?: EndorsementInfo[];
-}
-
-export interface TalentCardData {
-  employee: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    employeeNo: string;
-    positionId: string | null;
-    positionTitle: string | null;
-    orgUnitId: string | null;
-    orgUnitName: string | null;
-    email: string | null;
-    supervisorId: string | null;
-  };
-  skills: {
-    actual: EmployeeSkillInfo[];
-    required: { skillId: string; skillName: string; requiredLevel: string }[];
-  };
-  training: {
-    enrollments: { id: string; status: string; programId: string; programTitle: string; startAt: Date }[];
-    missingMandatory: { id: string; title: string }[];
-  };
-  upcomingLeaves: any[];
-  schedule: any;
-}
-
-export interface TaxonomySkillInfo {
-  id: string;
-  name: string;
-  type: string;
-  description: string | null;
-  expiryMonths: number | null;
-  isActive: boolean;
-  categoryId: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface TaxonomyCategoryInfo {
-  id: string;
-  name: string;
-  description: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  skills: TaxonomySkillInfo[];
-}
+import { and, eq, asc, sql, isNull, inArray, gte, or } from 'drizzle-orm';
+import { 
+  EmployeeSkillInfo, 
+  TalentCardData, 
+  TaxonomyCategoryInfo,
+  TaxonomySkillInfo,
+  SkillGapCell,
+  SkillGapRow,
+  AssignSkillDto,
+  DeclareSkillDto,
+  ProcessSkillApprovalDto,
+  CreateSkillCategoryDto,
+  UpdateSkillCategoryDto,
+  CreateSkillDto,
+  UpdateSkillDto,
+  AddSkillToPositionDto
+} from './dto/skills.dto';
 
 @Injectable()
 export class SkillsService {
   constructor(private readonly db: DatabaseService) {}
 
   async getEmployeeTalentCard(employeeId: string, managerEmployeeId: string): Promise<TalentCardData> {
-    // 1. Verify access (must be direct report or admin)
+    // 1. Verify access (must be direct report or in hierarchical downline)
+    const unitFilter = sql`(
+      WITH RECURSIVE downline_units AS (
+        SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${managerEmployeeId} AND deleted_at IS NULL
+        UNION ALL
+        SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
+      )
+      SELECT org_unit_id FROM downline_units
+    )`;
+
     const [employee] = await this.db.db
       .select({
         id: employees.id,
@@ -115,15 +68,17 @@ export class SkillsService {
       .leftJoin(positions, eq(employees.positionId, positions.id))
       .leftJoin(orgUnits, eq(employees.orgUnitId, orgUnits.id))
       .leftJoin(users, eq(employees.id, users.employeeId))
-      .where(and(eq(employees.id, employeeId), isNull(employees.deletedAt)))
+      .where(and(
+        eq(employees.id, employeeId), 
+        isNull(employees.deletedAt),
+        or(
+            eq(employees.supervisorId, managerEmployeeId),
+            inArray(employees.orgUnitId, unitFilter)
+        )
+      ))
       .limit(1);
 
-    if (!employee) throw new NotFoundException('Employee not found');
-    
-    // Security check: if not the manager, throw error
-    if (employee.supervisorId !== managerEmployeeId) {
-        throw new UnauthorizedException('You can only view talent cards for your direct reports');
-    }
+    if (!employee) throw new UnauthorizedException('You do not have access to this employee profile');
 
     // 2. Fetch Actual Skills
     const actualSkills = await this.getEmployeeSkills(employeeId);
@@ -260,13 +215,7 @@ export class SkillsService {
     }));
   }
 
-  async declareSkill(employeeId: string, data: {
-    skillId: string;
-    proficiencyLevel: ProficiencyLevel;
-    acquiredDate: string;
-    evidenceUrl?: string;
-    notes?: string;
-  }) {
+  async declareSkill(employeeId: string, data: DeclareSkillDto) {
     // Check if already has this skill
     const existing = await this.db.db
       .select()
@@ -310,7 +259,45 @@ export class SkillsService {
 
   // --- Manager Skill Management ---
 
-  async getTeamSkillGap(managerEmployeeId: string) {
+  async getTeamSkillGap(
+    managerEmployeeId: string,
+    options: { recursive?: boolean; search?: string; offset?: number; limit?: number } = {}
+  ): Promise<{ skills: { id: string; name: string }[]; grid: SkillGapRow[]; total: number; hasMore: boolean }> {
+    const { recursive = false, search = '', offset = 0, limit = 20 } = options;
+
+    // 1. Identify target units (recursive if requested)
+    const unitFilter = sql`(
+      WITH RECURSIVE downline_units AS (
+        SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${managerEmployeeId} AND deleted_at IS NULL
+        UNION ALL
+        SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
+        WHERE ${recursive} = true
+      )
+      SELECT org_unit_id FROM downline_units
+    )`;
+
+    // 2. Build main team query
+    const whereClauses = [
+      or(
+        inArray(employees.orgUnitId, unitFilter),
+        eq(employees.supervisorId, managerEmployeeId)
+      ),
+      isNull(employees.deletedAt)
+    ];
+
+    if (search) {
+      whereClauses.push(sql`(lower(${employees.firstName}) LIKE lower(${'%' + search + '%'}) OR lower(${employees.lastName}) LIKE lower(${'%' + search + '%'}))`);
+    }
+
+    // 3. Get Total Count
+    const [countResult] = await this.db.db
+      .select({ count: sql<number>`cast(count(${employees.id}) as int)` })
+      .from(employees)
+      .where(and(...whereClauses));
+
+    const total = countResult?.count ?? 0;
+
+    // 4. Get Paginated Employees
     const myTeam = await this.db.db
       .select({
         id: employees.id,
@@ -318,16 +305,19 @@ export class SkillsService {
         lastName: employees.lastName,
         positionId: employees.positionId,
         positionTitle: positions.title,
+        orgUnitId: employees.orgUnitId,
       })
       .from(employees)
       .leftJoin(positions, eq(employees.positionId, positions.id))
-      .where(and(eq(employees.supervisorId, managerEmployeeId), isNull(employees.deletedAt)))
-      .orderBy(asc(employees.lastName));
+      .where(and(...whereClauses))
+      .orderBy(asc(employees.lastName), asc(employees.firstName))
+      .limit(limit)
+      .offset(offset);
 
-    if (myTeam.length === 0) return { skills: [], grid: [] };
+    if (myTeam.length === 0) return { skills: [], grid: [], total, hasMore: false };
 
     const employeeIds = myTeam.map(e => e.id);
-    const positionIds = Array.from(new Set(myTeam.map(e => e.positionId).filter(Boolean))) as string[];
+    const positionIds = Array.from(new Set(myTeam.map(e => e.positionId).filter(Boolean)));
 
     const requirements = positionIds.length > 0 ? await this.db.db
       .select({
@@ -364,7 +354,7 @@ export class SkillsService {
       const empReqs = requirements.filter(r => r.positionId === emp.positionId);
       const empSkills = actuals.filter(a => a.employeeId === emp.id);
 
-      const skillCells = headerSkills.map(s => {
+      const skillCells: SkillGapCell[] = headerSkills.map(s => {
         const req = empReqs.find(r => r.skillId === s.id);
         const actual = empSkills.find(a => a.skillId === s.id);
 
@@ -392,18 +382,15 @@ export class SkillsService {
 
     return {
       skills: headerSkills,
-      grid
+      grid,
+      total,
+      hasMore: offset + limit < total
     };
   }
 
   async assignSkillToReport(
     managerEmployeeId: string,
-    data: {
-      employeeId: string;
-      skillId: string;
-      proficiencyLevel: ProficiencyLevel;
-      notes?: string;
-    }
+    data: AssignSkillDto
   ) {
     // 1. Verify direct report
     const [report] = await this.db.db
@@ -480,7 +467,7 @@ export class SkillsService {
   async processSkillApproval(
     employeeSkillId: string,
     managerEmployeeId: string,
-    data: { status: 'VERIFIED' | 'REJECTED'; notes?: string }
+    data: ProcessSkillApprovalDto
   ) {
     // 1. Verify this is a pending skill for a direct report
     const result = await this.db.db
@@ -526,7 +513,7 @@ export class SkillsService {
       .orderBy(asc(skillCategories.name));
   }
 
-  async createCategory(data: { name: string; description?: string }) {
+  async createCategory(data: CreateSkillCategoryDto) {
     const existing = await this.db.db
       .select({ id: skillCategories.id })
       .from(skillCategories)
@@ -548,7 +535,7 @@ export class SkillsService {
     return inserted;
   }
 
-  async updateCategory(id: string, data: { name?: string; description?: string }) {
+  async updateCategory(id: string, data: UpdateSkillCategoryDto) {
     const [updated] = await this.db.db
       .update(skillCategories)
       .set({
@@ -575,13 +562,7 @@ export class SkillsService {
       .orderBy(asc(skills.name));
   }
 
-  async createSkill(data: {
-    categoryId: string;
-    name: string;
-    type?: string;
-    description?: string;
-    expiryMonths?: number;
-  }) {
+  async createSkill(data: CreateSkillDto) {
     const existing = await this.db.db
       .select({ id: skills.id })
       .from(skills)
@@ -609,13 +590,7 @@ export class SkillsService {
 
   async updateSkill(
     id: string,
-    data: {
-      name?: string;
-      type?: string;
-      description?: string;
-      expiryMonths?: number | null;
-      isActive?: boolean;
-    },
+    data: UpdateSkillDto,
   ) {
     const [updated] = await this.db.db
       .update(skills)
@@ -639,8 +614,8 @@ export class SkillsService {
 
     return categories.map((cat) => ({
       ...cat,
-      skills: allSkills.filter((s) => s.categoryId === cat.id),
-    }));
+      skills: allSkills.filter((s) => s.categoryId === cat.id) as TaxonomySkillInfo[],
+    })) as TaxonomyCategoryInfo[];
   }
 
   // --- Position Skills (Role Competencies) ---
@@ -660,11 +635,7 @@ export class SkillsService {
       .orderBy(asc(skills.name));
   }
 
-  async addSkillToPosition(data: {
-    positionId: string;
-    skillId: string;
-    requiredProficiencyLevel: ProficiencyLevel;
-  }) {
+  async addSkillToPosition(data: AddSkillToPositionDto) {
     const [inserted] = await this.db.db
       .insert(positionSkills)
       .values({

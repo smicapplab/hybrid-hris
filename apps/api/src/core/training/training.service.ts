@@ -15,59 +15,59 @@ import {
   positionMandatoryTrainings,
   orgUnitMandatoryTrainings,
 } from '@hybrid-hris/db/schema';
-import { eq, and, asc, sql, count, inArray, isNull } from 'drizzle-orm';
-import { ProficiencyLevel, TrainingScheduleStatus, TrainingType, TrainingEnrollmentStatus } from '@hybrid-hris/domain';
+import { eq, and, asc, sql, count, inArray, isNull, or } from 'drizzle-orm';
+import { TrainingEnrollmentStatus } from '@hybrid-hris/domain';
 import { Tx } from 'src/database/database.types';
-
-export interface TeamComplianceInfo {
-  id: string;
-  firstName: string;
-  lastName: string;
-  employeeNo: string;
-  positionId: string | null;
-  orgUnitId: string | null;
-  positionTitle: string | null;
-  requiredCount: number;
-  completedCount: number;
-  missingMandatory: { id: string; title: string }[];
-  isCompliant: boolean;
-}
-
-export interface MyTrainingInfo {
-  id: string;
-  programId: string;
-  status: string;
-  trainerId: string | null;
-  externalTrainer: string | null;
-  location: string | null;
-  capacity: number | null;
-  startAt: Date;
-  endAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  enrollmentStatus: string;
-  programTitle: string;
-  programType: string;
-  isMandatory: boolean;
-}
-
-export interface AttendeeInfo {
-  enrollmentId: string;
-  employeeId: string;
-  firstName: string;
-  lastName: string;
-  employeeNo: string;
-  orgUnitName: string | null;
-  status: TrainingEnrollmentStatus;
-  processedAt: Date | null;
-}
+import { 
+  TeamComplianceInfo, 
+  MyTrainingInfo, 
+  AttendeeInfo,
+  CreateTrainingProgramDto,
+  UpdateTrainingProgramDto,
+  CreateTrainingScheduleDto,
+  UpdateTrainingScheduleDto,
+  UpdateAttendeeStatusDto,
+} from './dto/training.dto';
 
 @Injectable()
 export class TrainingService {
   constructor(private readonly db: DatabaseService) {}
 
-  async getTeamCompliance(managerEmployeeId: string): Promise<TeamComplianceInfo[]> {
-    // 1. Get all direct reports
+  async getTeamCompliance(
+    managerEmployeeId: string,
+    options: { recursive?: boolean; search?: string; offset?: number; limit?: number } = {}
+  ): Promise<{ data: TeamComplianceInfo[]; total: number; hasMore: boolean }> {
+    const { recursive = false, search = '', offset = 0, limit = 20 } = options;
+
+    const unitFilter = sql`(
+      WITH RECURSIVE downline_units AS (
+        SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${managerEmployeeId} AND deleted_at IS NULL
+        UNION ALL
+        SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
+        WHERE ${recursive} = true
+      )
+      SELECT org_unit_id FROM downline_units
+    )`;
+
+    const whereClauses = [
+      or(
+        inArray(employees.orgUnitId, unitFilter),
+        eq(employees.supervisorId, managerEmployeeId)
+      ),
+      isNull(employees.deletedAt)
+    ];
+
+    if (search) {
+      whereClauses.push(sql`(lower(${employees.firstName}) LIKE lower(${'%' + search + '%'}) OR lower(${employees.lastName}) LIKE lower(${'%' + search + '%'}))`);
+    }
+
+    const [countResult] = await this.db.db
+      .select({ count: sql<number>`cast(count(${employees.id}) as int)` })
+      .from(employees)
+      .where(and(...whereClauses));
+
+    const total = countResult?.count ?? 0;
+
     const myTeam = await this.db.db
       .select({
         id: employees.id,
@@ -80,24 +80,22 @@ export class TrainingService {
       })
       .from(employees)
       .leftJoin(positions, eq(employees.positionId, positions.id))
-      .where(and(
-        eq(employees.supervisorId, managerEmployeeId),
-        isNull(employees.deletedAt)
-      ));
+      .where(and(...whereClauses))
+      .orderBy(asc(employees.lastName), asc(employees.firstName))
+      .limit(limit)
+      .offset(offset);
 
-    if (myTeam.length === 0) return [];
+    if (myTeam.length === 0) return { data: [], total, hasMore: false };
 
     const employeeIds = myTeam.map(e => e.id);
-    const positionIds = Array.from(new Set(myTeam.map(e => e.positionId).filter(Boolean))) as string[];
-    const orgUnitIds = Array.from(new Set(myTeam.map(e => e.orgUnitId).filter(Boolean))) as string[];
+    const positionIds = Array.from(new Set(myTeam.map(e => e.positionId).filter(Boolean)));
+    const orgUnitIds = Array.from(new Set(myTeam.map(e => e.orgUnitId).filter(Boolean)));
 
-    // 2. Get all Global Mandatory programs
     const globalMandatory = await this.db.db
       .select({ id: trainingPrograms.id, title: trainingPrograms.title })
       .from(trainingPrograms)
       .where(eq(trainingPrograms.isMandatory, true));
 
-    // 3. Get Position-specific mandatory programs
     const positionMandatory = positionIds.length > 0 ? await this.db.db
       .select({ 
         positionId: positionMandatoryTrainings.positionId, 
@@ -108,7 +106,6 @@ export class TrainingService {
       .innerJoin(trainingPrograms, eq(positionMandatoryTrainings.programId, trainingPrograms.id))
       .where(inArray(positionMandatoryTrainings.positionId, positionIds)) : [];
 
-    // 4. Get Org Unit-specific mandatory programs
     const orgMandatory = orgUnitIds.length > 0 ? await this.db.db
       .select({
         orgUnitId: orgUnitMandatoryTrainings.orgUnitId,
@@ -119,7 +116,6 @@ export class TrainingService {
       .innerJoin(trainingPrograms, eq(orgUnitMandatoryTrainings.programId, trainingPrograms.id))
       .where(inArray(orgUnitMandatoryTrainings.orgUnitId, orgUnitIds)) : [];
 
-    // 5. Get completions for the team
     const completions = await this.db.db
       .select({ 
         employeeId: trainingEnrollments.employeeId, 
@@ -133,15 +129,13 @@ export class TrainingService {
         eq(trainingEnrollments.status, 'COMPLETED')
       ));
 
-    // 6. Calculate gaps
-    return myTeam.map(emp => {
+    const data = myTeam.map(emp => {
       const rawRequired = [
         ...globalMandatory.map(p => ({ id: p.id, title: p.title })),
         ...positionMandatory.filter(pm => pm.positionId === emp.positionId).map(p => ({ id: p.programId, title: p.title })),
         ...orgMandatory.filter(om => om.orgUnitId === emp.orgUnitId).map(p => ({ id: p.programId, title: p.title }))
       ];
       
-      // De-duplicate required list by ID
       const requiredMap = new Map<string, { id: string; title: string }>();
       rawRequired.forEach(r => requiredMap.set(r.id, r));
       const required = Array.from(requiredMap.values());
@@ -157,6 +151,12 @@ export class TrainingService {
         isCompliant: missing.length === 0
       };
     });
+
+    return {
+      data,
+      total,
+      hasMore: offset + limit < total
+    };
   }
 
   async getPublicScheduleDetails(scheduleId: string, currentEmployeeId?: string) {
@@ -438,15 +438,7 @@ export class TrainingService {
     };
   }
 
-  async createProgram(data: {
-    title: string;
-    description?: string;
-    objectives?: string;
-    type: TrainingType;
-    isMandatory?: boolean;
-    skillIds?: { id: string; level: ProficiencyLevel }[];
-    prerequisiteIds?: string[];
-  }) {
+  async createProgram(data: CreateTrainingProgramDto) {
     const { skillIds, prerequisiteIds, ...programData } = data;
 
     return await this.db.db.transaction(async (tx) => {
@@ -483,15 +475,7 @@ export class TrainingService {
 
   async updateProgram(
     id: string,
-    data: {
-      title?: string;
-      description?: string;
-      objectives?: string;
-      type?: TrainingType;
-      isMandatory?: boolean;
-      skillIds?: { id: string; level: ProficiencyLevel }[];
-      prerequisiteIds?: string[];
-    },
+    data: UpdateTrainingProgramDto
   ) {
     const { skillIds, prerequisiteIds, ...programData } = data;
 
@@ -548,16 +532,7 @@ export class TrainingService {
       .orderBy(asc(trainingSchedules.startAt));
   }
 
-  async createSchedule(data: {
-    programId: string;
-    location?: string;
-    capacity?: number;
-    startAt: Date;
-    endAt: Date;
-    trainerId?: string;
-    externalTrainer?: string;
-    sessions?: { title?: string; location?: string; startAt: Date; endAt: Date }[];
-  }) {
+  async createSchedule(data: CreateTrainingScheduleDto) {
     const { sessions, ...scheduleData } = data;
 
     return await this.db.db.transaction(async (tx) => {
@@ -565,6 +540,8 @@ export class TrainingService {
         .insert(trainingSchedules)
         .values({
           ...scheduleData,
+          startAt: new Date(scheduleData.startAt),
+          endAt: new Date(scheduleData.endAt),
           status: 'SCHEDULED',
         })
         .returning();
@@ -574,6 +551,8 @@ export class TrainingService {
           sessions.map((s) => ({
             scheduleId: inserted.id,
             ...s,
+            startAt: new Date(s.startAt),
+            endAt: new Date(s.endAt),
           })),
         );
       }
@@ -584,26 +563,22 @@ export class TrainingService {
 
   async updateSchedule(
     id: string,
-    data: {
-      location?: string;
-      capacity?: number;
-      startAt?: Date;
-      endAt?: Date;
-      trainerId?: string;
-      externalTrainer?: string;
-      status?: TrainingScheduleStatus;
-      sessions?: { title?: string; location?: string; startAt: Date; endAt: Date }[];
-    },
+    data: UpdateTrainingScheduleDto
   ) {
     const { sessions, ...scheduleData } = data;
 
     return await this.db.db.transaction(async (tx) => {
+      const { startAt, endAt, ...rest } = scheduleData;
+      const patch: Partial<typeof trainingSchedules.$inferInsert> = { 
+        ...rest, 
+        updatedAt: new Date(),
+      };
+      if (startAt) patch.startAt = new Date(startAt);
+      if (endAt) patch.endAt = new Date(endAt);
+
       const [updated] = await tx
         .update(trainingSchedules)
-        .set({
-          ...scheduleData,
-          updatedAt: new Date(),
-        })
+        .set(patch)
         .where(eq(trainingSchedules.id, id))
         .returning();
 
@@ -618,6 +593,8 @@ export class TrainingService {
             sessions.map((s) => ({
               scheduleId: id,
               ...s,
+              startAt: new Date(s.startAt),
+              endAt: new Date(s.endAt),
             })),
           );
         }
@@ -691,7 +668,7 @@ export class TrainingService {
 
   async updateAttendeeStatus(
     enrollmentId: string,
-    data: { status: TrainingEnrollmentStatus; notes?: string },
+    data: UpdateAttendeeStatusDto,
     processorId: string | null,
     tx?: Tx
   ) {
@@ -755,7 +732,7 @@ export class TrainingService {
 
   async bulkUpdateAttendeeStatus(
     enrollmentIds: string[],
-    data: { status: TrainingEnrollmentStatus; notes?: string },
+    data: UpdateAttendeeStatusDto,
     processorId: string | null
   ) {
     return await this.db.db.transaction(async (tx) => {

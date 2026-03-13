@@ -1,16 +1,79 @@
 import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common'
-import { and, asc, desc, eq, gte, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNull, sql, or, inArray } from 'drizzle-orm'
 import * as bcrypt from 'bcrypt'
 import { employees, employeeProfiles, users, positions, orgUnits, orgUnitLeaders, employeeShiftAssignments, shiftTemplates, attendanceLogs, attendanceAdjustments } from '@hybrid-hris/db'
 import { DatabaseService } from 'src/database/database.service'
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
+import { 
+    MyProfileResponse, 
+    OrgContextResponse, 
+    PaginatedTeamMembersResponse 
+} from './dto/profile.dto'
 
 @Injectable()
 export class ProfileService {
     constructor(private readonly db: DatabaseService) { }
 
-    async getMyProfile(employeeId: string, userEmail: string) {
+    async getMyTeamMembers(
+        employeeId: string,
+        options: { recursive?: boolean; search?: string; offset?: number; limit?: number } = {}
+    ): Promise<PaginatedTeamMembersResponse> {
+        const { recursive = false, search = '', offset = 0, limit = 20 } = options
+
+        const unitFilter = sql`(
+            WITH RECURSIVE downline_units AS (
+                SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${employeeId} AND deleted_at IS NULL
+                UNION ALL
+                SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
+                WHERE ${recursive} = true
+            )
+            SELECT org_unit_id FROM downline_units
+        )`
+
+        const whereClauses = [
+            or(
+                inArray(employees.orgUnitId, unitFilter),
+                eq(employees.supervisorId, employeeId)
+            ),
+            isNull(employees.deletedAt)
+        ]
+
+        if (search) {
+            whereClauses.push(sql`(lower(${employees.firstName}) LIKE lower(${'%' + search + '%'}) OR lower(${employees.lastName}) LIKE lower(${'%' + search + '%'}))`)
+        }
+
+        const [countResult] = await this.db.db
+            .select({ count: sql<number>`cast(count(${employees.id}) as int)` })
+            .from(employees)
+            .where(and(...whereClauses))
+
+        const total = countResult?.count ?? 0
+
+        const data = await this.db.db
+            .select({
+                id: employees.id,
+                firstName: employees.firstName,
+                lastName: employees.lastName,
+                employeeNo: employees.employeeNo,
+                positionTitle: positions.title,
+                status: employees.status,
+            })
+            .from(employees)
+            .leftJoin(positions, eq(employees.positionId, positions.id))
+            .where(and(...whereClauses))
+            .orderBy(asc(employees.lastName), asc(employees.firstName))
+            .limit(limit)
+            .offset(offset)
+
+        return {
+            data,
+            total,
+            hasMore: offset + limit < total
+        }
+    }
+
+    async getMyProfile(employeeId: string, userEmail: string): Promise<MyProfileResponse> {
         const [row] = await this.db.db
             .select({
                 employee: employees,
@@ -62,7 +125,7 @@ export class ProfileService {
         employeeId: string,
         userEmail: string,
         dto: UpdateMyProfileDto,
-    ) {
+    ): Promise<MyProfileResponse> {
         /* ── Split fields between the two tables ── */
         const EMPLOYEE_FIELDS = [
             'alternateEmail', 'addressLine1', 'addressLine2',
@@ -163,7 +226,7 @@ export class ProfileService {
             .where(eq(users.id, userId))
     }
 
-    async getMyOrgContext(employeeId: string) {
+    async getMyOrgContext(employeeId: string): Promise<OrgContextResponse> {
         const [empRow] = await this.db.db
             .select({
                 id: employees.id,

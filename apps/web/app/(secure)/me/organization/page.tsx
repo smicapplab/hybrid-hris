@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Briefcase, ChevronRight, User, Users, ArrowUpRight, ShieldCheck, GraduationCap, Info } from 'lucide-react'
+import { Building2, Briefcase, ChevronRight, User, Users, ArrowUpRight, ShieldCheck, Info, GraduationCap, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OrgContext } from '@/types/org.type'
 import { ORG_LEADER_ROLE_BADGE, ORG_LEADER_ROLE_LABEL } from '@/lib/org.enum'
@@ -13,8 +13,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SkillApprovalsTab } from './components/skill-approvals-tab'
 import { TeamComplianceTab } from './components/team-compliance-tab'
 import { TeamSkillGapTab } from './components/team-skill-gap-tab'
+import { TeamMembersTab } from './components/team-members-tab'
 import { EmployeeTalentCard } from './components/employee-talent-card'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { useDebounce } from '@/hooks/use-debounce'
 
 /* ─── Avatar helper ─────────────────────────────────────────── */
 function Avatar({ name, className }: { name: string; className?: string }) {
@@ -39,6 +44,11 @@ export default function OrganizationPage() {
     // NEW: Drill-down state
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState('my-org')
+
+    // NEW: Hierarchy & Search State
+    const [recursive, setRecursive] = useState(false)
+    const [search, setSearch] = useState('')
+    const debouncedSearch = useDebounce(search, 500)
 
     const handleSelectFromCompliance = (id: string) => {
         setSelectedEmployeeId(id)
@@ -73,33 +83,64 @@ export default function OrganizationPage() {
 
     const fullName = `${ctx.employee.firstName} ${ctx.employee.lastName}`
     const canSeeApprovals = user.roles.some(r => ['ADMIN', 'HR_ADMIN', 'SUPERVISOR', 'MANAGER'].includes(r))
+    const isLeadershipTab = ['my-team', 'gap', 'compliance'].includes(activeTab)
 
     return (
         <div className="p-6 space-y-6 max-w-5xl text-foreground">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 max-w-200 h-10 p-1 bg-muted/50 rounded-lg">
-                    <TabsTrigger value="my-org" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
-                        <Building2 className="w-4 h-4" /> My Organization
-                    </TabsTrigger>
-                    <TabsTrigger value="my-team" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
-                        <Users className="w-4 h-4" /> My Team
-                    </TabsTrigger>
-                    <TabsTrigger value="compliance" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
-                        <ShieldCheck className="w-4 h-4" /> Team Compliance
-                    </TabsTrigger>
-                    <TabsTrigger value="gap" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
-                        <GraduationCap className="w-4 h-4" /> Skill Gap
-                    </TabsTrigger>
-                    {canSeeApprovals && (
-                        <TabsTrigger value="approvals" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
-                            <Info className="w-4 h-4" /> Approvals
-                        </TabsTrigger>
-                    )}
-                </TabsList>
 
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full lg:w-auto">
+                    <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 lg:min-w-162.5 h-10 p-1 bg-muted/50 rounded-lg">
+                        <TabsTrigger value="my-org" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
+                            <Building2 className="w-4 h-4" /> <span className="hidden sm:inline">My Org</span><span className="sm:hidden text-[10px]">Org</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="my-team" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
+                            <Users className="w-4 h-4" /> <span className="hidden sm:inline">My Team</span><span className="sm:hidden text-[10px]">Team</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="gap" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
+                            <GraduationCap className="w-4 h-4" /> <span className="hidden sm:inline">Skill Gap</span><span className="sm:hidden text-[10px]">Gap</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="compliance" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
+                            <ShieldCheck className="w-4 h-4" /> <span className="hidden sm:inline">Compliance</span><span className="sm:hidden text-[10px]">Comp</span>
+                        </TabsTrigger>
+                        {canSeeApprovals && (
+                            <TabsTrigger value="approvals" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
+                                <Info className="w-4 h-4" /> <span className="hidden sm:inline">Approvals</span><span className="sm:hidden text-[10px]">Apprv</span>
+                            </TabsTrigger>
+                        )}
+                    </TabsList>
+                </Tabs>
+            </div>
+
+            {isLeadershipTab && (
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="relative flex-1 sm:w-64">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <Input
+                            placeholder="Search by name..."
+                            className="pl-8 h-9 text-xs"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-muted/20 border-border/40 shrink-0">
+                        <Switch
+                            id="recursive-mode"
+                            checked={recursive}
+                            onCheckedChange={setRecursive}
+                            className="scale-75 origin-left"
+                        />
+                        <Label htmlFor="recursive-mode" className="text-[10px] font-bold uppercase tracking-tight cursor-pointer">
+                            Show Entire Downline
+                        </Label>
+                    </div>
+                </div>
+            )}
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsContent value="my-org" className="mt-6 space-y-6">
                     {/* ── My Position Card ─────────────────────────────────── */}
-                    <Card className="overflow-hidden shadow-sm border-border/60 bg-card">
+                    <Card className="overflow-hidden shadow-sm border-border/60 bg-card text-foreground">
                         <div className="px-6 pt-6 pb-5">
                             <div className="flex items-start gap-4">
                                 <Avatar name={fullName} className="w-14 h-14 text-base" />
@@ -215,34 +256,15 @@ export default function OrganizationPage() {
                         />
                     ) : (
                         <div className="grid grid-cols-1 gap-6">
-                            {/* ── Direct Reports Section ── */}
-                            {ctx.directReports.length > 0 && (
-                                <section className="space-y-3">
-                                    <div className="flex items-center justify-between px-1">
-                                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">My Direct Reports ({ctx.directReports.length})</h3>
-                                        <span className="text-[10px] text-muted-foreground italic font-medium">Click card to view details</span>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {ctx.directReports.map(dr => (
-                                            <Card key={dr.id} className="hover:border-primary/50 transition-all bg-card border-border/60 shadow-none cursor-pointer group" onClick={() => setSelectedEmployeeId(dr.id)}>
-                                                <CardContent className="p-4 flex items-center justify-between gap-3">
-                                                    <div className="flex items-center gap-3 min-w-0">
-                                                        <Avatar name={`${dr.firstName} ${dr.lastName}`} className="w-9 h-9 border group-hover:border-primary/30 transition-colors" />
-                                                        <div className="min-w-0">
-                                                            <p className="text-sm font-bold leading-tight truncate text-foreground group-hover:text-primary transition-colors">{dr.firstName} {dr.lastName}</p>
-                                                            <p className="text-[10px] text-muted-foreground font-medium truncate mt-0.5 uppercase tracking-tight">{dr.positionTitle}</p>
-                                                        </div>
-                                                    </div>
-                                                    <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
-                                                </CardContent>
-                                            </Card>
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
+                            {/* ── Managed Team Section (Recursive/Paginated) ── */}
+                            <TeamMembersTab
+                                onSelectEmployeeAction={setSelectedEmployeeId}
+                                recursive={recursive}
+                                search={debouncedSearch}
+                            />
 
                             {/* ── Peers Section ── */}
-                            <section className="space-y-3">
+                            <section className="space-y-3 pt-4 border-t border-dashed">
                                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1 leading-none">My Peers in {ctx.orgUnit?.name} ({ctx.peers?.length ?? 0})</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {ctx.peers?.map(peer => {
@@ -269,7 +291,7 @@ export default function OrganizationPage() {
                                         );
                                     })}
                                     {(!ctx.peers || ctx.peers.length === 0) && (
-                                        <div className="col-span-full py-12 text-center border-dashed border rounded-2xl bg-muted/5">
+                                        <div className="col-span-full py-12 text-center border-dashed border rounded-2xl bg-muted/5 text-foreground">
                                             <p className="text-xs text-muted-foreground italic font-medium">No other members in this unit yet.</p>
                                         </div>
                                     )}
@@ -290,7 +312,7 @@ export default function OrganizationPage() {
                                                             <p className="text-sm font-bold">{leader.firstName} {leader.lastName}</p>
                                                             <div className="flex items-center gap-2 mt-0.5">
                                                                 <Badge variant="outline" className={cn(
-                                                                    "text-[9px] uppercase h-4 px-1.5",
+                                                                    "text-[9px] uppercase h-4 px-1.5 shadow-none",
                                                                     ORG_LEADER_ROLE_BADGE[leader.role]
                                                                 )}>
                                                                     {ORG_LEADER_ROLE_LABEL[leader.role]}
@@ -310,29 +332,24 @@ export default function OrganizationPage() {
                 </TabsContent>
 
                 <TabsContent value="gap" className="mt-6">
-                    <div className="space-y-4">
-                        <div className="px-1">
-                            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">Team Skill Analysis</h3>
-                            <p className="text-xs text-muted-foreground mt-1">Visualization of actual proficiency levels vs position requirements.</p>
-                        </div>
-                        <TeamSkillGapTab />
-                    </div>
+                    <TeamSkillGapTab
+                        recursive={recursive}
+                        search={debouncedSearch}
+                    />
                 </TabsContent>
 
                 <TabsContent value="compliance" className="mt-6">
-                    <div className="space-y-4">
-                        <div className="px-1">
-                            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">Team Compliance Tracking</h3>
-                            <p className="text-xs text-muted-foreground mt-1">Monitor completion status of mandatory training across your team.</p>
-                        </div>
-                        <TeamComplianceTab onSelectEmployeeAction={handleSelectFromCompliance} />
-                    </div>
+                    <TeamComplianceTab
+                        onSelectEmployeeAction={handleSelectFromCompliance}
+                        recursive={recursive}
+                        search={debouncedSearch}
+                    />
                 </TabsContent>
 
                 {canSeeApprovals && (
                     <TabsContent value="approvals" className="mt-6">
                         <div className="space-y-4">
-                            <div className="px-1">
+                            <div className="px-1 text-foreground">
                                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">Skill Verification</h3>
                                 <p className="text-xs text-muted-foreground mt-1">Review and approve skill declarations from your direct reports.</p>
                             </div>

@@ -8,13 +8,24 @@ import {
   Delete,
   UseGuards,
   UnauthorizedException,
+  Query,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { TrainingService } from './training.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-import { SystemRole, ProficiencyLevel, TrainingScheduleStatus, TrainingEnrollmentStatus } from '@hybrid-hris/domain';
+import { SystemRole } from '@hybrid-hris/domain';
+import { 
+  CreateTrainingProgramDto, 
+  UpdateTrainingProgramDto, 
+  CreateTrainingScheduleDto, 
+  UpdateTrainingScheduleDto, 
+  UpdateAttendeeStatusDto, 
+  BulkUpdateAttendeeStatusDto,
+  AddMandatoryTrainingDto
+} from './dto/training.dto';
 
 @Controller('training')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -35,18 +46,7 @@ export class TrainingController {
 
   @Post('programs')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-  async createProgram(
-    @Body()
-    data: {
-      title: string;
-      description?: string;
-      objectives?: string;
-      type: 'INTERNAL' | 'EXTERNAL';
-      isMandatory?: boolean;
-      skillIds?: { id: string; level: ProficiencyLevel }[];
-      prerequisiteIds?: string[];
-    },
-  ) {
+  async createProgram(@Body() data: CreateTrainingProgramDto) {
     return this.trainingService.createProgram(data);
   }
 
@@ -54,16 +54,7 @@ export class TrainingController {
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async updateProgram(
     @Param('id') id: string,
-    @Body()
-    data: {
-      title?: string;
-      description?: string;
-      objectives?: string;
-      type?: 'INTERNAL' | 'EXTERNAL';
-      isMandatory?: boolean;
-      skillIds?: { id: string; level: ProficiencyLevel }[];
-      prerequisiteIds?: string[];
-    },
+    @Body() data: UpdateTrainingProgramDto,
   ) {
     return this.trainingService.updateProgram(id, data);
   }
@@ -87,58 +78,17 @@ export class TrainingController {
 
   @Post('schedules')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-  async createSchedule(
-    @Body()
-    data: {
-      programId: string;
-      location?: string;
-      capacity?: number;
-      startAt: string;
-      endAt: string;
-      trainerId?: string;
-      externalTrainer?: string;
-      sessions?: { title?: string; location?: string; startAt: string; endAt: string }[];
-    },
-  ) {
-    return this.trainingService.createSchedule({
-      ...data,
-      startAt: new Date(data.startAt),
-      endAt: new Date(data.endAt),
-      sessions: data.sessions?.map(s => ({
-        ...s,
-        startAt: new Date(s.startAt),
-        endAt: new Date(s.endAt),
-      })),
-    });
+  async createSchedule(@Body() data: CreateTrainingScheduleDto) {
+    return this.trainingService.createSchedule(data);
   }
 
   @Patch('schedules/:id')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async updateSchedule(
     @Param('id') id: string,
-    @Body()
-    data: {
-      location?: string;
-      capacity?: number;
-      startAt?: string;
-      endAt?: string;
-      trainerId?: string;
-      externalTrainer?: string;
-      status?: TrainingScheduleStatus;
-      sessions?: { title?: string; location?: string; startAt: string; endAt: string }[];
-    },
+    @Body() data: UpdateTrainingScheduleDto,
   ) {
-    return this.trainingService.updateSchedule(id, {
-      ...data,
-      startAt: data.startAt ? new Date(data.startAt) : undefined,
-      endAt: data.endAt ? new Date(data.endAt) : undefined,
-      status: data.status,
-      sessions: data.sessions?.map(s => ({
-        ...s,
-        startAt: new Date(s.startAt),
-        endAt: new Date(s.endAt),
-      })),
-    });
+    return this.trainingService.updateSchedule(id, data);
   }
 
   @Get('schedules/:id/attendees')
@@ -170,7 +120,7 @@ export class TrainingController {
   @Patch('enrollments/bulk-status')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async bulkUpdateStatus(
-    @Body() data: { enrollmentIds: string[]; status: TrainingEnrollmentStatus; notes?: string },
+    @Body() data: BulkUpdateAttendeeStatusDto,
     @CurrentUser('employeeId') processorId: string,
   ) {
     return this.trainingService.bulkUpdateAttendeeStatus(data.enrollmentIds, data, processorId);
@@ -186,7 +136,7 @@ export class TrainingController {
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async updateAttendeeStatus(
     @Param('id') id: string,
-    @Body() data: { status: TrainingEnrollmentStatus; notes?: string },
+    @Body() data: UpdateAttendeeStatusDto,
     @CurrentUser('employeeId') processorId: string,
   ) {
     return this.trainingService.updateAttendeeStatus(id, data, processorId);
@@ -234,9 +184,20 @@ export class TrainingController {
 
   @Get('team-compliance')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
-  async getTeamCompliance(@CurrentUser('employeeId') managerEmployeeId: string) {
+  async getTeamCompliance(
+    @CurrentUser('employeeId') managerEmployeeId: string,
+    @Query('recursive') recursive?: string,
+    @Query('search') search?: string,
+    @Query('offset') offset?: string,
+    @Query('limit') limit?: string,
+  ) {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
-    return this.trainingService.getTeamCompliance(managerEmployeeId);
+    return this.trainingService.getTeamCompliance(managerEmployeeId, {
+      recursive: recursive === 'true',
+      search,
+      offset: offset ? parseInt(offset, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
   }
 
   // --- Mandatory Training Requirements ---
@@ -248,7 +209,8 @@ export class TrainingController {
 
   @Post('mandatory/positions')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-  async addMandatoryTrainingToPosition(@Body() data: { positionId: string; programId: string }) {
+  async addMandatoryTrainingToPosition(@Body() data: AddMandatoryTrainingDto) {
+    if (!data.positionId) throw new UnprocessableEntityException('positionId is required');
     return this.trainingService.addMandatoryTrainingToPosition(data.positionId, data.programId);
   }
 
@@ -268,7 +230,8 @@ export class TrainingController {
 
   @Post('mandatory/org-units')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-  async addMandatoryTrainingToOrgUnit(@Body() data: { orgUnitId: string; programId: string }) {
+  async addMandatoryTrainingToOrgUnit(@Body() data: AddMandatoryTrainingDto) {
+    if (!data.orgUnitId) throw new UnprocessableEntityException('orgUnitId is required');
     return this.trainingService.addMandatoryTrainingToOrgUnit(data.orgUnitId, data.programId);
   }
 
