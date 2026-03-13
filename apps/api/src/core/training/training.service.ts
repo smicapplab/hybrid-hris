@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import {
   trainingPrograms,
@@ -15,7 +15,7 @@ import {
   positionMandatoryTrainings,
   orgUnitMandatoryTrainings,
 } from '@hybrid-hris/db/schema';
-import { eq, and, asc, sql, count, inArray, isNull, or } from 'drizzle-orm';
+import { eq, and, asc, sql, count, inArray, isNull, or, SQL } from 'drizzle-orm';
 import { TrainingEnrollmentStatus } from '@hybrid-hris/domain';
 import { Tx } from 'src/database/database.types';
 import { 
@@ -116,17 +116,20 @@ export class TrainingService {
       .innerJoin(trainingPrograms, eq(orgUnitMandatoryTrainings.programId, trainingPrograms.id))
       .where(inArray(orgUnitMandatoryTrainings.orgUnitId, orgUnitIds)) : [];
 
-    const completions = await this.db.db
+    const enrollments = await this.db.db
       .select({ 
         employeeId: trainingEnrollments.employeeId, 
-        programId: trainingPrograms.id 
+        programId: trainingPrograms.id,
+        status: trainingEnrollments.status,
+        scheduleId: trainingSchedules.id,
+        startAt: trainingSchedules.startAt
       })
       .from(trainingEnrollments)
       .innerJoin(trainingSchedules, eq(trainingEnrollments.scheduleId, trainingSchedules.id))
       .innerJoin(trainingPrograms, eq(trainingSchedules.programId, trainingPrograms.id))
       .where(and(
         inArray(trainingEnrollments.employeeId, employeeIds),
-        eq(trainingEnrollments.status, 'COMPLETED')
+        inArray(trainingEnrollments.status, ['COMPLETED', 'ENROLLED'])
       ));
 
     const data = myTeam.map(emp => {
@@ -140,14 +143,27 @@ export class TrainingService {
       rawRequired.forEach(r => requiredMap.set(r.id, r));
       const required = Array.from(requiredMap.values());
       
-      const finishedIds = new Set(completions.filter(c => c.employeeId === emp.id).map(c => c.programId));
-      const missing = required.filter(r => !finishedIds.has(r.id));
+      const empEnrollments = enrollments.filter(c => c.employeeId === emp.id);
+      const finishedIds = new Set(empEnrollments.filter(e => e.status === 'COMPLETED').map(c => c.programId));
+      const enrolledItems = empEnrollments.filter(e => e.status === 'ENROLLED');
+      const enrolledIds = new Set(enrolledItems.map(e => e.programId));
+
+      const missing = required.filter(r => !finishedIds.has(r.id) && !enrolledIds.has(r.id));
+      const scheduled = enrolledItems
+        .filter(e => requiredMap.has(e.programId))
+        .map(e => ({
+          id: e.programId,
+          title: requiredMap.get(e.programId)!.title,
+          scheduleId: e.scheduleId,
+          startAt: e.startAt
+        }));
 
       return {
         ...emp,
         requiredCount: required.length,
-        completedCount: required.length - missing.length,
+        completedCount: finishedIds.size,
         missingMandatory: missing,
+        scheduledMandatory: scheduled,
         isCompliant: missing.length === 0
       };
     });
@@ -295,6 +311,26 @@ export class TrainingService {
   }
 
   async enrollOrgUnit(scheduleId: string, orgUnitId: string, processorId: string | null) {
+    // 1. Security Check: If processor is not an admin, they must have authority over the target org unit
+    if (processorId) {
+        const unitFilter = sql`(
+            WITH RECURSIVE downline_units AS (
+                SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${processorId} AND deleted_at IS NULL
+                UNION ALL
+                SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
+            )
+            SELECT org_unit_id FROM downline_units
+        )`;
+
+        const authorityCheck = await this.db.db.execute(sql`
+            SELECT 1 FROM (SELECT org_unit_id FROM ${unitFilter} t) q WHERE org_unit_id = ${orgUnitId}
+        `);
+
+        if (authorityCheck.rows.length === 0) {
+            throw new UnauthorizedException('You do not have authority over this organizational unit');
+        }
+    }
+
     return await this.db.db.transaction(async (tx) => {
       const orgTree = await tx.execute(sql`
         WITH RECURSIVE org_tree AS (
@@ -542,7 +578,7 @@ export class TrainingService {
           ...scheduleData,
           startAt: new Date(scheduleData.startAt),
           endAt: new Date(scheduleData.endAt),
-          status: 'SCHEDULED',
+          status: scheduleData.status ?? 'SCHEDULED',
         })
         .returning();
 
@@ -743,7 +779,36 @@ export class TrainingService {
   }
 
   async addAttendee(scheduleId: string, employeeId: string, processorId: string | null) {
-    // Check if already enrolled
+    // 1. Security Check: If processor is not an admin, they must have downline authority
+    if (processorId) {
+        const unitFilter = sql`(
+            WITH RECURSIVE downline_units AS (
+                SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${processorId} AND deleted_at IS NULL
+                UNION ALL
+                SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
+            )
+            SELECT org_unit_id FROM downline_units
+        )`;
+
+        const [targetEmployee] = await this.db.db
+            .select({ id: employees.id })
+            .from(employees)
+            .where(and(
+                eq(employees.id, employeeId),
+                isNull(employees.deletedAt),
+                or(
+                    eq(employees.supervisorId, processorId),
+                    inArray(employees.orgUnitId, unitFilter)
+                )
+            ))
+            .limit(1);
+
+        if (!targetEmployee) {
+            throw new UnauthorizedException('You do not have authority to enroll this employee');
+        }
+    }
+
+    // 2. Check if already enrolled
     const existing = await this.db.db
       .select({ id: trainingEnrollments.id })
       .from(trainingEnrollments)
@@ -797,6 +862,124 @@ export class TrainingService {
 
       return deleted;
     });
+  }
+
+  async enrollAllEligible(scheduleId: string, processorId: string | null) {
+    // 1. Get Program context via Schedule
+    const [row] = await this.db.db
+      .select({
+        program: trainingPrograms,
+      })
+      .from(trainingSchedules)
+      .innerJoin(trainingPrograms, eq(trainingSchedules.programId, trainingPrograms.id))
+      .where(eq(trainingSchedules.id, scheduleId))
+      .limit(1);
+
+    if (!row) throw new NotFoundException('Schedule not found');
+    const { program } = row;
+
+    // 2. Identify target groups
+    const posTargets = await this.db.db
+      .select({ id: positionMandatoryTrainings.positionId })
+      .from(positionMandatoryTrainings)
+      .where(eq(positionMandatoryTrainings.programId, program.id));
+    
+    const orgTargets = await this.db.db
+      .select({ id: orgUnitMandatoryTrainings.orgUnitId })
+      .from(orgUnitMandatoryTrainings)
+      .where(eq(orgUnitMandatoryTrainings.programId, program.id));
+
+    const targetPosIds = posTargets.map(t => t.id);
+    const targetOrgIds = orgTargets.map(t => t.id);
+
+    // 3. Find all employees who NEED this training
+    // (Global OR matched Position OR matched Org Unit)
+    const targetConditions: (SQL<unknown> | undefined)[] = [
+        isNull(employees.deletedAt),
+        inArray(employees.status, ['ACTIVE', 'PROBATION'])
+    ];
+
+    // If processor is not admin, they can ONLY enroll their downline
+    if (processorId) {
+        const authorityFilter = sql`(
+            WITH RECURSIVE downline_units AS (
+                SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${processorId} AND deleted_at IS NULL
+                UNION ALL
+                SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
+            )
+            SELECT org_unit_id FROM downline_units
+        )`;
+
+        targetConditions.push(or(
+            eq(employees.supervisorId, processorId),
+            inArray(employees.orgUnitId, authorityFilter)
+        ));
+    }
+
+    const scopeClauses: (SQL<unknown> | undefined)[] = [];
+    if (program.isMandatory) {
+        // Global mandatory - no extra scope needed, condition is already broad
+    } else {
+        if (targetPosIds.length > 0) scopeClauses.push(inArray(employees.positionId, targetPosIds));
+        if (targetOrgIds.length > 0) scopeClauses.push(inArray(employees.orgUnitId, targetOrgIds));
+        
+        if (scopeClauses.length === 0) return { count: 0, message: 'No specific requirements defined for this program' };
+        
+        const combinedScope = or(...scopeClauses);
+        if (combinedScope) targetConditions.push(combinedScope);
+    }
+
+    const allCandidateIds = await this.db.db
+      .select({ id: employees.id })
+      .from(employees)
+      .where(and(...targetConditions));
+
+    if (allCandidateIds.length === 0) return { count: 0 };
+
+    const candidateIds = allCandidateIds.map(c => c.id);
+
+    // 4. Filter out those who have COMPLETED this program already
+    const alreadyCompleted = await this.db.db
+      .select({ employeeId: trainingEnrollments.employeeId })
+      .from(trainingEnrollments)
+      .innerJoin(trainingSchedules, eq(trainingEnrollments.scheduleId, trainingSchedules.id))
+      .where(and(
+        inArray(trainingEnrollments.employeeId, candidateIds),
+        eq(trainingSchedules.programId, program.id),
+        eq(trainingEnrollments.status, 'COMPLETED')
+      ));
+    
+    const completedIds = new Set(alreadyCompleted.map(a => a.employeeId));
+
+    // 5. Filter out those already ENROLLED in an active/upcoming session of this program
+    const alreadyEnrolled = await this.db.db
+      .select({ employeeId: trainingEnrollments.employeeId })
+      .from(trainingEnrollments)
+      .innerJoin(trainingSchedules, eq(trainingEnrollments.scheduleId, trainingSchedules.id))
+      .where(and(
+        inArray(trainingEnrollments.employeeId, candidateIds),
+        eq(trainingSchedules.programId, program.id),
+        inArray(trainingEnrollments.status, ['ENROLLED'])
+      ));
+    
+    const enrolledIds = new Set(alreadyEnrolled.map(a => a.employeeId));
+
+    // 6. Final list of employees to enroll
+    const finalTargetIds = candidateIds.filter(id => !completedIds.has(id) && !enrolledIds.has(id));
+
+    if (finalTargetIds.length === 0) return { count: 0 };
+
+    // 7. Bulk Enroll
+    await this.db.db.insert(trainingEnrollments).values(
+        finalTargetIds.map(empId => ({
+            scheduleId,
+            employeeId: empId,
+            status: 'ENROLLED' as TrainingEnrollmentStatus,
+            processedById: processorId
+        }))
+    ).onConflictDoNothing();
+
+    return { count: finalTargetIds.length };
   }
 
   // --- Mandatory Training Requirements ---

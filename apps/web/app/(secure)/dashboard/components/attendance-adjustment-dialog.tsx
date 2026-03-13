@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { AttendanceLog } from '@/types/attendance.types'
 import { format } from 'date-fns'
+import { DateTimeRangePickerField } from '@/components/ui/date-time-range-picker-field'
 
 type Props = {
     open: boolean
@@ -32,12 +33,9 @@ export function AttendanceAdjustmentDialog({ open, onOpenChangeAction, initialLo
     // Form State
     const [workDate, setWorkDate] = useState(initialLog?.workDate || format(new Date(), 'yyyy-MM-dd'))
     
-    // We use separate date and time strings for the UI pickers to avoid timezone confusion
-    const [inDate, setInDate] = useState(workDate)
-    const [inTime, setInTime] = useState('08:00')
-    
-    const [outDate, setOutDate] = useState(workDate)
-    const [outTime, setOutTime] = useState('17:00')
+    // Using ISO strings for the unified picker
+    const [inTs, setInTs] = useState('')
+    const [outTs, setOutTs] = useState('')
     
     const [remarks, setRemarks] = useState('')
 
@@ -48,34 +46,34 @@ export function AttendanceAdjustmentDialog({ open, onOpenChangeAction, initialLo
             setRemarks(initialLog.pendingRemarks || '')
             
             // If editing a pending adjustment, use those times. Otherwise use actual times.
-            const inTs = initialLog.pendingActualInAt || initialLog.actualInAt
-            const outTs = initialLog.pendingActualOutAt || initialLog.actualOutAt
+            const startTs = initialLog.pendingActualInAt || initialLog.actualInAt
+            const endTs = initialLog.pendingActualOutAt || initialLog.actualOutAt
 
-            if (inTs) {
-                const dateIn = new Date(inTs)
-                setInDate(format(dateIn, 'yyyy-MM-dd'))
-                setInTime(format(dateIn, 'HH:mm'))
-            } else {
-                setInDate(initialLog.workDate)
-                setInTime('08:00')
-            }
+            if (startTs) setInTs(new Date(startTs).toISOString())
+            else setInTs(`${initialLog.workDate}T08:00:00Z`)
 
-            if (outTs) {
-                const dateOut = new Date(outTs)
-                setOutDate(format(dateOut, 'yyyy-MM-dd'))
-                setOutTime(format(dateOut, 'HH:mm'))
-            } else {
-                setOutDate(initialLog.workDate)
-                setOutTime('17:00')
-            }
+            if (endTs) setOutTs(new Date(endTs).toISOString())
+            else setOutTs(`${initialLog.workDate}T17:00:00Z`)
+        } else {
+            const today = format(new Date(), 'yyyy-MM-dd')
+            setInTs(`${today}T08:00:00Z`)
+            setOutTs(`${today}T17:00:00Z`)
         }
     }, [initialLog])
 
     // When workDate changes (Missing Entry mode), update the picker bounds
     const handleWorkDateChange = (v: string) => {
         setWorkDate(v)
-        setInDate(v)
-        setOutDate(v)
+        // Maintain the same time but update the date part
+        const oldInTime = inTs ? inTs.split('T')[1] : '08:00:00Z'
+        const oldOutTime = outTs ? outTs.split('T')[1] : '17:00:00Z'
+        setInTs(`${v}T${oldInTime}`)
+        setOutTs(`${v}T${oldOutTime}`)
+    }
+
+    const handleRangeChange = (start: string, end: string) => {
+        setInTs(start)
+        setOutTs(end)
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -83,18 +81,14 @@ export function AttendanceAdjustmentDialog({ open, onOpenChangeAction, initialLo
         setLoading(true)
 
         try {
-            // Combine date and time strings into ISO strings
-            const requestedIn = `${inDate}T${inTime}:00Z`
-            const requestedOut = `${outDate}T${outTime}:00Z`
-
             const isEdit = !!initialLog?.pendingAdjustmentId
 
             if (isEdit) {
                 await apiFetch(`/attendance-adjustments/${initialLog.pendingAdjustmentId}`, {
                     method: 'PATCH',
                     body: JSON.stringify({
-                        requestedActualInAt: requestedIn,
-                        requestedActualOutAt: requestedOut,
+                        requestedActualInAt: inTs,
+                        requestedActualOutAt: outTs,
                         remarks,
                     })
                 })
@@ -104,8 +98,8 @@ export function AttendanceAdjustmentDialog({ open, onOpenChangeAction, initialLo
                     body: JSON.stringify({
                         workDate,
                         attendanceLogId: initialLog?.id,
-                        requestedActualInAt: requestedIn,
-                        requestedActualOutAt: requestedOut,
+                        requestedActualInAt: inTs,
+                        requestedActualOutAt: outTs,
                         remarks,
                     })
                 })
@@ -155,24 +149,14 @@ export function AttendanceAdjustmentDialog({ open, onOpenChangeAction, initialLo
                             {initialLog && <p className="text-[10px] text-muted-foreground italic">Work date cannot be changed for existing records.</p>}
                         </div>
 
-                        <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg space-y-4">
-                            {/* Requested Time In */}
-                            <div className="space-y-2">
-                                <Label className="text-blue-900 font-bold text-xs uppercase">Requested Time In</Label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Input type="date" value={inDate} onChange={(e) => setInDate(e.target.value)} required />
-                                    <Input type="time" value={inTime} onChange={(e) => setInTime(e.target.value)} required />
-                                </div>
-                            </div>
-
-                            {/* Requested Time Out */}
-                            <div className="space-y-2">
-                                <Label className="text-blue-900 font-bold text-xs uppercase">Requested Time Out</Label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Input type="date" value={outDate} onChange={(e) => setOutDate(e.target.value)} required />
-                                    <Input type="time" value={outTime} onChange={(e) => setOutTime(e.target.value)} required />
-                                </div>
-                            </div>
+                        <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg space-y-4 text-foreground">
+                            <DateTimeRangePickerField
+                                label="Requested Attendance Period"
+                                startAt={inTs}
+                                endAt={outTs}
+                                onChangeAction={handleRangeChange}
+                                required
+                            />
                         </div>
 
                         <div className="grid gap-2">

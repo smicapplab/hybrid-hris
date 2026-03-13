@@ -134,7 +134,18 @@ export class SkillsService {
     const allRequired = Array.from(requiredMap.values());
 
     const completedProgramIds = new Set(enrollments.filter((e) => e.status === 'COMPLETED').map((e) => e.programId));
-    const missingMandatory = allRequired.filter(r => !completedProgramIds.has(r.id));
+    const enrolledItems = enrollments.filter((e) => e.status === 'ENROLLED');
+    const enrolledProgramIds = new Set(enrolledItems.map((e) => e.programId));
+
+    const missingMandatory = allRequired.filter(r => !completedProgramIds.has(r.id) && !enrolledProgramIds.has(r.id));
+    const scheduledMandatory = enrolledItems
+      .filter(e => requiredMap.has(e.programId))
+      .map(e => ({
+        id: e.programId,
+        title: requiredMap.get(e.programId)!.title,
+        scheduleId: e.id,
+        startAt: e.startAt
+      }));
 
     // 6. Upcoming Leaves
     const upcomingLeaves = await this.db.db
@@ -163,6 +174,7 @@ export class SkillsService {
       training: {
         enrollments,
         missingMandatory,
+        scheduledMandatory,
       },
       upcomingLeaves,
       schedule,
@@ -209,10 +221,27 @@ export class SkillsService {
       .innerJoin(employees, eq(employeeSkillEndorsements.endorserId, employees.id))
       .where(inArray(employeeSkillEndorsements.employeeSkillId, skillIds));
 
-    return results.map((r) => ({
-      ...r,
-      endorsements: endorsements.filter((e) => e.employeeSkillId === r.id),
-    }));
+    const now = new Date();
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(now.getDate() + 30);
+
+    return results.map((r) => {
+      let isExpired = false;
+      let isExpiringSoon = false;
+
+      if (r.expiryDate) {
+        const expiry = new Date(r.expiryDate);
+        isExpired = expiry < now;
+        isExpiringSoon = !isExpired && expiry <= thirtyDaysFromNow;
+      }
+
+      return {
+        ...r,
+        isExpired,
+        isExpiringSoon,
+        endorsements: endorsements.filter((e) => e.employeeSkillId === r.id),
+      };
+    });
   }
 
   async declareSkill(employeeId: string, data: DeclareSkillDto) {
@@ -264,6 +293,7 @@ export class SkillsService {
     options: { recursive?: boolean; search?: string; offset?: number; limit?: number } = {}
   ): Promise<{ skills: { id: string; name: string }[]; grid: SkillGapRow[]; total: number; hasMore: boolean }> {
     const { recursive = false, search = '', offset = 0, limit = 20 } = options;
+    const now = new Date();
 
     // 1. Identify target units (recursive if requested)
     const unitFilter = sql`(
@@ -336,6 +366,7 @@ export class SkillsService {
         skillId: employeeSkills.skillId,
         proficiencyLevel: employeeSkills.proficiencyLevel,
         status: employeeSkills.verificationStatus,
+        expiryDate: employeeSkills.expiryDate,
       })
       .from(employeeSkills)
       .where(and(
@@ -359,7 +390,10 @@ export class SkillsService {
         const actual = empSkills.find(a => a.skillId === s.id);
 
         if (!req) return { skillId: s.id, status: 'NA' };
-        if (!actual) return { skillId: s.id, status: 'MISSING', target: req.requiredLevel };
+        
+        // Handle Missing or Expired
+        const isExpired = actual?.expiryDate ? new Date(actual.expiryDate) < now : false;
+        if (!actual || isExpired) return { skillId: s.id, status: 'MISSING', target: req.requiredLevel };
 
         const actualIdx = levels.indexOf(actual.proficiencyLevel);
         const targetIdx = levels.indexOf(req.requiredLevel);

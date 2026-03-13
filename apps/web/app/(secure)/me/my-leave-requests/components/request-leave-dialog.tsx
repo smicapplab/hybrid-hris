@@ -21,6 +21,7 @@ import { apiFetch } from '@/lib/api'
 import { LeaveBalance, DayType, computeLeaveDays, computeMaxEndDate } from '@/types/leave-requests.types'
 import { useToast } from '@/hooks/use-toast'
 import { AlertCircle, CalendarDays, Info } from 'lucide-react'
+import { DateRangePickerField } from '@/components/ui/date-range-picker-field'
 
 interface Props {
     open: boolean
@@ -41,6 +42,12 @@ export default function RequestLeaveDialog({ open, onOpenChangeAction, balances,
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
+    const handleRangeChange = (start: string, end: string) => {
+        setStartDate(start)
+        setEndDate(end)
+        setError(null)
+    }
+
     // Reset when dialog opens
     useEffect(() => {
         if (open) {
@@ -53,13 +60,7 @@ export default function RequestLeaveDialog({ open, onOpenChangeAction, balances,
             setError(null)
         }
     }, [open])
-
-    // When startDate changes, auto-set endDate to same day
-    useEffect(() => {
-        if (startDate && !endDate) setEndDate(startDate)
-        // If endDate is before startDate, reset it
-        if (startDate && endDate && endDate < startDate) setEndDate(startDate)
-    }, [startDate, endDate])
+// Reset when dialog opens
 
     const selectedBalance = balances.find((b) => b.leaveTypeId === leaveTypeId)
     const isMultiDay = startDate && endDate && startDate !== endDate
@@ -155,33 +156,15 @@ export default function RequestLeaveDialog({ open, onOpenChangeAction, balances,
                     </div>
 
                     {/* Date row */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                            <Label>From</Label>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                min={new Date().toISOString().split('T')[0]}
-                                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label>To</Label>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => {
-                                    setEndDate(e.target.value)
-                                    setError(null)
-                                }}
-                                min={startDate || new Date().toISOString().split('T')[0]}
-                                max={maxEndDate}
-                                disabled={!startDate}
-                                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-                            />
-                        </div>
-                    </div>
+                    <DateRangePickerField
+                        label="Leave Period"
+                        startDate={startDate}
+                        endDate={endDate}
+                        onChangeAction={handleRangeChange}
+                        fromDate={new Date()}
+                        toDate={maxEndDate ? new Date(maxEndDate) : undefined}
+                        required
+                    />
 
                     {/* Half-day options */}
                     {startDate && (

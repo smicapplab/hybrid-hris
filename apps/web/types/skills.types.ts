@@ -17,3 +17,7 @@ export interface SkillCategory {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface TaxonomyCategory extends SkillCategory {
+  skills: Skill[];
+}

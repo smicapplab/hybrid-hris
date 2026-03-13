@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, UserPlus, Trash2, CheckCircle2, XCircle, MoreVertical, Search, Users, Building2 } from 'lucide-react';
+import { ArrowLeft, UserPlus, Trash2, CheckCircle2, XCircle, MoreVertical, Search, Users, Building2, Loader2, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -46,6 +46,7 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
   const [newEmployeeId, setNewEmployeeId] = useState<string | null>(null);
   const [newOrgUnitId, setNewOrgUnitId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [enrollingEligible, setEnrollingEligible] = useState(false);
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -96,6 +97,25 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
       toast({ title: 'Bulk update failed', variant: 'destructive' });
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function handleAutoEnroll() {
+    try {
+      setEnrollingEligible(true);
+      const res = await apiFetch<{ count: number }>(`/training/schedules/${scheduleId}/enroll-eligible`, {
+        method: 'POST'
+      });
+      toast({ 
+        title: 'Auto-enrollment complete', 
+        description: `Enrolled ${res.count} eligible staff who haven't completed this training.`,
+        variant: 'success' 
+      });
+      loadAttendees();
+    } catch {
+      toast({ title: 'Auto-enrollment failed', variant: 'destructive' });
+    } finally {
+      setEnrollingEligible(false);
     }
   }
 
@@ -213,6 +233,19 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
             <p className="text-sm text-muted-foreground">{programTitle}</p>
           </div>
         </div>
+
+        <ConfirmDialog
+            title="Auto-Enroll Non-Compliant Staff"
+            description="This will identify all employees who are required to take this training (based on Global, Position, or Org rules) and haven't completed it yet, then enroll them into this schedule."
+            onConfirm={handleAutoEnroll}
+            confirmText={enrollingEligible ? 'Syncing...' : 'Start Sync'}
+            trigger={
+                <Button variant="outline" className="gap-2 font-bold uppercase text-[10px] h-9 border-primary/20 text-primary hover:bg-primary/5 shadow-none" disabled={enrollingEligible}>
+                    {enrollingEligible ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GraduationCap className="w-3.5 h-3.5" />}
+                    Sync Non-Compliant
+                </Button>
+            }
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

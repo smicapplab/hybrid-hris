@@ -98,7 +98,7 @@ export class TrainingController {
   }
 
   @Post('schedules/:id/attendees')
-  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
   async addAttendee(
     @Param('id') id: string,
     @Body('employeeId') employeeId: string,
@@ -108,13 +108,22 @@ export class TrainingController {
   }
 
   @Post('schedules/:id/enroll-org')
-  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
   async enrollOrgUnit(
     @Param('id') id: string,
     @Body('orgUnitId') orgUnitId: string,
     @CurrentUser('employeeId') processorId: string,
   ) {
     return this.trainingService.enrollOrgUnit(id, orgUnitId, processorId);
+  }
+
+  @Post('schedules/:id/enroll-eligible')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
+  async enrollAllEligible(
+    @Param('id') id: string,
+    @CurrentUser('employeeId') processorId: string,
+  ) {
+    return this.trainingService.enrollAllEligible(id, processorId);
   }
 
   @Patch('enrollments/bulk-status')

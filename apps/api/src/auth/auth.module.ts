@@ -20,7 +20,7 @@ import { HrSettingsModule } from 'src/core/hr-settings/hr-settings.module';
       useFactory: () => ({
         secret: process.env.JWT_ACCESS_SECRET as string,
         signOptions: {
-          expiresIn: process.env.JWT_ACCESS_TTL as any,
+          expiresIn: (process.env.JWT_ACCESS_TTL || '1h') as any,
         },
       }),
     }),

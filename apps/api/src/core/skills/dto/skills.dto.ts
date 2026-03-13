@@ -20,6 +20,8 @@ export interface EmployeeSkillInfo {
   verificationStatus: string;
   acquiredDate: string;
   expiryDate: string | null;
+  isExpiringSoon?: boolean;
+  isExpired?: boolean;
   evidenceUrl: string | null;
   notes: string | null;
   verifiedAt: Date | null;
@@ -46,9 +48,21 @@ export interface TalentCardData {
   training: {
     enrollments: { id: string; status: string; programId: string; programTitle: string; startAt: Date }[];
     missingMandatory: { id: string; title: string }[];
+    scheduledMandatory: { id: string; title: string; scheduleId: string; startAt: Date }[];
   };
-  upcomingLeaves: any[];
-  schedule: any;
+  upcomingLeaves: {
+    id: string;
+    startDate: string;
+    endDate: string;
+    days: string;
+    status: string;
+  }[];
+  schedule: {
+    startTime: string;
+    endTime: string;
+    isFlexible: boolean;
+    effectiveFrom: string;
+  } | null;
 }
 
 export interface TaxonomySkillInfo {

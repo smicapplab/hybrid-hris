@@ -57,6 +57,7 @@ interface TalentCardData {
   training: {
     enrollments: { id: string; status: string; programId: string; programTitle: string; startAt: string }[];
     missingMandatory: { id: string; title: string }[];
+    scheduledMandatory: { id: string; title: string; scheduleId: string; startAt: string }[];
   };
   upcomingLeaves: { id: string; startDate: string; days: string }[];
   schedule: { startTime: string; endTime: string } | null;
@@ -317,12 +318,34 @@ export function EmployeeTalentCard({ employeeId, onBackAction }: Props) {
                     {data.training.missingMandatory.map(m => (
                       <div key={m.id} className="flex items-center justify-between p-3 rounded-xl border border-red-100 bg-red-50/20 group text-foreground">
                         <span className="text-sm font-bold truncate pr-4">{m.title}</span>
-                        <EnrollButton programId={m.id} employeeId={employeeId} />
+                        <EnrollButton programId={m.id} employeeId={employeeId} onSuccessAction={loadData} />
                       </div>
                     ))}
                   </div>
                 )}
               </div>
+
+              {/* Scheduled Mandatory */}
+              {data.training.scheduledMandatory.length > 0 && (
+                <div className="space-y-3 text-foreground pt-4 border-t border-dashed">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-600 flex items-center gap-2 mb-4 leading-none">
+                    <Clock className="w-3.5 h-3.5" /> Scheduled Mandatory Items
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2">
+                    {data.training.scheduledMandatory.map(m => (
+                        <div key={m.id} className="flex items-center justify-between p-3 rounded-xl border border-amber-100 bg-amber-50/10 group text-foreground">
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="text-sm font-bold truncate pr-4">{m.title}</span>
+                            <span className="text-[10px] text-muted-foreground font-medium">Starts {new Date(m.startAt).toLocaleDateString()}</span>
+                        </div>
+                        <Badge variant="outline" className="text-[9px] uppercase font-bold border-amber-200 text-amber-700 bg-amber-50 shadow-none shrink-0">
+                            Enrolled
+                        </Badge>
+                        </div>
+                    ))}
+                    </div>
+                </div>
+              )}
 
               {/* Recent Enrollments */}
               <div className="space-y-3 pt-4 border-t border-dashed text-foreground">
@@ -462,7 +485,7 @@ function DirectSkillAssignmentDialog({ employeeId, onSuccessAction }: { employee
     );
 }
 
-function EnrollButton({ programId, employeeId }: { programId: string; employeeId: string }) {
+function EnrollButton({ programId, employeeId, onSuccessAction }: { programId: string; employeeId: string; onSuccessAction: () => void }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([]);
@@ -488,6 +511,7 @@ function EnrollButton({ programId, employeeId }: { programId: string; employeeId
       });
       toast({ title: 'Employee enrolled successfully', variant: 'success' });
       setOpen(false);
+      onSuccessAction();
     } catch (err) {
       toast({
         title: 'Enrollment failed',

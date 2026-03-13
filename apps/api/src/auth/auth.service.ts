@@ -187,9 +187,12 @@ export class AuthService {
     }
 
     async login(
-        user: typeof users.$inferSelect & {
-            firstName?: string | null
-            lastName?: string | null
+        user: {
+            id: string;
+            email: string;
+            employeeId: string | null;
+            firstName?: string | null;
+            lastName?: string | null;
         },
     ) {
         const profile = await this.usersService.getUserFullProfile(user.id);
@@ -225,7 +228,7 @@ export class AuthService {
 
         const refreshToken = this.jwtService.sign(payload, {
             secret: process.env.JWT_REFRESH_SECRET,
-            expiresIn: process.env.JWT_REFRESH_TTL as any,
+            expiresIn: (process.env.JWT_REFRESH_TTL || '7d') as any,
         });
 
         const decoded = this.jwtService.decode(refreshToken)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { apiFetch } from '@/lib/api';
-import { ShieldCheck, ShieldAlert, UserCheck, ChevronDown, Loader2 } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, UserCheck, ChevronDown, Loader2, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +16,7 @@ interface ComplianceReport {
   requiredCount: number;
   completedCount: number;
   missingMandatory: { id: string; title: string }[];
+  scheduledMandatory: { id: string; title: string; scheduleId: string; startAt: string }[];
   isCompliant: boolean;
 }
 
@@ -144,6 +145,10 @@ export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search }:
                     <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200 gap-1 shadow-none font-bold uppercase text-[9px]">
                       <ShieldCheck className="w-3 h-3" /> Compliant
                     </Badge>
+                  ) : r.missingMandatory.length === 0 ? (
+                    <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200 gap-1 shadow-none font-bold uppercase text-[9px]">
+                      <Clock className="w-3 h-3" /> Scheduled
+                    </Badge>
                   ) : (
                     <Badge variant="destructive" className="gap-1 shadow-none font-bold uppercase text-[9px]">
                       <ShieldAlert className="w-3 h-3" /> Non-Compliant
@@ -161,14 +166,21 @@ export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search }:
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
-                    {r.missingMandatory.length === 0 ? (
+                    {r.missingMandatory.length === 0 && r.scheduledMandatory.length === 0 ? (
                       <span className="text-xs text-muted-foreground italic font-medium opacity-50">None</span>
                     ) : (
-                      r.missingMandatory.map(m => (
-                        <Badge key={m.id} variant="outline" className="text-[9px] bg-red-50/50 text-red-600 border-red-100 uppercase font-bold shadow-none">
-                          {m.title}
-                        </Badge>
-                      ))
+                      <>
+                        {r.missingMandatory.map(m => (
+                          <Badge key={m.id} variant="outline" className="text-[9px] bg-red-50/50 text-red-600 border-red-100 uppercase font-bold shadow-none">
+                            {m.title}
+                          </Badge>
+                        ))}
+                        {r.scheduledMandatory.map(m => (
+                          <Badge key={m.id} variant="outline" className="text-[9px] bg-amber-50/50 text-amber-600 border-amber-100 uppercase font-bold shadow-none">
+                            {m.title}
+                          </Badge>
+                        ))}
+                      </>
                     )}
                   </div>
                 </TableCell>

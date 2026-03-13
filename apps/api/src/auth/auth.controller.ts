@@ -15,6 +15,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UpdatePinDto } from './dto/update-pin.dto';
+import { OAuthUser } from './dto/auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -66,7 +67,7 @@ export class AuthController {
     // --- Google OAuth ---
     @Get('google')
     @UseGuards(AuthGuard('google'))
-    async googleAuth(@Req() req: Request) {
+    async googleAuth(@Req() _req: Request) {
         // Initiates the Google OAuth flow
     }
 
@@ -79,7 +80,7 @@ export class AuthController {
     // --- Microsoft OAuth ---
     @Get('microsoft')
     @UseGuards(AuthGuard('microsoft'))
-    async microsoftAuth(@Req() req: Request) {
+    async microsoftAuth(@Req() _req: Request) {
         // Initiates the Microsoft OAuth flow
     }
 
@@ -89,11 +90,12 @@ export class AuthController {
         return this.handleOAuthSuccess(req, res);
     }
 
-    private async handleOAuthSuccess(req: any, res: Response) {
-        if (!req.user) {
+    private async handleOAuthSuccess(req: Request, res: Response) {
+        const user = req.user as OAuthUser;
+        if (!user) {
             throw new UnauthorizedException('OAuth user not found');
         }
-        const { accessToken, refreshToken } = await this.auth.login(req.user);
+        const { accessToken, refreshToken } = await this.auth.login(user);
 
         res.cookie(this.refreshCookieName(), refreshToken, this.cookieOptions());
 

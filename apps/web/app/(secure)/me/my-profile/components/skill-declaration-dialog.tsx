@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { AsyncSearchSelect } from '@/components/ui/async-search-select';
-import { Skill } from '@/types/skills.types';
+import { Skill, TaxonomyCategory } from '@/types/skills.types';
 
 type Props = {
   open: boolean;
@@ -37,8 +37,7 @@ export function SkillDeclarationDialog({ open, onOpenChangeAction, onSuccessActi
   }, [open]);
 
   const fetchSkills = useCallback(async (s: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await apiFetch<any[]>('/skills/taxonomy');
+    const res = await apiFetch<TaxonomyCategory[]>('/skills/taxonomy');
     return res.flatMap(c => c.skills).filter(sk => sk.name.toLowerCase().includes(s.toLowerCase()));
   }, []);
 

@@ -12,6 +12,7 @@ export interface TeamComplianceInfo {
   requiredCount: number;
   completedCount: number;
   missingMandatory: { id: string; title: string }[];
+  scheduledMandatory: { id: string; title: string; scheduleId: string; startAt: Date }[];
   isCompliant: boolean;
 }
 
@@ -129,6 +130,10 @@ export class CreateTrainingScheduleDto {
   @IsOptional()
   @IsString()
   externalTrainer?: string;
+
+  @IsOptional()
+  @IsEnum(['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'])
+  status?: TrainingScheduleStatus;
 
   @IsOptional()
   @IsArray()
