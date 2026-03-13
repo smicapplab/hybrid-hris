@@ -7,7 +7,6 @@ import {
   Body,
   Query,
   UseGuards,
-  Delete,
 } from '@nestjs/common';
 import { TrainingService } from './training.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';

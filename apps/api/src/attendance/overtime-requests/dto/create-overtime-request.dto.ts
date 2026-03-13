@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsDateString, IsOptional, IsEnum, IsNumber, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsDateString, IsEnum, IsNumber, Min } from 'class-validator';
 import { OvertimeType } from '@hybrid-hris/domain';
 
 export class CreateOvertimeRequestDto {

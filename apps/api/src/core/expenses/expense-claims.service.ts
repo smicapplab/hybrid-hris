@@ -1,9 +1,9 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { expenseClaims, expenseClaimApprovals, employees, orgUnitLeaders, roles, userRoles, orgUnits } from '@hybrid-hris/db/schema';
+import { expenseClaims, expenseClaimApprovals, employees } from '@hybrid-hris/db/schema';
 import { ExpenseClaim } from '@hybrid-hris/db/types';
 import { ExpenseClaimStatus, ExpenseApprovalStatus, BudgetLedgerEntryType } from '@hybrid-hris/domain';
-import { eq, and, isNull, inArray, sql, or, SQL, ne } from 'drizzle-orm';
+import { eq, and, inArray, or, SQL, ne } from 'drizzle-orm';
 import { BudgetLedgerService } from './budget-ledger.service';
 import { UsersService } from 'src/identity/users/users.service';
 import { OrgUnitsService } from '../org-units/org-units.service';

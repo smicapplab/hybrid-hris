@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { budgetLedger } from '@hybrid-hris/db/schema';
 import { BudgetLedgerEntryType } from '@hybrid-hris/domain';
-import { and, eq, sql, sum } from 'drizzle-orm';
+import { and, eq, sum } from 'drizzle-orm';
 import { Tx } from 'src/database/database.types';
 
 @Injectable()

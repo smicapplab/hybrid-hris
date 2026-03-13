@@ -1,7 +1,7 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { overtimeRequests, employees } from '@hybrid-hris/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { AuditService } from 'src/core/audit/audit.service';
 import { CreateOvertimeRequestDto } from './dto/create-overtime-request.dto';
 import { OvertimeStatus } from '@hybrid-hris/domain';

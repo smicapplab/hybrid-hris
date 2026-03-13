@@ -47,7 +47,7 @@ export class AuthService {
         }
 
         // 2. Not found by identity - check by email
-        let user = await this.usersService.findActiveByEmail(email);
+        const user = await this.usersService.findActiveByEmail(email);
 
         if (user) {
             // Link existing user to this provider
