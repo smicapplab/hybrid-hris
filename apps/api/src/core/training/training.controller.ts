@@ -106,6 +106,11 @@ export class TrainingController {
     return this.trainingService.updateSchedule(id, data, actorId);
   }
 
+  @Get('schedules/upcoming')
+  async getUpcomingSchedules() {
+    return this.trainingService.getUpcomingSchedules();
+  }
+
   @Get('schedules/:id')
   async getScheduleById(@Param('id') id: string) {
     return this.trainingService.getScheduleWithSessions(id);
