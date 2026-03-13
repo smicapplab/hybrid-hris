@@ -59,8 +59,12 @@ export function ScheduleDialog({ open, onOpenChangeAction, programId, scheduleId
             startAt: new Date(s.startAt).toISOString().slice(0, 16),
             endAt: new Date(s.endAt).toISOString().slice(0, 16),
           })) ?? []);
-        } catch {
-          toast({ title: 'Failed to load schedule', variant: 'destructive' });
+        } catch (err: any) {
+          toast({
+            title: 'Failed to load schedule',
+            description: err instanceof Error ? err.message : 'Please try again.',
+            variant: 'destructive'
+          });
         }
       } else {
         setLocation('');

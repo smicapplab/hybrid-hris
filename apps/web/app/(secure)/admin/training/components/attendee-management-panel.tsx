@@ -61,8 +61,12 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
       const data = await apiFetch<Attendee[]>(`/training/schedules/${scheduleId}/attendees`);
       setAttendees(data);
       setSelectedIds(new Set()); // Reset selection on reload
-    } catch {
-      toast({ title: 'Failed to load attendees', variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Failed to load attendees',
+        description: err instanceof Error ? err.message : 'An unknown error occurred',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }
@@ -93,8 +97,12 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
       });
       toast({ title: `Successfully updated ${selectedIds.size} attendees`, variant: 'success' });
       loadAttendees();
-    } catch {
-      toast({ title: 'Bulk update failed', variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Bulk update failed',
+        description: err instanceof Error ? err.message : 'An unknown error occurred',
+        variant: 'destructive'
+      });
     } finally {
       setActionLoading(false);
     }
@@ -112,8 +120,12 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
         variant: 'success' 
       });
       loadAttendees();
-    } catch {
-      toast({ title: 'Auto-enrollment failed', variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Auto-enrollment failed',
+        description: err instanceof Error ? err.message : 'An unknown error occurred',
+        variant: 'destructive'
+      });
     } finally {
       setEnrollingEligible(false);
     }
@@ -130,8 +142,12 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
       toast({ title: `Successfully removed ${selectedIds.size} attendees`, variant: 'success' });
       setShowBulkRemoveConfirm(false);
       loadAttendees();
-    } catch {
-      toast({ title: 'Bulk removal failed', variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Bulk removal failed',
+        description: err instanceof Error ? err.message : 'An unknown error occurred',
+        variant: 'destructive'
+      });
     } finally {
       setActionLoading(false);
     }
@@ -168,8 +184,12 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
       toast({ title: `Successfully enrolled ${res.count} employees`, variant: 'success' });
       setNewOrgUnitId(null);
       loadAttendees();
-    } catch {
-      toast({ title: 'Org-wide enrollment failed', variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Org-wide enrollment failed',
+        description: err instanceof Error ? err.message : 'An unknown error occurred',
+        variant: 'destructive'
+      });
     } finally {
       setActionLoading(false);
     }
@@ -183,8 +203,12 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
       });
       toast({ title: `Status updated to ${status}`, variant: 'success' });
       loadAttendees();
-    } catch {
-      toast({ title: 'Failed to update status', variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Failed to update status',
+        description: err instanceof Error ? err.message : 'An unknown error occurred',
+        variant: 'destructive'
+      });
     }
   }
 
@@ -195,8 +219,12 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
       toast({ title: 'Attendee removed', variant: 'success' });
       setAttendeeToRemove(null);
       loadAttendees();
-    } catch {
-      toast({ title: 'Failed to remove attendee', variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Failed to remove attendee',
+        description: err instanceof Error ? err.message : 'An unknown error occurred',
+        variant: 'destructive'
+      });
     }
   }
 

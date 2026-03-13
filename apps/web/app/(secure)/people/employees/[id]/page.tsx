@@ -253,9 +253,9 @@ export default function EmployeeDetailPage() {
             setFormError(err instanceof Error ? err.message : 'Failed to save. Please try again.')
             toast({
                 title: "Update Failed",
-                description: "Unable to save employee details. Please try again.",
-                variant: "destructive",
-            });
+                description: err instanceof Error ? err.message : "Unable to save employee details. Please try again.",
+                variant: "destructive"
+            })
         } finally {
             setSaving(false)
         }

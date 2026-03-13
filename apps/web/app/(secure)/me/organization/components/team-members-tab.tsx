@@ -29,6 +29,7 @@ type Props = {
   onSelectEmployeeAction: (id: string) => void;
   recursive: boolean;
   search: string;
+  scope?: string;
 };
 
 const LIMIT = 20;
@@ -46,7 +47,7 @@ function Avatar({ name, className }: { name: string; className?: string }) {
     )
 }
 
-export function TeamMembersTab({ onSelectEmployeeAction, recursive, search }: Props) {
+export function TeamMembersTab({ onSelectEmployeeAction, recursive, search, scope = 'downline' }: Props) {
   const { toast } = useToast();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [total, setTotal] = useState(0);
@@ -65,7 +66,8 @@ export function TeamMembersTab({ onSelectEmployeeAction, recursive, search }: Pr
         recursive: String(recursive),
         search: search,
         offset: String(currentOffset),
-        limit: String(LIMIT)
+        limit: String(LIMIT),
+        scope: scope
       });
 
       const res = await apiFetch<PaginatedResponse>(`/profile/me/team-members?${params.toString()}`);
@@ -78,14 +80,18 @@ export function TeamMembersTab({ onSelectEmployeeAction, recursive, search }: Pr
       } else {
         setMembers(res.data);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load team members', err);
-      toast({ title: 'Failed to load team members', variant: 'destructive' });
+      toast({
+        title: 'Failed to load team members',
+        description: err instanceof Error ? err.message : 'Please try again later.',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [recursive, search, toast]);
+  }, [recursive, search, toast, scope]);
 
   useEffect(() => {
     setOffset(0);

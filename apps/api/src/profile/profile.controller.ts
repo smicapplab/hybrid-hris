@@ -43,15 +43,20 @@ export class ProfileController {
         @Query('search') search?: string,
         @Query('offset') offset?: string,
         @Query('limit') limit?: string,
+        @Query('scope') scope?: string,
     ): Promise<PaginatedTeamMembersResponse> {
         if (!req.user.employeeId) {
             throw new UnprocessableEntityException('No employee record linked to this account')
         }
+        const isHr = req.user.roles.includes('HR_ADMIN') || req.user.roles.includes('ADMIN');
+
         return this.profileService.getMyTeamMembers(req.user.employeeId, {
             recursive: recursive === 'true',
             search,
             offset: offset ? parseInt(offset, 10) : undefined,
             limit: limit ? parseInt(limit, 10) : undefined,
+            scope,
+            isHr,
         })
     }
 

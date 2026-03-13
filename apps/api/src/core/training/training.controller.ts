@@ -195,17 +195,22 @@ export class TrainingController {
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
   async getTeamCompliance(
     @CurrentUser('employeeId') managerEmployeeId: string,
+    @CurrentUser('roles') roles: string[],
     @Query('recursive') recursive?: string,
     @Query('search') search?: string,
     @Query('offset') offset?: string,
     @Query('limit') limit?: string,
+    @Query('scope') scope?: string,
   ) {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
+    const isHr = roles.includes(SystemRole.HR_ADMIN) || roles.includes(SystemRole.ADMIN);
     return this.trainingService.getTeamCompliance(managerEmployeeId, {
       recursive: recursive === 'true',
       search,
       offset: offset ? parseInt(offset, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
+      scope,
+      isHr,
     });
   }
 

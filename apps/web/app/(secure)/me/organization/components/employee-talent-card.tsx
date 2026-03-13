@@ -90,8 +90,12 @@ export function EmployeeTalentCard({ employeeId, onBackAction }: Props) {
       setLoading(true);
       const res = await apiFetch<TalentCardData>(`/skills/talent-card/${employeeId}`);
       setData(res);
-    } catch {
-      toast({ title: 'Failed to load talent card', variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Failed to load talent card',
+        description: err instanceof Error ? err.message : 'An unknown error occurred',
+        variant: 'destructive'
+      });
       onBackAction();
     } finally {
       setLoading(false);
@@ -418,8 +422,12 @@ function DirectSkillAssignmentDialog({ employeeId, onSuccessAction }: { employee
             setSkillId(null);
             setNotes('');
             onSuccessAction();
-        } catch {
-            toast({ title: 'Assignment failed', variant: 'destructive' });
+        } catch (err) {
+            toast({
+                title: 'Assignment failed',
+                description: err instanceof Error ? err.message : 'An unknown error occurred',
+                variant: 'destructive'
+            });
         } finally {
             setSaving(false);
         }
@@ -496,8 +504,12 @@ function EnrollButton({ programId, employeeId, onSuccessAction }: { programId: s
       setLoading(true);
       const res = await apiFetch<TrainingSchedule[]>(`/training/programs/${programId}/schedules`);
       setSchedules(res.filter(s => s.status === 'SCHEDULED'));
-    } catch {
-      toast({ title: 'Failed to fetch schedules', variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Failed to fetch schedules',
+        description: err instanceof Error ? err.message : 'An unknown error occurred',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }

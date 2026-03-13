@@ -36,8 +36,12 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
       setLoading(true);
       const result = await apiFetch<PublicScheduleDetails>(`/training/schedules/${scheduleId}/public`);
       setData(result);
-    } catch {
-      toast({ title: 'Failed to load training details', variant: 'destructive' });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to load training details',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }
@@ -54,8 +58,12 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
       toast({ title: 'Successfully un-enrolled', variant: 'success' });
       setShowUnenrollConfirm(false);
       onUnenrollAction();
-    } catch {
-      toast({ title: 'Failed to un-enroll', variant: 'destructive' });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to un-enroll',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
     } finally {
       setActionLoading(false);
     }

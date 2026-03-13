@@ -47,6 +47,7 @@ export default function OrganizationPage() {
 
     // NEW: Hierarchy & Search State
     const [recursive, setRecursive] = useState(false)
+    const [scope, setScope] = useState<'downline' | 'organization'>('downline')
     const [search, setSearch] = useState('')
     const debouncedSearch = useDebounce(search, 500)
 
@@ -82,7 +83,8 @@ export default function OrganizationPage() {
     }
 
     const fullName = `${ctx.employee.firstName} ${ctx.employee.lastName}`
-    const canSeeApprovals = user.roles.some(r => ['ADMIN', 'HR_ADMIN', 'SUPERVISOR', 'MANAGER'].includes(r))
+    const isHr = user.roles.some(r => ['ADMIN', 'HR_ADMIN'].includes(r))
+    const canSeeApprovals = isHr || user.roles.some(r => ['SUPERVISOR', 'MANAGER'].includes(r))
     const isLeadershipTab = ['my-team', 'gap', 'compliance'].includes(activeTab)
 
     return (
@@ -123,16 +125,32 @@ export default function OrganizationPage() {
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-muted/20 border-border/40 shrink-0">
-                        <Switch
-                            id="recursive-mode"
-                            checked={recursive}
-                            onCheckedChange={setRecursive}
-                            className="scale-75 origin-left"
-                        />
-                        <Label htmlFor="recursive-mode" className="text-[10px] font-bold uppercase tracking-tight cursor-pointer">
-                            Show Entire Downline
-                        </Label>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-muted/20 border-border/40 shrink-0">
+                            <Switch
+                                id="recursive-mode"
+                                checked={recursive}
+                                onCheckedChange={setRecursive}
+                                className="scale-75 origin-left"
+                            />
+                            <Label htmlFor="recursive-mode" className="text-[10px] font-bold uppercase tracking-tight cursor-pointer">
+                                Show Entire Downline
+                            </Label>
+                        </div>
+
+                        {isHr && (
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-blue-50/20 border-blue-200/50 shrink-0">
+                                <Switch
+                                    id="global-mode"
+                                    checked={scope === 'organization'}
+                                    onCheckedChange={(checked) => setScope(checked ? 'organization' : 'downline')}
+                                    className="scale-75 origin-left data-[state=checked]:bg-blue-600"
+                                />
+                                <Label htmlFor="global-mode" className="text-[10px] font-bold uppercase tracking-tight cursor-pointer text-blue-700">
+                                    Global Org View
+                                </Label>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -261,6 +279,7 @@ export default function OrganizationPage() {
                                 onSelectEmployeeAction={setSelectedEmployeeId}
                                 recursive={recursive}
                                 search={debouncedSearch}
+                                scope={scope}
                             />
 
                             {/* ── Peers Section ── */}
@@ -335,6 +354,7 @@ export default function OrganizationPage() {
                     <TeamSkillGapTab
                         recursive={recursive}
                         search={debouncedSearch}
+                        scope={scope}
                     />
                 </TabsContent>
 
@@ -343,6 +363,7 @@ export default function OrganizationPage() {
                         onSelectEmployeeAction={handleSelectFromCompliance}
                         recursive={recursive}
                         search={debouncedSearch}
+                        scope={scope}
                     />
                 </TabsContent>
 

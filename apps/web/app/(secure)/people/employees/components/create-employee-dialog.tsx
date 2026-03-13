@@ -347,7 +347,7 @@ export function CreateEmployeeDialog({ open, onOpenChangeAction }: Props) {
             setFormError(err instanceof Error ? err.message : 'Failed to create employee.')
             toast({
                 title: 'Creation Failed',
-                description: 'Unable to create employee. Please review the details and try again.',
+                description: err instanceof Error ? err.message : 'Unable to create employee. Please review the details and try again.',
                 variant: 'destructive',
             })
         } finally {

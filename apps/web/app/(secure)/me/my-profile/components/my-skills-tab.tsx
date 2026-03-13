@@ -46,8 +46,12 @@ export function MySkillsTab() {
       setLoading(true);
       const result = await apiFetch<EmployeeSkill[]>('/skills/my-skills');
       setSkills(result);
-    } catch {
-      toast({ title: 'Failed to load skills', variant: 'destructive' });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to load skills',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }
@@ -61,11 +65,15 @@ export function MySkillsTab() {
     if (!skillToDelete) return;
     try {
       await apiFetch(`/skills/my-skills/${skillToDelete}`, { method: 'DELETE' });
-      toast({ title: 'Skill removed', variant: 'success' });
+      toast({ title: 'Skill removed successfully', variant: 'success' });
       loadSkills();
-    } catch {
-      toast({ title: 'Failed to remove skill', variant: 'destructive' });
-    } finally {
+      } catch (err: any) {
+      toast({
+        title: 'Failed to remove skill',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
+      } finally {
       setSkillToDelete(null);
     }
   }

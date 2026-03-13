@@ -78,8 +78,12 @@ export function SkillApprovalsTab() {
       setActionType(null);
       setManagerNote('');
       loadPending();
-    } catch {
-      toast({ title: 'Action failed', variant: 'destructive' });
+    } catch (err: any) {
+      toast({
+        title: 'Action failed',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
     }
   }
 

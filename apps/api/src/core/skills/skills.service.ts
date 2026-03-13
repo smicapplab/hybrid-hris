@@ -18,7 +18,7 @@ import {
   orgUnitMandatoryTrainings,
   users,
 } from '@hybrid-hris/db/schema';
-import { and, eq, asc, sql, isNull, inArray, gte, or } from 'drizzle-orm';
+import { and, eq, asc, sql, isNull, inArray, gte, or, SQL } from 'drizzle-orm';
 import { 
   EmployeeSkillInfo, 
   TalentCardData, 
@@ -290,30 +290,33 @@ export class SkillsService {
 
   async getTeamSkillGap(
     managerEmployeeId: string,
-    options: { recursive?: boolean; search?: string; offset?: number; limit?: number } = {}
+    options: { recursive?: boolean; search?: string; offset?: number; limit?: number; scope?: string; isHr?: boolean } = {}
   ): Promise<{ skills: { id: string; name: string }[]; grid: SkillGapRow[]; total: number; hasMore: boolean }> {
-    const { recursive = false, search = '', offset = 0, limit = 20 } = options;
+    const { recursive = false, search = '', offset = 0, limit = 20, scope = 'downline', isHr = false } = options;
     const now = new Date();
 
-    // 1. Identify target units (recursive if requested)
-    const unitFilter = sql`(
-      WITH RECURSIVE downline_units AS (
-        SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${managerEmployeeId} AND deleted_at IS NULL
-        UNION ALL
-        SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
-        WHERE ${recursive} = true
-      )
-      SELECT org_unit_id FROM downline_units
-    )`;
-
-    // 2. Build main team query
-    const whereClauses = [
-      or(
-        inArray(employees.orgUnitId, unitFilter),
-        eq(employees.supervisorId, managerEmployeeId)
-      ),
+    const whereClauses: (SQL<unknown> | undefined)[] = [
+      inArray(employees.status, ['ACTIVE', 'PROBATION', 'SUSPENDED']),
       isNull(employees.deletedAt)
     ];
+
+    // 1. Identify target units (recursive if requested)
+    if (!(isHr && scope === 'organization')) {
+      const unitFilter = sql`(
+        WITH RECURSIVE downline_units AS (
+          SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${managerEmployeeId} AND deleted_at IS NULL
+          UNION ALL
+          SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
+          WHERE ${recursive} = true
+        )
+        SELECT org_unit_id FROM downline_units
+      )`;
+
+      whereClauses.push(or(
+        inArray(employees.orgUnitId, unitFilter),
+        eq(employees.supervisorId, managerEmployeeId)
+      ));
+    }
 
     if (search) {
       whereClauses.push(sql`(lower(${employees.firstName}) LIKE lower(${'%' + search + '%'}) OR lower(${employees.lastName}) LIKE lower(${'%' + search + '%'}))`);

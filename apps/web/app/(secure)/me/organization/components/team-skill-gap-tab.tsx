@@ -37,11 +37,12 @@ interface SkillGapData {
 type Props = {
     recursive: boolean;
     search: string;
+    scope?: string;
 };
 
 const LIMIT = 20;
 
-export function TeamSkillGapTab({ recursive, search }: Props) {
+export function TeamSkillGapTab({ recursive, search, scope = 'downline' }: Props) {
   const { toast } = useToast();
   
   const [skills, setSkills] = useState<{ id: string; name: string }[]>([]);
@@ -62,7 +63,8 @@ export function TeamSkillGapTab({ recursive, search }: Props) {
         recursive: String(recursive),
         search: search,
         offset: String(currentOffset),
-        limit: String(LIMIT)
+        limit: String(LIMIT),
+        scope: scope
       });
 
       const res = await apiFetch<SkillGapData>(`/skills/team-gap?${params.toString()}`);
@@ -76,13 +78,17 @@ export function TeamSkillGapTab({ recursive, search }: Props) {
       } else {
         setRows(res.grid);
       }
-    } catch {
-      toast({ title: 'Failed to load readiness data', variant: 'destructive' });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to load readiness data',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [recursive, search, toast]);
+  }, [recursive, search, toast, scope]);
 
   // Reset and load on filter change
   useEffect(() => {

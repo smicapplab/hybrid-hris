@@ -30,11 +30,12 @@ type Props = {
   onSelectEmployeeAction: (id: string) => void;
   recursive: boolean;
   search: string;
+  scope?: string;
 };
 
 const LIMIT = 20;
 
-export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search }: Props) {
+export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search, scope = 'downline' }: Props) {
   const [reports, setReports] = useState<ComplianceReport[]>([]);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -52,7 +53,8 @@ export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search }:
         recursive: String(recursive),
         search: search,
         offset: String(currentOffset),
-        limit: String(LIMIT)
+        limit: String(LIMIT),
+        scope: scope
       });
 
       const res = await apiFetch<PaginatedResponse>(`/training/team-compliance?${params.toString()}`);
@@ -71,7 +73,7 @@ export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search }:
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [recursive, search]);
+  }, [recursive, search, scope]);
 
   useEffect(() => {
     setOffset(0);

@@ -80,8 +80,12 @@ export default function ExpenseApprovalsPage() {
             })
             toast({ title: 'Expense approved', variant: 'success' })
             loadData()
-        } catch {
-            toast({ title: 'Approval failed', variant: 'destructive' })
+        } catch (err) {
+            toast({
+                title: 'Approval failed',
+                description: err instanceof Error ? err.message : 'An unknown error occurred',
+                variant: 'destructive'
+            })
         } finally {
             setActionLoading(null)
         }

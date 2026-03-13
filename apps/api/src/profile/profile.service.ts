@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common'
-import { and, asc, desc, eq, gte, isNull, sql, or, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNull, sql, or, inArray, SQL } from 'drizzle-orm'
 import * as bcrypt from 'bcrypt'
 import { employees, employeeProfiles, users, positions, orgUnits, orgUnitLeaders, employeeShiftAssignments, shiftTemplates, attendanceLogs, attendanceAdjustments } from '@hybrid-hris/db'
 import { DatabaseService } from 'src/database/database.service'
@@ -17,27 +17,32 @@ export class ProfileService {
 
     async getMyTeamMembers(
         employeeId: string,
-        options: { recursive?: boolean; search?: string; offset?: number; limit?: number } = {}
+        options: { recursive?: boolean; search?: string; offset?: number; limit?: number; scope?: string; isHr?: boolean } = {}
     ): Promise<PaginatedTeamMembersResponse> {
-        const { recursive = false, search = '', offset = 0, limit = 20 } = options
+        const { recursive = false, search = '', offset = 0, limit = 20, scope = 'downline', isHr = false } = options
 
-        const unitFilter = sql`(
-            WITH RECURSIVE downline_units AS (
-                SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${employeeId} AND deleted_at IS NULL
-                UNION ALL
-                SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
-                WHERE ${recursive} = true
-            )
-            SELECT org_unit_id FROM downline_units
-        )`
-
-        const whereClauses = [
-            or(
-                inArray(employees.orgUnitId, unitFilter),
-                eq(employees.supervisorId, employeeId)
-            ),
+        const whereClauses: (SQL<unknown> | undefined)[] = [
+            inArray(employees.status, ['ACTIVE', 'PROBATION', 'SUSPENDED']),
             isNull(employees.deletedAt)
         ]
+
+        // Only enforce downline filter if not HR_ADMIN requesting organization scope
+        if (!(isHr && scope === 'organization')) {
+            const unitFilter = sql`(
+                WITH RECURSIVE downline_units AS (
+                    SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${employeeId} AND deleted_at IS NULL
+                    UNION ALL
+                    SELECT ou.id FROM org_units ou INNER JOIN downline_units d ON ou.parent_id = d.org_unit_id
+                    WHERE ${recursive} = true
+                )
+                SELECT org_unit_id FROM downline_units
+            )`
+
+            whereClauses.push(or(
+                inArray(employees.orgUnitId, unitFilter),
+                eq(employees.supervisorId, employeeId)
+            ))
+        }
 
         if (search) {
             whereClauses.push(sql`(lower(${employees.firstName}) LIKE lower(${'%' + search + '%'}) OR lower(${employees.lastName}) LIKE lower(${'%' + search + '%'}))`)

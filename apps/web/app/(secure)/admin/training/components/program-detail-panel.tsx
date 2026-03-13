@@ -58,8 +58,12 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
       });
       await loadProgram();
       toast({ title: 'Skill added', variant: 'success' });
-    } catch {
-      toast({ title: 'Failed to add skill', variant: 'destructive' });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to add skill',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -73,8 +77,12 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
       });
       await loadProgram();
       toast({ title: 'Skill removed', variant: 'success' });
-    } catch {
-      toast({ title: 'Failed to remove skill', variant: 'destructive' });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to remove skill',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -90,8 +98,12 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
       });
       await loadProgram();
       toast({ title: 'Prerequisite added', variant: 'success' });
-    } catch {
-      toast({ title: 'Failed to add prerequisite', variant: 'destructive' });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to add prerequisite',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -105,8 +117,12 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
       });
       await loadProgram();
       toast({ title: 'Prerequisite removed', variant: 'success' });
-    } catch {
-      toast({ title: 'Failed to remove prerequisite', variant: 'destructive' });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to remove prerequisite',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
     }
   };
 
