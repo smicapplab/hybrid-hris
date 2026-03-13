@@ -11,6 +11,7 @@ import {
     employees,
     hrSettings,
     EmployeeShiftAssignment,
+    AttendanceLog,
 } from '@hybrid-hris/db'
 import { DatabaseService } from 'src/database/database.service'
 import {
@@ -76,8 +77,20 @@ export class AttendanceEventsService {
             .orderBy(desc(attendanceLogs.workDate), desc(attendanceLogs.createdAt))
             .limit(2)
 
-        const todayLog = logs.find(l => l.workDate === todayWorkDate) ?? null
-        const lastLog = logs.find(l => l.id !== todayLog?.id) ?? null
+        // If there is an open entry (actualOutAt is null), that is our "today" (active) status
+        // regardless of whether its workDate matches today's date (handles overnight shifts)
+        const activeLog = logs.find(l => l.actualOutAt === null)
+        
+        let todayLog: AttendanceLog | null = null
+        let lastLog: AttendanceLog | null = null
+
+        if (activeLog) {
+            todayLog = activeLog
+            lastLog = logs.find(l => l.id !== activeLog.id) ?? null
+        } else {
+            todayLog = logs.find(l => l.workDate === todayWorkDate) ?? null
+            lastLog = logs.find(l => l.id !== todayLog?.id) ?? null
+        }
 
         return {
             today: todayLog,
