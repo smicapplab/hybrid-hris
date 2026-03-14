@@ -175,7 +175,7 @@ export const navigation: NavCategory[] = [
             },
             {
                 title: "Holiday Maintenance",
-                url: "/admin/settings/holidays",
+                url: "/admin/holidays",
                 icon: Umbrella,
             },
             {

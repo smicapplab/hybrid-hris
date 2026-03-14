@@ -18,16 +18,17 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { 
-    Calendar, 
-    Plus, 
-    MoreHorizontal, 
-    Pencil, 
-    Trash2, 
-    AlertTriangle, 
+import {
+    Calendar,
+    Plus,
+    MoreHorizontal,
+    Pencil,
+    Trash2,
+    AlertTriangle,
     CheckCircle2,
     Loader2,
-    Zap
+    Sparkles,
+    RefreshCw
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, parseISO, isWeekend } from 'date-fns'
@@ -42,19 +43,19 @@ export default function HolidaySettingsPage() {
     const [holidays, setHolidays] = useState<Holiday[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-    
+
     // Dialog States
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null)
     const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null)
-    const [processingId, setProcessingId] = useState<string | null>(null)
+    const [generating, setGenerating] = useState(false)
 
     const loadHolidays = useCallback(async () => {
         try {
             setLoading(true)
             const data = await apiFetch<Holiday[]>(`/hr-settings/holidays?year=${selectedYear}`)
             setHolidays(data ?? [])
-        } catch (err) {
+        } catch {
             toast({ title: 'Error', description: 'Failed to load holidays', variant: 'destructive' })
         } finally {
             setLoading(false)
@@ -64,6 +65,26 @@ export default function HolidaySettingsPage() {
     useEffect(() => {
         loadHolidays()
     }, [loadHolidays])
+
+    const handleGenerate = async () => {
+        try {
+            setGenerating(true)
+            const res = await apiFetch<{ count: number }>('/hr-settings/holidays/generate', {
+                method: 'POST',
+                body: JSON.stringify({ year: selectedYear })
+            })
+            toast({
+                title: 'Success',
+                description: `Generated ${res.count} standard holidays for ${selectedYear}.`,
+                variant: 'success'
+            })
+            loadHolidays()
+        } catch (err) {
+            toast({ title: 'Generation Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
+        } finally {
+            setGenerating(false)
+        }
+    }
 
     const handleAdd = () => {
         setEditingHoliday(null)
@@ -81,31 +102,10 @@ export default function HolidaySettingsPage() {
             await apiFetch(`/hr-settings/holidays/${holidayToDelete.id}`, { method: 'DELETE' })
             toast({ title: 'Holiday deleted', variant: 'success' })
             loadHolidays()
-        } catch (err) {
+        } catch {
             toast({ title: 'Error', description: 'Delete failed', variant: 'destructive' })
         } finally {
             setHolidayToDelete(null)
-        }
-    }
-
-    const handleProcessPay = async (h: Holiday) => {
-        try {
-            setProcessingId(h.id)
-            const result = await apiFetch<{ success: boolean, count: number }>(`/hr-settings/holidays/${h.id}/process`, { method: 'POST' })
-            
-            if (result.success) {
-                toast({ 
-                    title: 'Processing Complete', 
-                    description: `Generated holiday pay logs for ${result.count} employees.`,
-                    variant: 'success' 
-                })
-            } else {
-                toast({ title: 'Skipped', description: 'Today is not the holiday date or logs already exist.', variant: 'default' })
-            }
-        } catch (err) {
-            toast({ title: 'Processing Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
-        } finally {
-            setProcessingId(null)
         }
     }
 
@@ -113,30 +113,39 @@ export default function HolidaySettingsPage() {
 
     return (
         <div className="p-6 space-y-6 text-foreground">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-blue-900">Holiday Maintenance</h1>
-                    <p className="text-muted-foreground text-sm">Manage the yearly holiday registry and process unworked holiday pay.</p>
+            <div>
+                <h1 className="text-2xl font-bold tracking-tight text-blue-900">Holiday Maintenance</h1>
+                <p className="text-muted-foreground text-sm">Manage the yearly holiday registry and process unworked holiday pay.</p>
+            </div>
+            <div className="flex gap-2">
+                <div className="flex bg-muted p-1 rounded-lg border border-blue-100/50">
+                    {years.map(y => (
+                        <button
+                            key={y}
+                            onClick={() => setSelectedYear(y)}
+                            className={cn(
+                                "px-3 py-1 text-xs font-bold rounded-md transition-all",
+                                selectedYear === y ? "bg-white text-blue-600 shadow-sm" : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            {y}
+                        </button>
+                    ))}
                 </div>
-                <div className="flex gap-2">
-                    <div className="flex bg-muted p-1 rounded-lg border border-blue-100/50">
-                        {years.map(y => (
-                            <button
-                                key={y}
-                                onClick={() => setSelectedYear(y)}
-                                className={cn(
-                                    "px-3 py-1 text-xs font-bold rounded-md transition-all",
-                                    selectedYear === y ? "bg-white text-blue-600 shadow-sm" : "text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                {y}
-                            </button>
-                        ))}
-                    </div>
-                    <Button onClick={handleAdd} className="gap-2 bg-blue-600 hover:bg-blue-700">
-                        <Plus className="w-4 h-4" /> Add Holiday
+                {holidays.length > 0 && (
+                    <Button
+                        variant="outline"
+                        onClick={handleGenerate}
+                        disabled={generating}
+                        className="gap-2 border-blue-100 text-blue-600 hover:bg-blue-50"
+                    >
+                        {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        Generate Missing Standard
                     </Button>
-                </div>
+                )}
+                <Button onClick={handleAdd} className="gap-2 bg-blue-600 hover:bg-blue-700" disabled={generating}>
+                    <Plus className="w-4 h-4" /> Add Holiday
+                </Button>
             </div>
 
             <Card className="shadow-sm border-blue-50">
@@ -158,9 +167,21 @@ export default function HolidaySettingsPage() {
                             <p className="text-sm text-muted-foreground font-medium">
                                 No holidays registered for {selectedYear}.
                             </p>
-                            <Button variant="outline" size="sm" onClick={handleAdd}>
-                                Start Adding for {selectedYear}
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="bg-blue-600 hover:bg-blue-700 gap-2"
+                                    onClick={handleGenerate}
+                                    disabled={generating}
+                                >
+                                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                    Generate Standard Holidays
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={handleAdd}>
+                                    Manually Add for {selectedYear}
+                                </Button>
+                            </div>
                         </div>
                     ) : (
                         <Table>
@@ -170,7 +191,6 @@ export default function HolidaySettingsPage() {
                                     <TableHead>Date</TableHead>
                                     <TableHead>Day of Week</TableHead>
                                     <TableHead>Type</TableHead>
-                                    <TableHead className="text-center">Automation</TableHead>
                                     <TableHead className="w-12.5"></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -183,7 +203,14 @@ export default function HolidaySettingsPage() {
                                     return (
                                         <TableRow key={h.id} className="hover:bg-blue-50/30 transition-colors">
                                             <TableCell className="font-semibold text-blue-900">
-                                                {h.name}
+                                                <div className="flex items-center gap-2">
+                                                    {h.name}
+                                                    {h.isRecurring && (
+                                                        <span title="Recurring Holiday">
+                                                            <RefreshCw className="w-3 h-3 text-blue-400" />
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="tabular-nums font-medium">
                                                 {format(dateObj, 'MMM d, yyyy')}
@@ -209,22 +236,6 @@ export default function HolidaySettingsPage() {
                                                     {h.type.replace('_', ' ')}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-center">
-                                                <Button 
-                                                    size="sm" 
-                                                    variant="ghost" 
-                                                    className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-1.5 text-[11px] font-bold"
-                                                    onClick={() => handleProcessPay(h)}
-                                                    disabled={!!processingId}
-                                                >
-                                                    {processingId === h.id ? (
-                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                    ) : (
-                                                        <Zap className="w-3.5 h-3.5 fill-current" />
-                                                    )}
-                                                    Process Holiday Pay
-                                                </Button>
-                                            </TableCell>
                                             <TableCell>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -236,8 +247,8 @@ export default function HolidaySettingsPage() {
                                                         <DropdownMenuItem onClick={() => handleEdit(h)} className="gap-2 cursor-pointer">
                                                             <Pencil className="w-3.5 h-3.5" /> Edit Details
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem 
-                                                            onClick={() => setHolidayToDelete(h)} 
+                                                        <DropdownMenuItem
+                                                            onClick={() => setHolidayToDelete(h)}
                                                             className="gap-2 cursor-pointer text-destructive focus:text-destructive"
                                                         >
                                                             <Trash2 className="w-3.5 h-3.5" /> Delete Holiday

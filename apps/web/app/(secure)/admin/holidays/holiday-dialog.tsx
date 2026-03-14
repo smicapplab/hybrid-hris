@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
     Select,
     SelectContent,
@@ -38,16 +39,19 @@ export function HolidayDialog({ open, onOpenChangeAction, initialData, onSuccess
     const [name, setName] = useState('')
     const [date, setDate] = useState('')
     const [type, setType] = useState<'REGULAR' | 'SPECIAL'>('REGULAR')
+    const [isRecurring, setIsRecurring] = useState(false)
 
     useEffect(() => {
         if (initialData) {
             setName(initialData.name)
             setDate(initialData.date)
             setType(initialData.type)
+            setIsRecurring(initialData.isRecurring || false)
         } else {
             setName('')
             setDate('')
             setType('REGULAR')
+            setIsRecurring(false)
         }
     }, [initialData, open])
 
@@ -62,7 +66,13 @@ export function HolidayDialog({ open, onOpenChangeAction, initialData, onSuccess
 
             await apiFetch(url, {
                 method,
-                body: JSON.stringify({ name, date, type, countryCode: 'PH' })
+                body: JSON.stringify({ 
+                    name, 
+                    date, 
+                    type, 
+                    isRecurring,
+                    countryCode: 'PH' 
+                })
             })
 
             toast({ 
@@ -121,6 +131,25 @@ export function HolidayDialog({ open, onOpenChangeAction, initialData, onSuccess
                                         <SelectItem value="SPECIAL">Special Non-Working</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2 p-3 bg-blue-50/50 rounded-lg border border-blue-100/50">
+                            <Checkbox 
+                                id="isRecurring" 
+                                checked={isRecurring} 
+                                onCheckedChange={(v) => setIsRecurring(!!v)}
+                            />
+                            <div className="grid gap-1.5 leading-none">
+                                <Label
+                                    htmlFor="isRecurring"
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                    Is Recurring Holiday
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Fixed date every year (e.g. Christmas). Will be automatically carried over during yearly generation.
+                                </p>
                             </div>
                         </div>
                     </div>

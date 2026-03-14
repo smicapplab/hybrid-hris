@@ -1,5 +1,5 @@
 {
-  "id": "7236579d-ca77-43b2-ad44-0b252e3b64db",
+  "id": "181675f0-48ee-435d-93d5-667574f8ab05",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2246,6 +2246,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'PH'"
+        },
+        "is_recurring": {
+          "name": "is_recurring",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

@@ -242,6 +242,7 @@ CREATE TABLE "holidays" (
 	"name" varchar(150) NOT NULL,
 	"type" "holiday_type" DEFAULT 'REGULAR' NOT NULL,
 	"country_code" varchar(10) DEFAULT 'PH' NOT NULL,
+	"is_recurring" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"deleted_at" timestamp with time zone

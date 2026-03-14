@@ -70,4 +70,14 @@ export class HolidaysController {
     ) {
         return this.service.processHoliday(id, actorId)
     }
+
+    @Post('generate')
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+    async generate(
+        @Body('year') year: number,
+        @CurrentUser('id') actorId: string,
+    ) {
+        const targetYear = year || new Date().getFullYear();
+        return this.service.generateYearly(targetYear, actorId);
+    }
 }

@@ -62,6 +62,7 @@ export type Holiday = {
     name: string;
     type: 'REGULAR' | 'SPECIAL';
     countryCode: string;
+    isRecurring: boolean;
     createdAt: string;
     updatedAt: string;
 };

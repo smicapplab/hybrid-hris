@@ -6,6 +6,7 @@ import {
     timestamp,
     uniqueIndex,
     index,
+    boolean,
 } from 'drizzle-orm/pg-core';
 import { holidayTypeEnum } from './enums';
 
@@ -23,6 +24,8 @@ export const holidays = pgTable(
         countryCode: varchar('country_code', { length: 10 })
             .default('PH')
             .notNull(),
+
+        isRecurring: boolean('is_recurring').default(false).notNull(),
 
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
