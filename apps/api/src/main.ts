@@ -1,4 +1,11 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import path from 'path';
+
+// Load root .env
+config({
+  path: path.resolve(__dirname, '../../../.env'),
+});
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import type { Express } from 'express';
