@@ -1,5 +1,7 @@
 export type AttendanceSource = 'WEB' | 'MOBILE' | 'KIOSK' | 'API';
 export type AttendanceAdjustmentStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+export type OvertimeType = 'REGULAR_OT' | 'REST_DAY_OT' | 'HOLIDAY_OT';
+export type OvertimeStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
 export type AttendanceLog = {
     id: string;
@@ -11,6 +13,11 @@ export type AttendanceLog = {
     actualOutAt: string | null;
     sourceIn: AttendanceSource | null;
     sourceOut: AttendanceSource | null;
+    totalHours: string;
+    nightDiffHours: string;
+    holidayHours: string;
+    overtimeHours: string;
+    status: string;
     isLocked: boolean;
     startTime: string | null;
     endTime: string | null;
@@ -21,6 +28,21 @@ export type AttendanceLog = {
     pendingStatus?: AttendanceAdjustmentStatus | null;
     pendingRemarks?: string | null;
     pendingApproverRemarks?: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type OvertimeRequest = {
+    id: string;
+    employeeId: string;
+    date: string;
+    hours: string;
+    type: OvertimeType;
+    status: OvertimeStatus;
+    reason: string;
+    approverId: string | null;
+    approvedAt: string | null;
+    rejectionReason: string | null;
     createdAt: string;
     updatedAt: string;
 };

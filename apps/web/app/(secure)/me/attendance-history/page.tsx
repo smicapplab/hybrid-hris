@@ -19,11 +19,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Clock, History, Lock, MoreHorizontal, Plus, Edit3, XCircle, AlertCircle } from 'lucide-react'
+import { Clock, History, Lock, MoreHorizontal, Plus, Edit3, XCircle, AlertCircle, Timer, Umbrella } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, parseISO, differenceInMinutes } from 'date-fns'
 import { AttendanceLog } from '@/types/attendance.types'
 import { AttendanceAdjustmentDialog } from '../../dashboard/components/attendance-adjustment-dialog'
+import { OvertimeRequestDialog } from '../../dashboard/components/overtime-request-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
@@ -122,17 +123,31 @@ function StatusBadge({ row }: { row: AttendanceLog }) {
             </div>
         )
     }
+    
+    const status = row.status || 'PRESENT'
+    
+    if (status === 'HOLIDAY') {
+        return (
+            <span className="text-xs border rounded-full px-2 py-0.5 font-medium bg-blue-50 text-blue-700 border-blue-200">
+                Holiday
+            </span>
+        )
+    }
+
     if (row.actualInAt && row.actualOutAt) {
         return (
-            <span className="text-xs border rounded-full px-2 py-0.5 font-medium bg-green-50 text-green-700 border-green-200">
-                Complete
+            <span className={cn(
+                "text-xs border rounded-full px-2 py-0.5 font-medium",
+                status === 'PRESENT' ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-700 border-amber-200"
+            )}>
+                {status}
             </span>
         )
     }
     if (row.actualInAt && !row.actualOutAt) {
         return (
             <span className="text-xs border rounded-full px-2 py-0.5 font-medium bg-amber-50 text-amber-700 border-amber-200">
-                No Time-Out
+                In Progress
             </span>
         )
     }
@@ -157,6 +172,10 @@ export default function AttendanceHistoryPage() {
     const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null)
     const [adjustmentToCancel, setAdjustmentToCancel] = useState<string | null>(null)
 
+    // OT Dialog State
+    const [isOtOpen, setIsOtOpen] = useState(false)
+    const [selectedDate, setSelectedDate] = useState<string | null>(null)
+
     const loadLogs = useCallback(async () => {
         try {
             setLoading(true)
@@ -178,6 +197,11 @@ export default function AttendanceHistoryPage() {
     const handleRequestAdjustment = (log?: AttendanceLog) => {
         setSelectedLog(log || null)
         setIsAdjustOpen(true)
+    }
+
+    const handleFileOvertime = (date?: string) => {
+        setSelectedDate(date || format(new Date(), 'yyyy-MM-dd'))
+        setIsOtOpen(true)
     }
 
     const handleConfirmCancelAdjustment = async () => {
@@ -214,9 +238,14 @@ export default function AttendanceHistoryPage() {
                     <h1 className="text-2xl font-bold tracking-tight text-blue-900">Attendance History</h1>
                     <p className="text-muted-foreground text-sm">View your past time logs and request corrections.</p>
                 </div>
-                <Button onClick={() => handleRequestAdjustment()} className="gap-2 bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-100">
-                    <Plus className="w-4 h-4" /> File Missing Entry
-                </Button>
+                <div className="flex gap-2">
+                    <Button onClick={() => handleFileOvertime()} variant="outline" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50">
+                        <Timer className="w-4 h-4" /> File Overtime
+                    </Button>
+                    <Button onClick={() => handleRequestAdjustment()} className="gap-2 bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-100">
+                        <Plus className="w-4 h-4" /> File Missing Entry
+                    </Button>
+                </div>
             </div>
 
             {error && (
@@ -251,25 +280,22 @@ export default function AttendanceHistoryPage() {
                             <TableHeader>
                                 <TableRow className="bg-muted/30">
                                     <TableHead>Date</TableHead>
-                                    <TableHead>Scheduled</TableHead>
-                                    <TableHead>Time In</TableHead>
-                                    <TableHead>Time Out</TableHead>
-                                    <TableHead>Hours</TableHead>
+                                    <TableHead>Time In/Out</TableHead>
+                                    <TableHead className="text-center">Hours</TableHead>
+                                    <TableHead className="text-center">OT</TableHead>
+                                    <TableHead className="text-center">Holiday/ND</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="w-12.5"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {records.map(row => {
-                                    // Use raw shift times if available (prevents timezone offset issues)
-                                    const scheduledLabel = row.startTime && row.endTime
-                                        ? `${format(parseISO(`2000-01-01T${row.startTime}`), 'h:mm a')} – ${format(parseISO(`2000-01-01T${row.endTime}`), 'h:mm a')}`
-                                        : (row.scheduledInAt && row.scheduledOutAt
-                                            ? `${formatTime(row.scheduledInAt)} – ${formatTime(row.scheduledOutAt)}`
-                                            : '—');
-
                                     const duration = formatDuration(row.actualInAt, row.actualOutAt)
                                     const pendingDuration = formatDuration(row.pendingActualInAt ?? null, row.pendingActualOutAt ?? null)
+                                    
+                                    const otHours = parseFloat(row.overtimeHours || '0')
+                                    const holidayHours = parseFloat(row.holidayHours || '0')
+                                    const ndHours = parseFloat(row.nightDiffHours || '0')
 
                                     return (
                                         <TableRow key={row.workDate} className={cn(
@@ -293,32 +319,26 @@ export default function AttendanceHistoryPage() {
                                                 </div>
                                             </TableCell>
 
-                                            {/* Scheduled */}
-                                            <TableCell className="text-xs text-muted-foreground tabular-nums">
-                                                {scheduledLabel}
+                                            {/* Time In/Out */}
+                                            <TableCell>
+                                                <div className="flex items-center gap-4">
+                                                    <TimeCell
+                                                        ts={row.actualInAt}
+                                                        source={row.sourceIn}
+                                                        pendingTs={row.pendingActualInAt}
+                                                    />
+                                                    <span className="text-muted-foreground/30 text-xs">→</span>
+                                                    <TimeCell
+                                                        ts={row.actualOutAt}
+                                                        source={row.sourceOut}
+                                                        pendingTs={row.pendingActualOutAt}
+                                                    />
+                                                </div>
                                             </TableCell>
 
-                                            {/* Actual In */}
-                                            <TableCell>
-                                                <TimeCell
-                                                    ts={row.actualInAt}
-                                                    source={row.sourceIn}
-                                                    pendingTs={row.pendingActualInAt}
-                                                />
-                                            </TableCell>
-
-                                            {/* Actual Out */}
-                                            <TableCell>
-                                                <TimeCell
-                                                    ts={row.actualOutAt}
-                                                    source={row.sourceOut}
-                                                    pendingTs={row.pendingActualOutAt}
-                                                />
-                                            </TableCell>
-
-                                            {/* Hours */}
-                                            <TableCell>
-                                                <div className="flex flex-col gap-0.5">
+                                            {/* Total Hours */}
+                                            <TableCell className="text-center">
+                                                <div className="flex flex-col items-center gap-0.5">
                                                     {duration ? (
                                                         <span className={cn(
                                                             "text-sm font-bold tabular-nums",
@@ -333,6 +353,41 @@ export default function AttendanceHistoryPage() {
                                                         <span className="text-sm font-bold tabular-nums text-amber-700">
                                                             {pendingDuration}
                                                         </span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+
+                                            {/* OT Hours */}
+                                            <TableCell className="text-center">
+                                                {otHours > 0 ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-sm font-bold text-orange-600 tabular-nums">
+                                                            {otHours.toFixed(1)}h
+                                                        </span>
+                                                        <span className="text-[9px] uppercase font-bold text-orange-400">Approved</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted-foreground text-xs">—</span>
+                                                )}
+                                            </TableCell>
+
+                                            {/* Holiday / ND */}
+                                            <TableCell className="text-center">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    {holidayHours > 0 && (
+                                                        <div className="flex items-center gap-1 text-blue-600">
+                                                            <Umbrella className="w-3 h-3" />
+                                                            <span className="text-xs font-bold">{holidayHours.toFixed(1)}h</span>
+                                                        </div>
+                                                    )}
+                                                    {ndHours > 0 && (
+                                                        <div className="flex items-center gap-1 text-indigo-600">
+                                                            <Clock className="w-3 h-3" />
+                                                            <span className="text-xs font-bold">{ndHours.toFixed(1)}h</span>
+                                                        </div>
+                                                    )}
+                                                    {holidayHours === 0 && ndHours === 0 && (
+                                                        <span className="text-muted-foreground text-xs">—</span>
                                                     )}
                                                 </div>
                                             </TableCell>
@@ -363,19 +418,24 @@ export default function AttendanceHistoryPage() {
                                                             {row.pendingAdjustmentId ? (
                                                                 <>
                                                                     <DropdownMenuItem onClick={() => handleRequestAdjustment(row)} className="gap-2 cursor-pointer">
-                                                                        <Edit3 className="w-3.5 h-3.5" /> Edit Request
+                                                                        <Edit3 className="w-3.5 h-3.5" /> Edit Correction
                                                                     </DropdownMenuItem>
                                                                     <DropdownMenuItem
                                                                         onClick={() => setAdjustmentToCancel(row.pendingAdjustmentId!)}
                                                                         className="gap-2 cursor-pointer text-destructive focus:text-destructive"
                                                                     >
-                                                                        <XCircle className="w-3.5 h-3.5" /> Cancel Request
+                                                                        <XCircle className="w-3.5 h-3.5" /> Cancel Correction
                                                                     </DropdownMenuItem>
                                                                 </>
                                                             ) : (
-                                                                <DropdownMenuItem onClick={() => handleRequestAdjustment(row)} className="gap-2 cursor-pointer">
-                                                                    <Edit3 className="w-3.5 h-3.5" /> Request Correction
-                                                                </DropdownMenuItem>
+                                                                <>
+                                                                    <DropdownMenuItem onClick={() => handleRequestAdjustment(row)} className="gap-2 cursor-pointer">
+                                                                        <Edit3 className="w-3.5 h-3.5" /> Request Correction
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => handleFileOvertime(row.workDate)} className="gap-2 cursor-pointer text-orange-600 focus:text-orange-700">
+                                                                        <Timer className="w-3.5 h-3.5" /> File Overtime
+                                                                    </DropdownMenuItem>
+                                                                </>
                                                             )}
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
@@ -394,6 +454,13 @@ export default function AttendanceHistoryPage() {
                 open={isAdjustOpen}
                 onOpenChangeAction={setIsAdjustOpen}
                 initialLog={selectedLog}
+                onSuccessAction={loadLogs}
+            />
+
+            <OvertimeRequestDialog
+                open={isOtOpen}
+                onOpenChangeAction={setIsOtOpen}
+                initialDate={selectedDate}
                 onSuccessAction={loadLogs}
             />
 

@@ -11,6 +11,7 @@ import {
     User,
     Clock,
     ClipboardList,
+    Timer,
     Settings,
     Receipt,
     Calculator,
@@ -111,6 +112,11 @@ export const navigation: NavCategory[] = [
                 title: "Attendance History",
                 url: "/me/attendance-history",
                 icon: ClipboardList,
+            },
+            {
+                title: "My Overtime Requests",
+                url: "/me/overtime-requests",
+                icon: Timer,
             },
             {
                 title: "Attendance Approvals",

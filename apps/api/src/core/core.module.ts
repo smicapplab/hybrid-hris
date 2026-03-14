@@ -11,6 +11,7 @@ import { HrSettingsModule } from './hr-settings/hr-settings.module';
 import { ManpowerModule } from './manpower/manpower.module';
 import { SkillsModule } from "./skills/skills.module";
 import { TrainingModule } from "./training/training.module";
+import { AutomationModule } from "./automation/automation.module";
 
 @Module({
     imports: [
@@ -26,6 +27,7 @@ import { TrainingModule } from "./training/training.module";
         ManpowerModule,
         SkillsModule,
         TrainingModule,
+        AutomationModule,
     ],
     exports: [
         OrgUnitsModule,
@@ -40,6 +42,7 @@ import { TrainingModule } from "./training/training.module";
         ManpowerModule,
         SkillsModule,
         TrainingModule,
+        AutomationModule,
     ],
 })
 

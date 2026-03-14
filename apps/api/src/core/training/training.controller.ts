@@ -132,18 +132,17 @@ export class TrainingController {
   }
 
   @Post('schedules/:id/enroll')
-  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async enrollEmployees(
     @Param('id') scheduleId: string,
     @Body('employeeIds') employeeIds: string[],
+    @CurrentUser('employeeId') selfEmployeeId: string,
     @CurrentUser('id') actorId: string,
   ) {
-    if (!employeeIds) {
-        // Handle self-service POST /enroll if needed, but web uses it for admin too
-        // Based on attendee-management-panel.tsx: await apiFetch(`/training/schedules/${scheduleId}/enroll`, { body: { employeeIds: selectedEmployees } ...
-        return { count: 0 };
+    if (employeeIds && employeeIds.length > 0) {
+      return this.trainingService.enrollEmployees(scheduleId, employeeIds, actorId);
     }
-    return this.trainingService.enrollEmployees(scheduleId, employeeIds, actorId);
+    // Self-service enrollment
+    return this.trainingService.enroll(scheduleId, selfEmployeeId, actorId);
   }
 
   @Delete('schedules/:id/enroll')
