@@ -157,9 +157,9 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
   async function handleAddAttendee() {
     if (!newEmployeeId) return;
     try {
-      await apiFetch(`/training/schedules/${scheduleId}/attendees`, {
+      await apiFetch(`/training/schedules/${scheduleId}/enroll`, {
         method: 'POST',
-        body: JSON.stringify({ employeeId: newEmployeeId })
+        body: JSON.stringify({ employeeIds: [newEmployeeId] })
       });
       toast({ title: 'Attendee added', variant: 'success' });
       setNewEmployeeId(null);

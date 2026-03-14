@@ -29,7 +29,7 @@ import {
 export class TrainingController {
   constructor(private readonly trainingService: TrainingService) { }
 
-  @Get('compliance')
+  @Get('team-compliance')
   async getTeamCompliance(
     @CurrentUser('employeeId') managerEmployeeId: string,
     @CurrentUser('roles') roles: string[],
@@ -81,11 +81,16 @@ export class TrainingController {
     return this.trainingService.updateProgram(id, data, actorId);
   }
 
-  // --- Schedules ---
-
   @Get('programs/:id/schedules')
   async getProgramSchedules(@Param('id') programId: string) {
     return this.trainingService.getSchedulesByProgram(programId);
+  }
+
+  // --- Schedules ---
+
+  @Get('schedules/upcoming')
+  async getUpcomingSchedules() {
+    return this.trainingService.getUpcomingSchedules();
   }
 
   @Post('schedules')
@@ -95,6 +100,11 @@ export class TrainingController {
     @CurrentUser('id') actorId: string,
   ) {
     return this.trainingService.createSchedule(data, actorId);
+  }
+
+  @Get('schedules/:id')
+  async getScheduleById(@Param('id') id: string) {
+    return this.trainingService.getScheduleWithSessions(id);
   }
 
   @Patch('schedules/:id')
@@ -107,14 +117,12 @@ export class TrainingController {
     return this.trainingService.updateSchedule(id, data, actorId);
   }
 
-  @Get('schedules/upcoming')
-  async getUpcomingSchedules() {
-    return this.trainingService.getUpcomingSchedules();
-  }
-
-  @Get('schedules/:id')
-  async getScheduleById(@Param('id') id: string) {
-    return this.trainingService.getScheduleWithSessions(id);
+  @Get('schedules/:id/public')
+  async getPublicScheduleDetails(
+    @Param('id') scheduleId: string,
+    @CurrentUser('employeeId') currentEmployeeId: string,
+  ) {
+    return this.trainingService.getPublicScheduleDetails(scheduleId, currentEmployeeId);
   }
 
   @Get('schedules/:id/attendees')
@@ -123,8 +131,6 @@ export class TrainingController {
     return this.trainingService.getScheduleAttendees(id);
   }
 
-  // --- Enrollment (Admin/Manager Flow) ---
-
   @Post('schedules/:id/enroll')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async enrollEmployees(
@@ -132,8 +138,54 @@ export class TrainingController {
     @Body('employeeIds') employeeIds: string[],
     @CurrentUser('id') actorId: string,
   ) {
+    if (!employeeIds) {
+        // Handle self-service POST /enroll if needed, but web uses it for admin too
+        // Based on attendee-management-panel.tsx: await apiFetch(`/training/schedules/${scheduleId}/enroll`, { body: { employeeIds: selectedEmployees } ...
+        return { count: 0 };
+    }
     return this.trainingService.enrollEmployees(scheduleId, employeeIds, actorId);
   }
+
+  @Delete('schedules/:id/enroll')
+  async selfCancelEnrollment(
+    @Param('id') scheduleId: string,
+    @CurrentUser('employeeId') employeeId: string,
+    @CurrentUser('id') actorId: string,
+  ) {
+    return this.trainingService.cancelEnrollment(scheduleId, employeeId, actorId);
+  }
+
+  @Post('schedules/:id/enroll-org')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async enrollOrgUnit(
+    @Param('id') scheduleId: string,
+    @Body('orgUnitId') orgUnitId: string,
+    @CurrentUser('employeeId') processorId: string,
+    @CurrentUser('id') actorId: string,
+  ) {
+    return this.trainingService.enrollOrgUnit(scheduleId, orgUnitId, processorId, true, actorId);
+  }
+
+  @Post('schedules/:id/enroll-eligible')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async enrollAllEligible(
+    @Param('id') scheduleId: string,
+    @CurrentUser('employeeId') processorId: string,
+    @CurrentUser('id') actorId: string,
+  ) {
+    return this.trainingService.enrollAllEligible(scheduleId, processorId, true, actorId);
+  }
+
+  @Post('schedules/:id/feedback')
+  async submitFeedback(
+    @Param('id') scheduleId: string,
+    @CurrentUser('employeeId') employeeId: string,
+    @Body() data: SubmitTrainingFeedbackDto,
+  ) {
+    return this.trainingService.submitFeedback(scheduleId, employeeId, data);
+  }
+
+  // --- Enrollments / Attendees ---
 
   @Patch('enrollments/:id/status')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
@@ -152,46 +204,47 @@ export class TrainingController {
     return this.trainingService.removeAttendee(enrollmentId);
   }
 
-  // --- Self-Service Flow ---
+  @Post('enrollments/bulk-status')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async bulkUpdateAttendeeStatus(
+    @Body('enrollmentIds') enrollmentIds: string[],
+    @Body('data') data: UpdateAttendeeStatusDto,
+    @CurrentUser('employeeId') processorId: string,
+    @CurrentUser('id') actorId: string,
+  ) {
+    return this.trainingService.bulkUpdateAttendeeStatus(enrollmentIds, data, processorId, actorId);
+  }
 
-  @Get('my-training')
-  async getMyTraining(@CurrentUser('employeeId') employeeId: string) {
+  @Post('enrollments/bulk')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async bulkAddAttendees(
+    @Body('scheduleId') scheduleId: string,
+    @Body('employeeIds') employeeIds: string[],
+    @CurrentUser('employeeId') processorId: string,
+    @CurrentUser('id') actorId: string,
+  ) {
+    const results = [];
+    for (const employeeId of employeeIds) {
+        results.push(await this.trainingService.addAttendee(scheduleId, employeeId, processorId, true, actorId));
+    }
+    return { count: results.length };
+  }
+
+  // --- Self-Service ---
+
+  @Get('my-trainings')
+  async getMyTrainings(@CurrentUser('employeeId') employeeId: string) {
     return this.trainingService.getMyTrainings(employeeId);
   }
 
-  @Post('schedules/:id/self-enroll')
-  async selfEnroll(
-    @Param('id') scheduleId: string,
-    @CurrentUser('employeeId') employeeId: string,
-    @CurrentUser('id') actorId: string,
-  ) {
-    return this.trainingService.enroll(scheduleId, employeeId, actorId);
-  }
+  // --- Feedback ---
 
-  @Post('schedules/:id/cancel')
-  async cancelEnrollment(
-    @Param('id') scheduleId: string,
-    @CurrentUser('employeeId') employeeId: string,
-    @CurrentUser('id') actorId: string,
-  ) {
-    return this.trainingService.cancelEnrollment(scheduleId, employeeId, actorId);
-  }
-
-  @Post('enrollments/:id/feedback')
-  async submitFeedback(
-    @Param('id') enrollmentId: string,
-    @CurrentUser('employeeId') employeeId: string,
-    @Body() data: SubmitTrainingFeedbackDto,
-  ) {
-    return this.trainingService.submitFeedback(enrollmentId, employeeId, data);
-  }
-
-  @Get('programs/:id/feedback')
+  @Get('feedback')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-  async getProgramFeedback(
-    @Param('id') programId: string,
+  async getGlobalFeedback(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('programId') programId?: string,
     @CurrentUser('id') actorId?: string,
   ) {
     const pLimit = limit ? parseInt(limit, 10) : 10;
@@ -204,51 +257,49 @@ export class TrainingController {
     }, actorId);
   }
 
-  // --- Mandatory Trainings (Position) ---
+  // --- Mandatory Trainings ---
 
-  @Get('positions/:positionId/mandatory')
-  async getPositionMandatoryTrainings(@Param('positionId') positionId: string) {
+  @Get('mandatory/positions/:id')
+  async getPositionMandatoryTrainings(@Param('id') positionId: string) {
     return this.trainingService.getPositionMandatoryTrainings(positionId);
   }
 
-  @Post('positions/:positionId/mandatory')
+  @Post('mandatory/positions')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async addMandatoryTrainingToPosition(
-    @Param('positionId') positionId: string,
+    @Body('targetId') positionId: string,
     @Body('programId') programId: string,
   ) {
     return this.trainingService.addMandatoryTrainingToPosition(positionId, programId);
   }
 
-  @Delete('positions/:positionId/mandatory/:programId')
+  @Delete('mandatory/positions/:targetId/:programId')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async removeMandatoryTrainingFromPosition(
-    @Param('positionId') positionId: string,
+    @Param('targetId') positionId: string,
     @Param('programId') programId: string,
   ) {
     return this.trainingService.removeMandatoryTrainingFromPosition(positionId, programId);
   }
 
-  // --- Mandatory Trainings (Org Unit) ---
-
-  @Get('org-units/:orgUnitId/mandatory')
-  async getOrgUnitMandatoryTrainings(@Param('orgUnitId') orgUnitId: string) {
+  @Get('mandatory/org-units/:id')
+  async getOrgUnitMandatoryTrainings(@Param('id') orgUnitId: string) {
     return this.trainingService.getOrgUnitMandatoryTrainings(orgUnitId);
   }
 
-  @Post('org-units/:orgUnitId/mandatory')
+  @Post('mandatory/org-units')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async addMandatoryTrainingToOrgUnit(
-    @Param('orgUnitId') orgUnitId: string,
+    @Body('targetId') orgUnitId: string,
     @Body('programId') programId: string,
   ) {
     return this.trainingService.addMandatoryTrainingToOrgUnit(orgUnitId, programId);
   }
 
-  @Delete('org-units/:orgUnitId/mandatory/:programId')
+  @Delete('mandatory/org-units/:targetId/:programId')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async removeMandatoryTrainingFromOrgUnit(
-    @Param('orgUnitId') orgUnitId: string,
+    @Param('targetId') orgUnitId: string,
     @Param('programId') programId: string,
   ) {
     return this.trainingService.removeMandatoryTrainingFromOrgUnit(orgUnitId, programId);
