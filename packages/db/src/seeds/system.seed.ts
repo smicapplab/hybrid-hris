@@ -36,6 +36,7 @@ import { faker } from '@faker-js/faker';
 import { seedSkillsEssential } from './skills-seed-essential';
 import { seedSkillsDemo } from './skills-seed-demo';
 import { seedHolidays } from './holidays.seed';
+import { seedOvertimeRequests } from './overtime-requests.seed';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -596,6 +597,9 @@ export async function seedSystem() {
 
     // --- 15. Holidays ---
     await seedHolidays(db);
+
+    // --- 16. Overtime Requests ---
+    await seedOvertimeRequests(db);
 
     console.log('✅ Enterprise Seed Complete!');
 }

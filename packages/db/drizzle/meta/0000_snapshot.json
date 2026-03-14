@@ -1,5 +1,5 @@
 {
-  "id": "be9b9e12-beda-4e85-be3c-5de1c419e0e1",
+  "id": "7236579d-ca77-43b2-ad44-0b252e3b64db",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2247,18 +2247,12 @@
           "notNull": true,
           "default": "'PH'"
         },
-        "is_recurring": {
-          "name": "is_recurring",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "deleted_at": {
-          "name": "deleted_at",
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
@@ -2267,12 +2261,11 @@
           "notNull": true,
           "default": "now()"
         },
-        "created_at": {
-          "name": "created_at",
+        "deleted_at": {
+          "name": "deleted_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {

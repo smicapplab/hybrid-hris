@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { holidays } from '@hybrid-hris/db/schema';
-import { eq, and, sql, desc, asc, isNull } from 'drizzle-orm';
+import { eq, and, sql, asc, isNull } from 'drizzle-orm';
 import { AuditService } from '../../audit/audit.service';
 import { AutomationService } from '../../automation/automation.service';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
@@ -53,6 +53,7 @@ export class HolidaysService {
 
             return newHoliday;
         } catch (error: any) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (error.code === '23505') { // Unique violation
                 throw new ConflictException('A holiday already exists on this date for this country');
             }
@@ -106,7 +107,7 @@ export class HolidaysService {
     async isHoliday(date: Date | string, countryCode: string = 'PH') {
         const d = typeof date === 'string' ? new Date(date) : date;
         const dateString = d.toISOString().split('T')[0];
-        
+
         const [match] = await this.db.db.select().from(holidays).where(
             and(
                 eq(holidays.date, dateString),
@@ -123,7 +124,7 @@ export class HolidaysService {
      */
     async processHoliday(id: string, actorId: string) {
         const holiday = await this.findOne(id);
-        
+
         const result = await this.automationService.processHolidayPay(holiday.date);
 
         await this.auditService.log({

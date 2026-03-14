@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { HolidaysService } from '../hr-settings/holidays/holidays.service';
 import { LeaveAccrualsService } from '../leave-accruals/leave-accruals.service';
-import { attendanceLogs, employees, employeeLeavePolicies, leavePolicies } from '@hybrid-hris/db/schema';
-import { and, eq, isNull, sql, notInArray } from 'drizzle-orm';
+import { attendanceLogs, employees } from '@hybrid-hris/db/schema';
+import { and, eq, isNull, notInArray } from 'drizzle-orm';
 
 @Injectable()
 export class AutomationService {
@@ -11,6 +11,7 @@ export class AutomationService {
 
     constructor(
         private readonly db: DatabaseService,
+        @Inject(forwardRef(() => HolidaysService)) // WRAP THIS HERE
         private readonly holidaysService: HolidaysService,
         private readonly leaveAccrualsService: LeaveAccrualsService,
     ) { }
@@ -36,7 +37,7 @@ export class AutomationService {
 
         // 2. Find active employees who are MISSING a log
         const missingEmployees = await this.db.db
-            .select({ 
+            .select({
                 id: employees.id,
                 firstName: employees.firstName,
                 lastName: employees.lastName
@@ -77,7 +78,7 @@ export class AutomationService {
         const now = new Date();
         const year = now.getFullYear();
         const month = now.getMonth() + 1;
-        
+
         this.logger.log(`Triggering leave accruals for ${month}/${year}`);
         return this.leaveAccrualsService.processMonthlyAccruals(year, month);
     }

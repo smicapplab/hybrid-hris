@@ -45,6 +45,10 @@ The project is managed as a **Monorepo** using PNPM Workspaces, ensuring strict 
 - **HR Global View:** HR Admins can toggle between their immediate team and the **Entire Organization** scope across all managerial dashboards.
 
 ### 📅 Attendance & Leave
+- **Hierarchical Overtime Approvals:** OT requests now follow the same recursive authority model as Leave. 
+  - **Supervisors** see requests from their direct reports.
+  - **Org Leaders** see requests from their unit and leaders of child units.
+  - **Admins/HR Admins** maintain global visibility.
 - **Ledger-Based Accruals:** Every leave credit/debit is a financial-style transaction. No "floating" balances; every minute is accounted for.
 - **Shift Management:** Flexible shift templates with localized timezone support.
 - **Real-time Attendance:** Bio-metric ready attendance logging with automatic shift matching.
@@ -60,7 +64,7 @@ The project is managed as a **Monorepo** using PNPM Workspaces, ensuring strict 
 | Layer | Technologies |
 | :--- | :--- |
 | **Frontend** | Next.js 16 (App Router), Turbopack, Tailwind CSS, Shadcn UI, Lucide Icons |
-| **Backend** | NestJS 11, Node.js 22, Class Validator, Passport.js |
+| **Backend** | NestJS 11, Node.js 22, Class Validator, Passport.js, Drizzle ORM |
 | **Database** | PostgreSQL, Drizzle ORM, Zod |
 | **DevOps** | PNPM Workspaces, Docker, AWS Lambda Strategy |
 | **Testing/Data** | Faker.js, Jest |
@@ -96,7 +100,7 @@ pnpm build:shared
 pnpm --filter @hybrid-hris/db run db:migrate
 LOAD_TEST_DATA=true pnpm --filter @hybrid-hris/db run seed
 ```
-*Note: The seed script generates ~100 realistic employees, a 3-level org structure, and full training/skills history.*
+*Note: The seed script generates ~100 realistic employees, a 3-level org structure, full training/skills history, and pending overtime requests for testing hierarchical approvals.*
 
 ### 5. Running the Apps
 ```bash
@@ -111,6 +115,7 @@ pnpm --filter web dev
 
 ## 📈 Performance & Optimizations
 
+- **Recursive Authority Logic:** Centralized leadership and reporting line checks to ensure consistent data visibility across Leave, Attendance, and Overtime modules.
 - **Parallelized Data Fetching:** Complex views like the **Talent Card** use `Promise.all` to fetch skills, training, leaves, and schedules concurrently, reducing API latency by ~60%.
 - **Efficient Joins:** Combined mandatory training checks into single-pass SQL queries to avoid N+1 issues.
 - **Type-Safe Errors:** Standardized `(err: unknown)` pattern with descriptive toast notifications across the entire frontend.
@@ -122,6 +127,7 @@ pnpm --filter web dev
 
 ### 🎯 Completed Recently
 - [x] **System Audit Logs (#6):** Global traceability for every sensitive change (who, what, when, old vs new values).
+- [x] **Hierarchical Overtime Approvals (#12):** Implemented recursive leadership-based OT visibility and approval workflows.
 - [x] **Time & Attendance Refinement (#2):** Formalized Overtime (OT) workflows, Holiday Calendar management, and shift differential logic.
 
 ### 🚀 Future Enhancements

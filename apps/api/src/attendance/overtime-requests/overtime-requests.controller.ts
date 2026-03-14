@@ -40,12 +40,20 @@ export class OvertimeRequestsController {
 
     @UseGuards(RolesGuard)
     @Roles(SystemRole.MANAGER, SystemRole.SUPERVISOR, SystemRole.ADMIN, SystemRole.HR_ADMIN)
+    @Get('pending')
+    async findPending(@Req() req: AuthenticatedRequest) {
+        return this.service.findAll({ status: 'PENDING', userId: req.user.id });
+    }
+
+    @UseGuards(RolesGuard)
+    @Roles(SystemRole.MANAGER, SystemRole.SUPERVISOR, SystemRole.ADMIN, SystemRole.HR_ADMIN)
     @Get()
     async findAll(
+        @Req() req: AuthenticatedRequest,
         @Query('status') status?: OvertimeStatus,
         @Query('employeeId') employeeId?: string
     ) {
-        return this.service.findAll({ status, employeeId });
+        return this.service.findAll({ status, employeeId, userId: req.user.id });
     }
 
     @UseGuards(RolesGuard)

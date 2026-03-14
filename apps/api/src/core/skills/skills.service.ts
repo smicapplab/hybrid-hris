@@ -1,28 +1,28 @@
 import { Injectable, NotFoundException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { AuditService } from '../audit/audit.service';
-import { 
-  skillCategories, 
-  skills, 
-  employeeSkills, 
-  employeeSkillEndorsements, 
-  employees, 
-  orgUnits, 
-  positions, 
-  positionSkills, 
-  leaveRequests, 
-  employeeShiftAssignments, 
-  trainingEnrollments, 
-  trainingPrograms, 
-  trainingSchedules, 
+import {
+  skillCategories,
+  skills,
+  employeeSkills,
+  employeeSkillEndorsements,
+  employees,
+  orgUnits,
+  positions,
+  positionSkills,
+  leaveRequests,
+  employeeShiftAssignments,
+  trainingEnrollments,
+  trainingPrograms,
+  trainingSchedules,
   positionMandatoryTrainings,
   orgUnitMandatoryTrainings,
   users,
 } from '@hybrid-hris/db/schema';
 import { and, eq, asc, sql, isNull, inArray, gte, or, SQL } from 'drizzle-orm';
-import { 
-  EmployeeSkillInfo, 
-  TalentCardData, 
+import {
+  EmployeeSkillInfo,
+  TalentCardData,
   TaxonomyCategoryInfo,
   TaxonomySkillInfo,
   SkillGapCell,
@@ -42,17 +42,22 @@ export class SkillsService {
   constructor(
     private readonly db: DatabaseService,
     private readonly auditService: AuditService,
-  ) {}
+  ) { }
 
-  async getEmployeeTalentCard(employeeId: string, managerEmployeeId: string, isHr: boolean = false): Promise<TalentCardData> {
+  // apps/api/src/core/org-units/org-units.service.ts
+
+  async getEmployeeTalentCard(
+    employeeId: string,
+    managerEmployeeId: string,
+    isHr: boolean = false
+  ): Promise<TalentCardData> {
     const whereClauses: (SQL<unknown> | undefined)[] = [
       eq(employees.id, employeeId),
       isNull(employees.deletedAt)
     ];
 
     if (!isHr) {
-      // 1. Verify access (must be direct report or in hierarchical downline)
-      const unitFilter = sql`(
+      const unitFilter = sql<string>`(
         WITH RECURSIVE downline_units AS (
           SELECT org_unit_id FROM org_unit_leaders WHERE employee_id = ${managerEmployeeId} AND deleted_at IS NULL
           UNION ALL
@@ -62,8 +67,8 @@ export class SkillsService {
       )`;
 
       whereClauses.push(or(
-          eq(employees.supervisorId, managerEmployeeId),
-          inArray(employees.orgUnitId, unitFilter)
+        eq(employees.supervisorId, managerEmployeeId),
+        inArray(employees.orgUnitId, unitFilter)
       ));
     }
 
@@ -89,17 +94,17 @@ export class SkillsService {
 
     if (!employee) throw new UnauthorizedException('You do not have access to this employee profile');
 
-    // 2. Fetch all related data in parallel
+    // FIX 1: Use explicit return types for the queries to avoid 'any'
     const [
       actualSkills,
       requirements,
       enrollments,
       allRequired,
       upcomingLeaves,
-      [schedule]
+      schedules
     ] = await Promise.all([
       this.getEmployeeSkills(employeeId),
-      
+
       employee.positionId ? this.db.db
         .select({
           skillId: skills.id,
@@ -123,7 +128,6 @@ export class SkillsService {
         .innerJoin(trainingPrograms, eq(trainingSchedules.programId, trainingPrograms.id))
         .where(eq(trainingEnrollments.employeeId, employeeId)),
 
-      // Combined Mandatory Training Query
       this.db.db
         .selectDistinct({ id: trainingPrograms.id, title: trainingPrograms.title })
         .from(trainingPrograms)
@@ -152,19 +156,34 @@ export class SkillsService {
         .limit(1)
     ]);
 
-    const completedProgramIds = new Set(enrollments.filter((e: any) => e.status === 'COMPLETED').map((e: any) => e.programId));
-    const enrolledItems = enrollments.filter((e: any) => e.status === 'ENROLLED');
-    const enrolledProgramIds = new Set(enrolledItems.map((e: any) => e.programId));
+    // FIX 2: Destructure correctly and handle the Set logic without 'any'
+    const schedule = schedules[0] || null;
 
-    const missingMandatory = (allRequired as any[]).filter((r: any) => !completedProgramIds.has(r.id) && !enrolledProgramIds.has(r.id));
+    const completedProgramIds = new Set(
+      enrollments
+        .filter(e => e.status === 'COMPLETED')
+        .map(e => e.programId)
+    );
+
+    const enrolledItems = enrollments.filter(e => e.status === 'ENROLLED');
+    const enrolledProgramIds = new Set(enrolledItems.map(e => e.programId));
+
+    // FIX 3: Type the filter predicates
+    const missingMandatory = allRequired.filter(r =>
+      !completedProgramIds.has(r.id) && !enrolledProgramIds.has(r.id)
+    );
+
     const scheduledMandatory = enrolledItems
-      .filter((e: any) => (allRequired as any[]).some((r: any) => r.id === e.programId))
-      .map((e: any) => ({
-        id: e.programId,
-        title: (allRequired as any[]).find((r: any) => r.id === e.programId)!.title,
-        scheduleId: e.id,
-        startAt: e.startAt
-      }));
+      .filter(e => allRequired.some(r => r.id === e.programId))
+      .map(e => {
+        const program = allRequired.find(r => r.id === e.programId);
+        return {
+          id: e.programId,
+          title: program?.title ?? 'Unknown Program',
+          scheduleId: e.id,
+          startAt: e.startAt
+        };
+      });
 
     return {
       employee,
@@ -178,7 +197,7 @@ export class SkillsService {
         scheduledMandatory,
       },
       upcomingLeaves,
-      schedule: schedule || null,
+      schedule,
     };
   }
 
@@ -394,7 +413,7 @@ export class SkillsService {
         const actual = empSkills.find(a => a.skillId === s.id);
 
         if (!req) return { skillId: s.id, status: 'NA' };
-        
+
         // Handle Missing or Expired
         const isExpired = actual?.expiryDate ? new Date(actual.expiryDate) < now : false;
         if (!actual || isExpired) return { skillId: s.id, status: 'MISSING', target: req.requiredLevel };
@@ -732,7 +751,7 @@ export class SkillsService {
     await this.db.db
       .delete(positionSkills)
       .where(and(eq(positionSkills.positionId, positionId), eq(positionSkills.skillId, skillId)));
-    
+
     return { success: true };
   }
 }
