@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { holidays } from '@hybrid-hris/db/schema';
-import { eq, and, sql, asc, isNull } from 'drizzle-orm';
+import { eq, and, sql, asc, desc, isNull } from 'drizzle-orm';
 import { AuditService } from '../../audit/audit.service';
 import { AutomationService } from '../../automation/automation.service';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
@@ -17,62 +17,54 @@ export class HolidaysService {
     ) { }
 
     async generateYearly(year: number, actorId: string) {
-        const standardHolidays = [
-            { name: "New Year's Day", month: 1, day: 1, type: 'REGULAR' },
-            { name: "Araw ng Kagitingan", month: 4, day: 9, type: 'REGULAR' },
-            { name: "Labor Day", month: 5, day: 1, type: 'REGULAR' },
-            { name: "Independence Day", month: 6, day: 12, type: 'REGULAR' },
-            { name: "National Heroes Day", month: 8, day: 31, type: 'REGULAR' }, 
-            { name: "Bonifacio Day", month: 11, day: 30, type: 'REGULAR' },
-            { name: "Christmas Day", month: 12, day: 25, type: 'REGULAR' },
-            { name: "Rizal Day", month: 12, day: 30, type: 'REGULAR' },
-            { name: "Feast of the Immaculate Conception", month: 12, day: 8, type: 'SPECIAL' },
-            { name: "Last Day of the Year", month: 12, day: 31, type: 'SPECIAL' },
-        ];
+        // Find the latest year that has recurring holidays as our template source
+        const latestSource = await this.db.db
+            .select({ 
+                year: sql<number>`EXTRACT(YEAR FROM ${holidays.date})` 
+            })
+            .from(holidays)
+            .where(and(
+                eq(holidays.isRecurring, true),
+                isNull(holidays.deletedAt),
+                sql`EXTRACT(YEAR FROM ${holidays.date}) < ${year}`
+            ))
+            .orderBy(desc(sql`EXTRACT(YEAR FROM ${holidays.date})`))
+            .limit(1);
+
+        const sourceYear = latestSource[0]?.year;
+        
+        if (!sourceYear) {
+            // Fallback: If no recurring holidays exist yet in any year, we might need a "seed" or manual first entry
+            // but for now let's just return 0 to indicate nothing to copy from.
+            return { count: 0, message: 'No template holidays found in previous years.' };
+        }
+
+        const templateHolidays = await this.db.db
+            .select()
+            .from(holidays)
+            .where(and(
+                sql`EXTRACT(YEAR FROM ${holidays.date}) = ${sourceYear}`,
+                eq(holidays.isRecurring, true),
+                isNull(holidays.deletedAt)
+            ));
 
         const inserted = [];
         
-        // 1. Insert fixed standard holidays
-        for (const h of standardHolidays) {
-            const dateStr = `${year}-${h.month.toString().padStart(2, '0')}-${h.day.toString().padStart(2, '0')}`;
+        for (const template of templateHolidays) {
+            // Project the month and day into the target year
+            const dateObj = new Date(template.date);
+            const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+            const day = dateObj.getDate().toString().padStart(2, '0');
+            const targetDateStr = `${year}-${month}-${day}`;
             
-            // Check if already exists
-            const existing = await this.isHoliday(dateStr);
+            // Check if already exists in target year
+            const existing = await this.isHoliday(targetDateStr);
             if (!existing) {
                 const [newH] = await this.db.db.insert(holidays).values({
-                    name: h.name,
-                    date: dateStr,
-                    type: h.type as any,
-                    countryCode: 'PH',
-                    isRecurring: true
-                }).returning();
-                inserted.push(newH);
-            }
-        }
-
-        // 2. Find any custom 'recurring' holidays from the previous year and carry them over
-        const previousYear = year - 1;
-        const prevRecurring = await this.db.db.select().from(holidays).where(and(
-            sql`EXTRACT(YEAR FROM ${holidays.date}) = ${previousYear}`,
-            eq(holidays.isRecurring, true),
-            isNull(holidays.deletedAt)
-        ));
-
-        for (const pr of prevRecurring) {
-            // Get original month/day
-            const d = new Date(pr.date);
-            const m = (d.getMonth() + 1).toString().padStart(2, '0');
-            const day = d.getDate().toString().padStart(2, '0');
-            const newDateStr = `${year}-${m}-${day}`;
-
-            // Check if already exists (might have been covered by standard or already added)
-            const existing = await this.isHoliday(newDateStr);
-            if (!existing) {
-                const [newH] = await this.db.db.insert(holidays).values({
-                    name: pr.name,
-                    date: newDateStr,
-                    type: pr.type,
-                    countryCode: pr.countryCode,
+                    name: template.name,
+                    date: targetDateStr,
+                    type: template.type,
+                    countryCode: template.countryCode,
                     isRecurring: true
                 }).returning();
                 inserted.push(newH);
@@ -84,11 +76,16 @@ export class HolidaysService {
                 userId: actorId,
                 action: 'GENERATE_YEARLY_HOLIDAYS',
                 entityType: 'HOLIDAY',
-                metadata: { year, count: inserted.length, ids: inserted.map(i => i.id) }
+                metadata: { 
+                    targetYear: year, 
+                    sourceYear: sourceYear,
+                    count: inserted.length, 
+                    ids: inserted.map(i => i.id) 
+                }
             });
         }
 
-        return { count: inserted.length };
+        return { count: inserted.length, sourceYear };
     }
 
     async findAll(year?: number) {

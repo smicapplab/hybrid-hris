@@ -69,15 +69,24 @@ export default function HolidaySettingsPage() {
     const handleGenerate = async () => {
         try {
             setGenerating(true)
-            const res = await apiFetch<{ count: number }>('/hr-settings/holidays/generate', {
+            const res = await apiFetch<{ count: number, sourceYear?: number, message?: string }>('/hr-settings/holidays/generate', {
                 method: 'POST',
                 body: JSON.stringify({ year: selectedYear })
             })
-            toast({
-                title: 'Success',
-                description: `Generated ${res.count} standard holidays for ${selectedYear}.`,
-                variant: 'success'
-            })
+
+            if (res.count === 0 && res.message) {
+                toast({ 
+                    title: 'No Template Found', 
+                    description: res.message,
+                    variant: 'default' 
+                })
+            } else {
+                toast({ 
+                    title: 'Success', 
+                    description: `Generated ${res.count} recurring holidays using ${res.sourceYear} as a template.`,
+                    variant: 'success' 
+                })
+            }
             loadHolidays()
         } catch (err) {
             toast({ title: 'Generation Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
