@@ -58,7 +58,7 @@ export default function MyUpcomingLeaves() {
                     <p className="text-sm text-gray-400">No upcoming leaves.</p>
                 </div>
             ) : (
-                <ul className="divide-y">
+                <ul className="divide-y divide-orange-50 max-h-100 overflow-y-auto">
                     {leaves.map((l) => (
                         <li key={l.id} className="px-4 py-3 hover:bg-gray-50 flex items-center justify-between gap-3">
                             <div className="min-w-0">

@@ -46,7 +46,7 @@ export default function PendingApprovalsWidget() {
                 <div className="px-4 py-3 border-b bg-linear-to-r from-amber-50 to-white flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <ClipboardCheck className="w-4 h-4 text-amber-500" />
-                        <h3 className="text-sm font-semibold text-gray-800">Pending Approvals</h3>
+                        <h3 className="text-sm font-semibold text-gray-800">Pending Leave Approvals</h3>
                         {items.length > 0 && (
                             <span className="ml-1 text-xs bg-amber-500 text-white rounded-full w-5 h-5 inline-flex items-center justify-center font-bold">
                                 {items.length}
@@ -57,10 +57,10 @@ export default function PendingApprovalsWidget() {
 
                 {items.length === 0 ? (
                     <div className="px-4 py-6 text-center">
-                        <p className="text-sm text-gray-400">No pending approvals.</p>
+                        <p className="text-sm text-gray-400">No pending leave approvals.</p>
                     </div>
                 ) : (
-                    <ul className="divide-y">
+                    <ul className="divide-y divide-orange-50 max-h-100 overflow-y-auto">
                         {items.map((item) => (
                             <li key={item.id} className="px-4 py-3 hover:bg-gray-50">
                                 <div className="flex items-start justify-between gap-3">

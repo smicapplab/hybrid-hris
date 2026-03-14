@@ -67,7 +67,7 @@ export default function UpcomingTrainings() {
             <p className="text-xs text-muted-foreground font-medium italic">No upcoming sessions scheduled.</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-orange-50 max-h-100 overflow-y-auto">
             {schedules.map((sch) => (
               <div
                 key={sch.id}
@@ -104,7 +104,7 @@ export default function UpcomingTrainings() {
         )}
       </div>
 
-      <TrainingEnrollmentDialog 
+      <TrainingEnrollmentDialog
         scheduleId={selectedScheduleId}
         open={dialogOpen}
         onOpenChangeAction={setDialogOpen}
