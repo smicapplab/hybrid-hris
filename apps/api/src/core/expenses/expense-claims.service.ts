@@ -7,6 +7,7 @@ import { eq, and, inArray, or, SQL, ne } from 'drizzle-orm';
 import { BudgetLedgerService } from './budget-ledger.service';
 import { UsersService } from 'src/identity/users/users.service';
 import { OrgUnitsService } from '../org-units/org-units.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class ExpenseClaimsService {
@@ -15,6 +16,7 @@ export class ExpenseClaimsService {
         private readonly ledgerService: BudgetLedgerService,
         private readonly usersService: UsersService,
         private readonly orgUnitsService: OrgUnitsService,
+        private readonly auditService: AuditService,
     ) { }
 
     async submitClaim(data: {
@@ -25,7 +27,7 @@ export class ExpenseClaimsService {
         amount: string;
         expenseDate: string;
         description: string;
-    }): Promise<ExpenseClaim> {
+    }, actorId: string): Promise<ExpenseClaim> {
         // Validation: Check remaining budget (Soft mode: allow but maybe flag? for now let's just check)
         const remaining = await this.ledgerService.getRemainingBudget(
             data.orgUnitId,
@@ -50,6 +52,14 @@ export class ExpenseClaimsService {
             submittedAt: new Date(),
         }).returning();
 
+        await this.auditService.log({
+            userId: actorId,
+            action: 'CREATE',
+            entityType: 'ExpenseClaim',
+            entityId: inserted.id,
+            newValue: inserted,
+        });
+
         return inserted;
     }
 
@@ -70,14 +80,25 @@ export class ExpenseClaimsService {
             // 2. If it's the final level (e.g., Level 2 or 3 depending on policy), mark claim as APPROVED and commit to ledger
             // For MVP, let's say Level 2 is final approval.
             if (level >= 2) {
-                await tx
+                const [updated] = await tx
                     .update(expenseClaims)
                     .set({
                         status: ExpenseClaimStatus.APPROVED,
                         approvedAt: new Date(),
                         updatedAt: new Date(),
                     })
-                    .where(eq(expenseClaims.id, claimId));
+                    .where(eq(expenseClaims.id, claimId))
+                    .returning();
+
+                await this.auditService.log({
+                    userId: approverUserId,
+                    action: 'APPROVE',
+                    entityType: 'ExpenseClaim',
+                    entityId: claimId,
+                    oldValue: claim,
+                    newValue: updated,
+                    metadata: { level, remarks }
+                });
 
                 // 3. Insert ledger consumption (negative amount)
                 await this.ledgerService.createEntry(tx, {
@@ -87,6 +108,14 @@ export class ExpenseClaimsService {
                     entryType: BudgetLedgerEntryType.CONSUMPTION,
                     amount: (parseFloat(claim.amount) * -1).toString(),
                     referenceExpenseClaimId: claimId,
+                });
+            } else {
+                 await this.auditService.log({
+                    userId: approverUserId,
+                    action: 'APPROVE_LEVEL',
+                    entityType: 'ExpenseClaim',
+                    entityId: claimId,
+                    metadata: { level, remarks }
                 });
             }
 

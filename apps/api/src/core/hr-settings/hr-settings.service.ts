@@ -3,10 +3,14 @@ import { DatabaseService } from 'src/database/database.service';
 import { hrSettings } from '@hybrid-hris/db/schema';
 import { eq } from 'drizzle-orm';
 import { UpdateHrSettingsDto } from './dto/update-hr-settings.dto';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class HrSettingsService {
-    constructor(private readonly db: DatabaseService) { }
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly auditService: AuditService,
+    ) { }
 
     async getSettings() {
         const settings = await this.db.db.select().from(hrSettings).where(eq(hrSettings.singleton, true)).limit(1);
@@ -17,7 +21,7 @@ export class HrSettingsService {
         return settings[0];
     }
 
-    async updateSettings(dto: UpdateHrSettingsDto) {
+    async updateSettings(dto: UpdateHrSettingsDto, actorId: string) {
         const current = await this.getSettings();
         if (!current) {
             throw new NotFoundException('HR Settings not found. Please ensure the system is seeded.');
@@ -46,6 +50,15 @@ export class HrSettingsService {
             })
             .where(eq(hrSettings.singleton, true))
             .returning();
+
+        await this.auditService.log({
+            userId: actorId,
+            action: 'UPDATE',
+            entityType: 'HrSettings',
+            entityId: 'GLOBAL_SETTINGS',
+            oldValue: current,
+            newValue: updated,
+        });
 
         return updated;
     }

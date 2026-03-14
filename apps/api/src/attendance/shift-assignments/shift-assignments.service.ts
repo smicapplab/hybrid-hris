@@ -12,6 +12,7 @@ import {
 import { DatabaseService } from 'src/database/database.service'
 import { CreateShiftAssignmentDto } from './dto/create-shift-assignment.dto'
 import { UpdateShiftAssignmentDto } from './dto/update-shift-assignment.dto'
+import { AuditService } from '../../core/audit/audit.service'
 
 /** Maps JS Date.getUTCDay() (0=Sun … 6=Sat) to the snapshot column key. */
 const DOW_KEYS: (keyof EmployeeShiftAssignment)[] = [
@@ -26,7 +27,10 @@ function dowKey(dateStr: string): keyof EmployeeShiftAssignment {
 
 @Injectable()
 export class ShiftAssignmentsService {
-    constructor(private readonly db: DatabaseService) { }
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly auditService: AuditService,
+    ) { }
 
     /**
      * Return the employee's current shift assignment, or null if none exists.
@@ -82,7 +86,7 @@ export class ShiftAssignmentsService {
      * Uses INSERT … ON CONFLICT DO UPDATE, so the same call handles both the first
      * assignment and any subsequent reassignment.
      */
-    async assign(payload: CreateShiftAssignmentDto): Promise<EmployeeShiftAssignment> {
+    async assign(payload: CreateShiftAssignmentDto, actorId: string): Promise<EmployeeShiftAssignment> {
         return this.db.withTransaction(async (tx) => {
             const [template] = await tx
                 .select()
@@ -116,6 +120,13 @@ export class ShiftAssignmentsService {
                 effectiveFrom: payload.effectiveFrom,
             }
 
+            // Get existing for audit diff
+            const [existing] = await tx
+                .select()
+                .from(employeeShiftAssignments)
+                .where(eq(employeeShiftAssignments.employeeId, payload.employeeId))
+                .limit(1);
+
             const [upserted] = await tx
                 .insert(employeeShiftAssignments)
                 .values(values)
@@ -140,6 +151,15 @@ export class ShiftAssignmentsService {
                 })
                 .returning()
 
+            await this.auditService.log({
+                userId: actorId,
+                action: existing ? 'UPDATE' : 'CREATE',
+                entityType: 'ShiftAssignment',
+                entityId: upserted.id,
+                oldValue: existing,
+                newValue: upserted,
+            });
+
             return upserted
         })
     }
@@ -148,7 +168,7 @@ export class ShiftAssignmentsService {
      * Partially patch the employee's current assignment (individual fields only).
      * Use `assign` to swap to a different template entirely.
      */
-    async update(employeeId: string, payload: UpdateShiftAssignmentDto): Promise<EmployeeShiftAssignment> {
+    async update(employeeId: string, payload: UpdateShiftAssignmentDto, actorId: string): Promise<EmployeeShiftAssignment> {
         const existing = await this.findByEmployee(employeeId)
 
         if (!existing) {
@@ -180,6 +200,15 @@ export class ShiftAssignmentsService {
             .set(patch)
             .where(eq(employeeShiftAssignments.employeeId, employeeId))
             .returning()
+
+        await this.auditService.log({
+            userId: actorId,
+            action: 'UPDATE',
+            entityType: 'ShiftAssignment',
+            entityId: updated.id,
+            oldValue: existing,
+            newValue: updated,
+        });
 
         return updated
     }

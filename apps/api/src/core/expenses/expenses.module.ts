@@ -8,9 +8,10 @@ import { ExpenseClaimsController } from './expense-claims.controller';
 import { ExpensesMetadataController } from './metadata.controller';
 import { UsersModule } from 'src/identity/users/users.module';
 import { OrgUnitsModule } from '../org-units/org-units.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
-    imports: [DatabaseModule, UsersModule, OrgUnitsModule],
+    imports: [DatabaseModule, UsersModule, OrgUnitsModule, AuditModule],
     providers: [BudgetLedgerService, BudgetsService, ExpenseClaimsService],
     controllers: [BudgetsController, ExpenseClaimsController, ExpensesMetadataController],
     exports: [BudgetsService, ExpenseClaimsService, BudgetLedgerService],

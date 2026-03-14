@@ -89,9 +89,7 @@ export function MandatoryRequirementsPanel() {
       const endpoint = activeSubTab === 'position' 
         ? `/training/mandatory/positions`
         : `/training/mandatory/org-units`;
-      const body = activeSubTab === 'position' 
-        ? { positionId: targetId, programId }
-        : { orgUnitId: targetId, programId };
+      const body = { targetId, programId };
 
       await apiFetch(endpoint, {
         method: 'POST',

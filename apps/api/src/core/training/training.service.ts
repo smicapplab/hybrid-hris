@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { AuditService } from '../audit/audit.service';
 import {
@@ -1341,14 +1341,16 @@ export class TrainingService {
   }
 
   async addMandatoryTrainingToOrgUnit(orgUnitId: string, programId: string) {
-    const [inserted] = await this.db.db
-      .insert(orgUnitMandatoryTrainings)
-      .values({ orgUnitId, programId })
-      .onConflictDoNothing()
-      .returning();
-    return inserted;
+      if (!orgUnitId) {
+          throw new BadRequestException('Organization Unit ID is required.');
+      }
+      const [inserted] = await this.db.db
+        .insert(orgUnitMandatoryTrainings)
+        .values({ orgUnitId, programId })
+        .onConflictDoNothing()
+        .returning();
+      return inserted;
   }
-
   async removeMandatoryTrainingFromOrgUnit(orgUnitId: string, programId: string) {
     await this.db.db
       .delete(orgUnitMandatoryTrainings)

@@ -5,6 +5,7 @@ import { eq, and, inArray, or, SQL, ne, desc } from 'drizzle-orm';
 import { UsersService } from 'src/identity/users/users.service';
 import { OrgUnitsService } from 'src/core/org-units/org-units.service';
 import { CreateAdjustmentDto } from './dto/create-adjustment.dto';
+import { AuditService } from '../../core/audit/audit.service';
 
 @Injectable()
 export class AttendanceAdjustmentsService {
@@ -12,6 +13,7 @@ export class AttendanceAdjustmentsService {
         private readonly db: DatabaseService,
         private readonly usersService: UsersService,
         private readonly orgUnitsService: OrgUnitsService,
+        private readonly auditService: AuditService,
     ) { }
 
     async createRequest(userId: string, employeeId: string, dto: CreateAdjustmentDto): Promise<AttendanceAdjustment> {
@@ -47,6 +49,14 @@ export class AttendanceAdjustmentsService {
             status: 'PENDING',
             requestedBy: userId,
         }).returning();
+
+        await this.auditService.log({
+            userId,
+            action: 'CREATE',
+            entityType: 'AttendanceAdjustment',
+            entityId: inserted.id,
+            newValue: inserted,
+        });
 
         return inserted;
     }
@@ -86,6 +96,15 @@ export class AttendanceAdjustmentsService {
             .set(updateData)
             .where(eq(attendanceAdjustments.id, id))
             .returning();
+
+        await this.auditService.log({
+            userId,
+            action: 'UPDATE',
+            entityType: 'AttendanceAdjustment',
+            entityId: id,
+            oldValue: existing,
+            newValue: updated,
+        });
 
         return updated;
     }
@@ -150,7 +169,7 @@ export class AttendanceAdjustmentsService {
 
         return this.db.withTransaction(async (tx) => {
             // 1. Update Adjustment Status
-            await tx.update(attendanceAdjustments)
+            const [updated] = await tx.update(attendanceAdjustments)
                 .set({
                     status: 'APPROVED',
                     approvedBy: userId,
@@ -158,7 +177,18 @@ export class AttendanceAdjustmentsService {
                     approverRemarks: remarks,
                     updatedAt: new Date(),
                 })
-                .where(eq(attendanceAdjustments.id, id));
+                .where(eq(attendanceAdjustments.id, id))
+                .returning();
+
+            await this.auditService.log({
+                userId,
+                action: 'APPROVE',
+                entityType: 'AttendanceAdjustment',
+                entityId: id,
+                oldValue: adjustment,
+                newValue: updated,
+                metadata: { remarks }
+            });
 
             // 2. Update or Create Attendance Log
             if (adjustment.attendanceLogId) {
@@ -187,9 +217,9 @@ export class AttendanceAdjustmentsService {
     }
 
     async reject(userId: string, id: string, remarks?: string) {
-        await this.getValidatedAuthority(userId, id);
+        const adjustment = await this.getValidatedAuthority(userId, id);
 
-        await this.db.db.update(attendanceAdjustments)
+        const [updated] = await this.db.db.update(attendanceAdjustments)
             .set({
                 status: 'REJECTED',
                 approvedBy: userId,
@@ -197,7 +227,18 @@ export class AttendanceAdjustmentsService {
                 approverRemarks: remarks,
                 updatedAt: new Date(),
             })
-            .where(eq(attendanceAdjustments.id, id));
+            .where(eq(attendanceAdjustments.id, id))
+            .returning();
+
+        await this.auditService.log({
+            userId,
+            action: 'REJECT',
+            entityType: 'AttendanceAdjustment',
+            entityId: id,
+            oldValue: adjustment,
+            newValue: updated,
+            metadata: { remarks }
+        });
 
         return { success: true };
     }

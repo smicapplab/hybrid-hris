@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { apiFetch } from '@/lib/api'
-import { OvertimeRequest } from '@/types/attendance.types'
+import { OvertimeRequest, PendingOvertimeItem } from '@/types/attendance.types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Check, X, Timer, Calendar, Clock, Search, Filter, Loader2, AlertCircle } from 'lucide-react'
+import { Check, X, Timer, Calendar, Clock, Search, Filter, Loader2 } from 'lucide-react'
 import {
     Table,
     TableBody,
@@ -35,6 +34,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { apiFetch } from '@/lib/api'
 
 type OvertimeWithEmployee = OvertimeRequest & {
     employee: {
@@ -68,14 +68,13 @@ export default function OvertimeApprovalsPage() {
     const loadData = useCallback(async () => {
         try {
             setLoading(true)
-            // Backend findAll currently doesn't support search/status filter in the way I'm using them here, 
-            // but we'll implement it properly in the service/controller if needed.
-            // For now, let's fetch all and filter client-side or assume the backend handles it.
             const query = new URLSearchParams()
             if (statusFilter !== 'ALL') query.append('status', statusFilter)
             
-            const data = await apiFetch<OvertimeWithEmployee[]>(`/attendance/overtime-requests?${query.toString()}`)
-            setItems(data ?? [])
+            const data = await apiFetch<PendingOvertimeItem[]>(`/attendance/overtime-requests?${query.toString()}`)
+            
+            const transformed = data?.map(d => ({ ...d.request, employee: d.employee })) ?? [];
+            setItems(transformed as OvertimeWithEmployee[]);
         } catch (error) {
             console.error('Failed to load overtime requests:', error)
         } finally {
@@ -202,7 +201,7 @@ export default function OvertimeApprovalsPage() {
                                         <TableCell>
                                             <div className="flex items-center gap-1.5 font-medium text-sm">
                                                 <Calendar className="w-3.5 h-3.5 text-zinc-400" />
-                                                {format(parseISO(item.date), 'MMM dd, yyyy')}
+                                                {item.date ? format(parseISO(item.date), 'MMM dd, yyyy') : 'Invalid Date'}
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -279,7 +278,7 @@ export default function OvertimeApprovalsPage() {
                         <div className="py-4 space-y-4">
                             <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-2 text-muted-foreground border border-blue-50">
                                 <p><span className="font-semibold">Employee:</span> {selectedItem.employee.firstName} {selectedItem.employee.lastName}</p>
-                                <p><span className="font-semibold">Work Date:</span> {format(parseISO(selectedItem.date), 'PPPP')}</p>
+                                <p><span className="font-semibold">Work Date:</span> {selectedItem.date ? format(parseISO(selectedItem.date), 'PPPP') : 'N/A'}</p>
                                 <p><span className="font-semibold">Duration:</span> {selectedItem.hours} Hours ({selectedItem.type})</p>
                                 <p><span className="font-semibold">Reason:</span> {selectedItem.reason}</p>
                             </div>

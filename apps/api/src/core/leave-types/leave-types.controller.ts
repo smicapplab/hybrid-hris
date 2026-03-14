@@ -14,6 +14,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard'
 import { RolesGuard } from 'src/auth/guards/roles.guard'
 import { Roles } from 'src/auth/decorators/roles.decorator'
 import { SystemRole } from '@hybrid-hris/domain'
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator'
 
 import { LeaveTypesService } from './leave-types.service'
 
@@ -52,8 +53,9 @@ export class LeaveTypesController {
             accrualRatePerMonth?: string
             maxCarryOver?: string
         },
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.create(body)
+        return this.service.create(body, actorId)
     }
 
     @UseGuards(RolesGuard)
@@ -71,21 +73,22 @@ export class LeaveTypesController {
             accrualRatePerMonth?: string | null
             maxCarryOver?: string | null
         },
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.update(id, body)
+        return this.service.update(id, body, actorId)
     }
 
     @UseGuards(RolesGuard)
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     @Delete(':id')
-    async softDelete(@Param('id') id: string) {
-        return this.service.softDelete(id)
+    async softDelete(@Param('id') id: string, @CurrentUser('id') actorId: string) {
+        return this.service.softDelete(id, actorId)
     }
 
     @UseGuards(RolesGuard)
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     @Patch(':id/restore')
-    async restore(@Param('id') id: string) {
-        return this.service.restore(id)
+    async restore(@Param('id') id: string, @CurrentUser('id') actorId: string) {
+        return this.service.restore(id, actorId)
     }
 }

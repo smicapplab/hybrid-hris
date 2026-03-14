@@ -234,8 +234,7 @@ export class AddMandatoryTrainingDto {
   positionId?: string;
 
   @IsUUID()
-  @IsOptional()
-  orgUnitId?: string;
+  orgUnitId!: string;
 
   @IsUUID()
   programId!: string;

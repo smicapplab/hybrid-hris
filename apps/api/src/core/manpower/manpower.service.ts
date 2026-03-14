@@ -23,6 +23,7 @@ import { eq, and, sql, isNull, inArray, desc } from 'drizzle-orm';
 import { OrgUnitsService } from '../org-units/org-units.service';
 import { CreateManpowerRequestDto, ActOnManpowerRequestDto } from './dto/manpower-request.dto';
 import { SystemRole, ManpowerRequestStatus } from '@hybrid-hris/domain';
+import { AuditService } from '../audit/audit.service';
 
 export interface PlantillaItem {
     orgUnitId: string;
@@ -62,6 +63,7 @@ export class ManpowerService {
     constructor(
         private readonly db: DatabaseService,
         private readonly orgUnitsService: OrgUnitsService,
+        private readonly auditService: AuditService,
     ) { }
 
     async createRequest(userId: string, dto: CreateManpowerRequestDto): Promise<ManpowerRequest> {
@@ -70,6 +72,15 @@ export class ManpowerService {
             requestedBy: userId,
             status: 'DRAFT',
         }).returning();
+
+        await this.auditService.log({
+            userId,
+            action: 'CREATE',
+            entityType: 'ManpowerRequest',
+            entityId: result.id,
+            newValue: result,
+        });
+
         return result;
     }
 
@@ -103,6 +114,15 @@ export class ManpowerService {
             })
             .where(eq(manpowerRequests.id, id))
             .returning();
+
+        await this.auditService.log({
+            userId,
+            action: 'UPDATE',
+            entityType: 'ManpowerRequest',
+            entityId: id,
+            oldValue: request,
+            newValue: updated,
+        });
 
         return updated;
     }
@@ -208,15 +228,25 @@ export class ManpowerService {
         }
 
         return this.db.withTransaction(async (tx: Tx) => {
-            await tx.update(manpowerRequests)
+            const [updated] = await tx.update(manpowerRequests)
                 .set({ status: 'SUBMITTED', updatedAt: new Date() })
-                .where(eq(manpowerRequests.id, requestId));
+                .where(eq(manpowerRequests.id, requestId))
+                .returning();
 
             await tx.insert(manpowerRequestApprovals).values({
                 manpowerRequestId: requestId,
                 approverUserId: hrApproverId,
                 level: 1,
                 status: 'PENDING',
+            });
+
+            await this.auditService.log({
+                userId,
+                action: 'SUBMIT',
+                entityType: 'ManpowerRequest',
+                entityId: requestId,
+                oldValue: request,
+                newValue: updated,
             });
 
             return { success: true };
@@ -251,9 +281,21 @@ export class ManpowerService {
                 .where(eq(manpowerRequestApprovals.id, approval.id));
 
             if (dto.status === 'REJECTED') {
-                await tx.update(manpowerRequests)
+                const [rejected] = await tx.update(manpowerRequests)
                     .set({ status: 'REJECTED', updatedAt: new Date() })
-                    .where(eq(manpowerRequests.id, requestId));
+                    .where(eq(manpowerRequests.id, requestId))
+                    .returning();
+
+                await this.auditService.log({
+                    userId,
+                    action: 'REJECT',
+                    entityType: 'ManpowerRequest',
+                    entityId: requestId,
+                    oldValue: request,
+                    newValue: rejected,
+                    metadata: { remarks: dto.remarks }
+                });
+
                 return { status: 'REJECTED' };
             }
 
@@ -262,7 +304,7 @@ export class ManpowerService {
                 const rootLeaderId = await this.resolveRootLeaderApprover();
                 if (!rootLeaderId || rootLeaderId === userId) {
                     // If no root leader found or HR Admin IS the root leader, auto-approve level 2
-                    await this.finalizeApproval(tx, requestId, request);
+                    await this.finalizeApproval(tx, requestId, request, userId);
                     return { status: 'APPROVED' };
                 }
 
@@ -272,19 +314,29 @@ export class ManpowerService {
                     level: 2,
                     status: 'PENDING',
                 });
+
+                await this.auditService.log({
+                    userId,
+                    action: 'APPROVE_LEVEL_1',
+                    entityType: 'ManpowerRequest',
+                    entityId: requestId,
+                    metadata: { remarks: dto.remarks, nextApprover: rootLeaderId }
+                });
+
                 return { status: 'SUBMITTED_TO_ROOT' };
             }
 
             // If Level 2 approved, finalize
-            await this.finalizeApproval(tx, requestId, request);
+            await this.finalizeApproval(tx, requestId, request, userId);
             return { status: 'APPROVED' };
         });
     }
 
-    private async finalizeApproval(tx: Tx, requestId: string, request: ManpowerRequest): Promise<void> {
-        await tx.update(manpowerRequests)
+    private async finalizeApproval(tx: Tx, requestId: string, request: ManpowerRequest, actorId: string): Promise<void> {
+        const [updated] = await tx.update(manpowerRequests)
             .set({ status: 'APPROVED', updatedAt: new Date() })
-            .where(eq(manpowerRequests.id, requestId));
+            .where(eq(manpowerRequests.id, requestId))
+            .returning();
 
         // 1. If this is a NEW_HEADCOUNT request, increase the Plantilla limit
         if (request.requestType === 'NEW_HEADCOUNT' && request.positionId) {
@@ -325,6 +377,15 @@ export class ManpowerService {
             responsibilities: request.responsibilities,
             qualifications: request.qualifications,
             status: 'DRAFT',
+        });
+
+        await this.auditService.log({
+            userId: actorId,
+            action: 'APPROVE_FINAL',
+            entityType: 'ManpowerRequest',
+            entityId: requestId,
+            oldValue: request,
+            newValue: updated,
         });
     }
     private async resolveHRAdminApprover(): Promise<string | null> {

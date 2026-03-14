@@ -6,6 +6,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard'
 import { RolesGuard } from 'src/auth/guards/roles.guard'
 import { Roles } from 'src/auth/decorators/roles.decorator'
 import { SystemRole } from '@hybrid-hris/domain'
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator'
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('shift-assignments')
@@ -33,8 +34,11 @@ export class ShiftAssignmentsController {
      */
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
     @Post()
-    async assign(@Body() body: CreateShiftAssignmentDto) {
-        return this.shiftAssignmentsService.assign(body)
+    async assign(
+        @Body() body: CreateShiftAssignmentDto,
+        @CurrentUser('id') actorId: string,
+    ) {
+        return this.shiftAssignmentsService.assign(body, actorId)
     }
 
     /** Partially patch the current assignment without swapping the template. */
@@ -43,7 +47,8 @@ export class ShiftAssignmentsController {
     async update(
         @Param('employeeId') employeeId: string,
         @Body() body: UpdateShiftAssignmentDto,
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.shiftAssignmentsService.update(employeeId, body)
+        return this.shiftAssignmentsService.update(employeeId, body, actorId)
     }
 }

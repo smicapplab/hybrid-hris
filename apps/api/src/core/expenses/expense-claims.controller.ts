@@ -27,7 +27,7 @@ export class ExpenseClaimsController {
         return this.service.submitClaim({
             ...dto,
             employeeId: req.user.employeeId!,
-        });
+        }, req.user.id);
     }
 
     @Get('me')

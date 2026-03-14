@@ -5,6 +5,7 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { SystemRole } from '@hybrid-hris/domain';
 import { HrSettingsService } from './hr-settings.service';
 import { UpdateHrSettingsDto } from './dto/update-hr-settings.dto';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(SystemRole.ADMIN)
@@ -18,7 +19,7 @@ export class HrSettingsController {
     }
 
     @Patch()
-    async updateSettings(@Body() dto: UpdateHrSettingsDto) {
-        return this.service.updateSettings(dto);
+    async updateSettings(@Body() dto: UpdateHrSettingsDto, @CurrentUser('id') actorId: string) {
+        return this.service.updateSettings(dto, actorId);
     }
 }

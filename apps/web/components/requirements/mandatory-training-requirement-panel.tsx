@@ -72,9 +72,7 @@ export function MandatoryTrainingRequirementPanel({ targetId, type }: Props) {
                 ? '/training/mandatory/positions'
                 : '/training/mandatory/org-units';
 
-            const payload = type === 'position'
-                ? { positionId: targetId, programId: selectedProgramId }
-                : { orgUnitId: targetId, programId: selectedProgramId };
+            const payload = { targetId, programId: selectedProgramId };
 
             await apiFetch(endpoint, {
                 method: 'POST',
