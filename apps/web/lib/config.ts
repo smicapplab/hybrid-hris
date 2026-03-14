@@ -21,6 +21,7 @@ import {
     GraduationCap,
     Library,
     UserCheck,
+    Umbrella,
 } from "lucide-react";
 
 export const navigation: NavCategory[] = [
@@ -165,6 +166,11 @@ export const navigation: NavCategory[] = [
                 title: "Training Catalog",
                 url: "/admin/training",
                 icon: Library,
+            },
+            {
+                title: "Holiday Maintenance",
+                url: "/admin/settings/holidays",
+                icon: Umbrella,
             },
             {
                 title: "Team Budgets",

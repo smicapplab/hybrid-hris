@@ -61,4 +61,13 @@ export class HolidaysController {
     ) {
         return this.service.delete(id, actorId)
     }
+
+    @Post(':id/process')
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+    async processHoliday(
+        @Param('id') id: string,
+        @CurrentUser('id') actorId: string,
+    ) {
+        return this.service.processHoliday(id, actorId)
+    }
 }

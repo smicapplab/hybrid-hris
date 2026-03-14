@@ -35,6 +35,7 @@ import { jobPostings } from '../schema/job-postings';
 import { faker } from '@faker-js/faker';
 import { seedSkillsEssential } from './skills-seed-essential';
 import { seedSkillsDemo } from './skills-seed-demo';
+import { seedHolidays } from './holidays.seed';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -592,6 +593,9 @@ export async function seedSystem() {
     if (process.env.LOAD_TEST_DATA === 'true') {
         await seedSkillsDemo(db);
     }
+
+    // --- 15. Holidays ---
+    await seedHolidays(db);
 
     console.log('✅ Enterprise Seed Complete!');
 }

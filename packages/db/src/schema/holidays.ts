@@ -3,7 +3,6 @@ import {
     uuid,
     date,
     varchar,
-    boolean,
     timestamp,
     uniqueIndex,
     index,
@@ -25,20 +24,16 @@ export const holidays = pgTable(
             .default('PH')
             .notNull(),
 
-        isRecurring: boolean('is_recurring').default(false).notNull(),
-
-        deletedAt: timestamp('deleted_at', { withTimezone: true }),
-
-        updatedAt: timestamp('updated_at', { withTimezone: true })
-            .defaultNow()
-            .notNull(),
-
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
             .notNull(),
+        updatedAt: timestamp('updated_at', { withTimezone: true })
+            .defaultNow()
+            .notNull(),
+        deletedAt: timestamp('deleted_at', { withTimezone: true }),
     },
     (t) => ({
-        holidayDateCountryUq: uniqueIndex('holidays_date_country_uq').on(
+        dateCountryUq: uniqueIndex('holidays_date_country_uq').on(
             t.date,
             t.countryCode,
         ),

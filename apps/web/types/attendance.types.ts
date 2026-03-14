@@ -47,6 +47,16 @@ export type OvertimeRequest = {
     updatedAt: string;
 };
 
+export type Holiday = {
+    id: string;
+    date: string;
+    name: string;
+    type: 'REGULAR' | 'SPECIAL';
+    countryCode: string;
+    createdAt: string;
+    updatedAt: string;
+};
+
 export type AttendanceAdjustment = {
     id: string;
     employeeId: string;

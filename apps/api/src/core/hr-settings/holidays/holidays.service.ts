@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { holidays } from '@hybrid-hris/db/schema';
 import { eq, and, sql, desc, asc, isNull } from 'drizzle-orm';
 import { AuditService } from '../../audit/audit.service';
+import { AutomationService } from '../../automation/automation.service';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
 import { UpdateHolidayDto } from './dto/update-holiday.dto';
 
@@ -11,23 +12,20 @@ export class HolidaysService {
     constructor(
         private readonly db: DatabaseService,
         private readonly auditService: AuditService,
+        @Inject(forwardRef(() => AutomationService))
+        private readonly automationService: AutomationService,
     ) { }
 
     async findAll(year?: number) {
+        let query = this.db.db.select().from(holidays)
+            .where(isNull(holidays.deletedAt))
+            .$dynamic();
+
         if (year) {
-            return this.db.db.select().from(holidays)
-                .where(
-                    and(
-                        isNull(holidays.deletedAt),
-                        sql`EXTRACT(YEAR FROM ${holidays.date}) = ${year} OR ${holidays.isRecurring} = true`
-                    )
-                )
-                .orderBy(asc(holidays.date));
+            query = query.where(sql`EXTRACT(YEAR FROM ${holidays.date}) = ${year}`);
         }
 
-        return this.db.db.select().from(holidays)
-            .where(isNull(holidays.deletedAt))
-            .orderBy(desc(holidays.date));
+        return query.orderBy(asc(holidays.date));
     }
 
     async findOne(id: string) {
@@ -42,7 +40,7 @@ export class HolidaysService {
         try {
             const [newHoliday] = await this.db.db.insert(holidays).values({
                 ...dto,
-                date: dto.date, // Drizzle handles date string
+                date: dto.date,
             }).returning();
 
             await this.auditService.log({
@@ -109,8 +107,7 @@ export class HolidaysService {
         const d = typeof date === 'string' ? new Date(date) : date;
         const dateString = d.toISOString().split('T')[0];
         
-        // Check exact match first
-        const [exactMatch] = await this.db.db.select().from(holidays).where(
+        const [match] = await this.db.db.select().from(holidays).where(
             and(
                 eq(holidays.date, dateString),
                 eq(holidays.countryCode, countryCode),
@@ -118,22 +115,25 @@ export class HolidaysService {
             )
         );
 
-        if (exactMatch) return exactMatch;
+        return match || null;
+    }
 
-        // Check recurring matching month and day
-        const month = d.getMonth() + 1;
-        const day = d.getDate();
+    /**
+     * Triggers the unworked holiday pay generation for a specific holiday.
+     */
+    async processHoliday(id: string, actorId: string) {
+        const holiday = await this.findOne(id);
+        
+        const result = await this.automationService.processHolidayPay(holiday.date);
 
-        const [recurringMatch] = await this.db.db.select().from(holidays).where(
-            and(
-                eq(holidays.isRecurring, true),
-                eq(holidays.countryCode, countryCode),
-                isNull(holidays.deletedAt),
-                sql`EXTRACT(MONTH FROM ${holidays.date}) = ${month}`,
-                sql`EXTRACT(DAY FROM ${holidays.date}) = ${day}`
-            )
-        );
+        await this.auditService.log({
+            userId: actorId,
+            action: 'PROCESS_HOLIDAY_PAY',
+            entityType: 'HOLIDAY',
+            entityId: id,
+            metadata: { date: holiday.date, ...result }
+        });
 
-        return recurringMatch || null;
+        return result;
     }
 }

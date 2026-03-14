@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DatabaseModule } from 'src/database/database.module';
 import { HrSettingsModule } from '../hr-settings/hr-settings.module';
@@ -11,7 +11,7 @@ import { AutomationCron } from './automation.cron';
     imports: [
         ScheduleModule.forRoot(),
         DatabaseModule,
-        HrSettingsModule, // For HolidaysService
+        forwardRef(() => HrSettingsModule), // For HolidaysService
         LeaveAccrualsModule,
     ],
     providers: [AutomationService, AutomationCron],
