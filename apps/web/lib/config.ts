@@ -125,6 +125,12 @@ export const navigation: NavCategory[] = [
                 icon: ClipboardCheck,
                 roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR', 'MANAGER'],
             },
+            {
+                title: "Overtime Approvals",
+                url: "/attendance/overtime-approvals",
+                icon: Timer,
+                roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR', 'MANAGER'],
+            },
         ]
     },
     {

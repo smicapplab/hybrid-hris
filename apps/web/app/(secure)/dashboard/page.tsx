@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import MyUpcomingLeaves from './components/my-upcoming-leaves'
 import PendingApprovalsWidget from './components/pending-approvals-widget'
 import PendingAttendanceApprovalsWidget from './components/pending-attendance-approvals-widget'
+import PendingOvertimeApprovalsWidget from './components/pending-overtime-approvals-widget'
 import UpcomingTeamLeaves from './components/upcoming-team-leaves'
 import AttendanceWidget from './components/attendance-widget'
 import UpcomingTrainings from './components/upcoming-trainings'
@@ -14,7 +15,7 @@ export default function DashboardPage() {
     if (!user) return null // layout handles redirect
 
     const isApprover = user.roles.some((r) =>
-        ['HR_ADMIN', 'ADMIN', 'MANAGER'].includes(r),
+        ['HR_ADMIN', 'ADMIN', 'MANAGER', 'SUPERVISOR'].includes(r),
     )
 
     return (
@@ -37,6 +38,7 @@ export default function DashboardPage() {
                             <>
                                 <PendingApprovalsWidget />
                                 <PendingAttendanceApprovalsWidget />
+                                <PendingOvertimeApprovalsWidget />
                             </>
                         )}
                         <MyUpcomingLeaves />

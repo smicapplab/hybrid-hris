@@ -47,6 +47,15 @@ export type OvertimeRequest = {
     updatedAt: string;
 };
 
+export type PendingOvertimeItem = {
+    request: OvertimeRequest;
+    employee: {
+        firstName: string;
+        lastName: string;
+        employeeNo: string;
+    };
+};
+
 export type Holiday = {
     id: string;
     date: string;
