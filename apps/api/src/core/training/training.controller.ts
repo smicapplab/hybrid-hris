@@ -131,6 +131,19 @@ export class TrainingController {
     return this.trainingService.getScheduleAttendees(id);
   }
 
+  @Post('schedules/:id/attendees')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+  async addAttendee(
+    @Param('id') scheduleId: string,
+    @Body('employeeId') employeeId: string,
+    @CurrentUser('employeeId') processorId: string,
+    @CurrentUser('roles') roles: string[],
+    @CurrentUser('id') actorId: string,
+  ) {
+    const isHr = roles.includes(SystemRole.HR_ADMIN) || roles.includes(SystemRole.ADMIN);
+    return this.trainingService.addAttendee(scheduleId, employeeId, processorId, isHr, actorId);
+  }
+
   @Post('schedules/:id/enroll')
   async enrollEmployees(
     @Param('id') scheduleId: string,

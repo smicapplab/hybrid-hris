@@ -10,10 +10,14 @@ import {
     OrgContextResponse, 
     PaginatedTeamMembersResponse 
 } from './dto/profile.dto'
+import { AuditService } from 'src/core/audit/audit.service'
 
 @Injectable()
 export class ProfileService {
-    constructor(private readonly db: DatabaseService) { }
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly auditService: AuditService
+    ) { }
 
     async getMyTeamMembers(
         employeeId: string,
@@ -127,34 +131,36 @@ export class ProfileService {
     }
 
     async updateMyProfile(
+        userId: string,
         employeeId: string,
         userEmail: string,
         dto: UpdateMyProfileDto,
     ): Promise<MyProfileResponse> {
-        /* ── Split fields between the two tables ── */
+        const oldValue = await this.getMyProfile(employeeId, userEmail);
+
         const EMPLOYEE_FIELDS = [
             'alternateEmail', 'addressLine1', 'addressLine2',
             'city', 'province', 'postalCode', 'countryCode',
-        ] as const
+        ] as const;
 
         const PROFILE_FIELDS = [
             'birthDate', 'gender', 'civilStatus', 'nationality',
             'personalEmail', 'mobileNo', 'landlineNo',
             'emergencyContactName', 'emergencyContactRelationship', 'emergencyContactMobileNo',
-        ] as const
+        ] as const;
 
-        const empPatch: Record<string, unknown> = {}
+        const empPatch: Record<string, unknown> = {};
         for (const key of EMPLOYEE_FIELDS) {
-            if (dto[key] !== undefined) empPatch[key] = dto[key]
+            if (dto[key] !== undefined) empPatch[key] = dto[key];
         }
 
-        const profilePatch: Record<string, unknown> = {}
+        const profilePatch: Record<string, unknown> = {};
         for (const key of PROFILE_FIELDS) {
-            if (dto[key] !== undefined) profilePatch[key] = dto[key]
+            if (dto[key] !== undefined) profilePatch[key] = dto[key];
         }
 
         if (Object.keys(empPatch).length === 0 && Object.keys(profilePatch).length === 0) {
-            throw new BadRequestException('No updatable fields provided')
+            throw new BadRequestException('No updatable fields provided');
         }
 
         await this.db.withTransaction(async (tx) => {
@@ -162,22 +168,32 @@ export class ProfileService {
                 await tx
                     .update(employees)
                     .set({ ...empPatch, updatedAt: new Date() })
-                    .where(eq(employees.id, employeeId))
+                    .where(eq(employees.id, employeeId));
             }
 
             if (Object.keys(profilePatch).length > 0) {
-                // Upsert: create the profile row if it doesn't exist yet
                 await tx
                     .insert(employeeProfiles)
                     .values({ employeeId, ...profilePatch, updatedAt: new Date() })
                     .onConflictDoUpdate({
                         target: employeeProfiles.employeeId,
                         set: { ...profilePatch, updatedAt: new Date() },
-                    })
+                    });
             }
-        })
 
-        return this.getMyProfile(employeeId, userEmail)
+            const newValue = await this.getMyProfile(employeeId, userEmail);
+
+            await this.auditService.log({
+                userId,
+                action: 'profile.update',
+                entityType: 'employee_profile',
+                entityId: employeeId,
+                oldValue,
+                newValue,
+            });
+        });
+
+        return this.getMyProfile(employeeId, userEmail);
     }
 
     async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
@@ -228,7 +244,15 @@ export class ProfileService {
         await this.db.db
             .update(users)
             .set({ passwordHash: newHash, updatedAt: new Date() })
-            .where(eq(users.id, userId))
+            .where(eq(users.id, userId));
+
+        await this.auditService.log({
+            userId,
+            action: 'user.change_password',
+            entityType: 'user',
+            entityId: userId,
+            metadata: { event: 'Password changed successfully' }
+        });
     }
 
     async getMyOrgContext(employeeId: string): Promise<OrgContextResponse> {
@@ -430,7 +454,7 @@ export class ProfileService {
             .leftJoin(
                 employeeShiftAssignments,
                 and(
-                    eq(sql`COALESCE(${attendanceLogs.employeeId}, ${attendanceAdjustments.employeeId})`, employeeShiftAssignments.employeeId),
+                    eq(sql`COALESCE(${attendanceLogs.employeeId}, ${attendanceAdjustments.employeeId})`, employeeId),
                     sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate}) >= ${employeeShiftAssignments.effectiveFrom}`,
                 )
             )

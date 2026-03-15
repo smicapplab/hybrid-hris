@@ -67,30 +67,33 @@ export class SkillsController {
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.SUPERVISOR, SystemRole.MANAGER)
   async assignSkill(
     @CurrentUser('employeeId') managerEmployeeId: string,
+    @CurrentUser('id') actorId: string,
     @CurrentUser('roles') roles: string[],
     @Body() data: AssignSkillDto
   ) {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
     const isHr = roles.includes(SystemRole.HR_ADMIN) || roles.includes(SystemRole.ADMIN);
-    return this.skillsService.assignSkillToReport(managerEmployeeId, data, isHr);
+    return this.skillsService.assignSkillToReport(managerEmployeeId, data, actorId, isHr);
   }
 
   @Post('my-skills')
   async declareSkill(
     @CurrentUser('employeeId') employeeId: string,
+    @CurrentUser('id') actorId: string,
     @Body() data: DeclareSkillDto
   ) {
     if (!employeeId) throw new UnauthorizedException('Not linked to an employee profile');
-    return this.skillsService.declareSkill(employeeId, data);
+    return this.skillsService.declareSkill(employeeId, data, actorId);
   }
 
   @Delete('my-skills/:id')
   async removeSkill(
     @CurrentUser('employeeId') employeeId: string,
+    @CurrentUser('id') actorId: string,
     @Param('id') id: string
   ) {
     if (!employeeId) throw new UnauthorizedException('Not linked to an employee profile');
-    return this.skillsService.removeSkill(employeeId, id);
+    return this.skillsService.removeSkill(employeeId, id, actorId);
   }
 
   // --- Manager Skill Approvals ---
@@ -111,12 +114,13 @@ export class SkillsController {
   async approveSkill(
     @Param('id') id: string,
     @CurrentUser('employeeId') managerEmployeeId: string,
+    @CurrentUser('id') actorId: string,
     @CurrentUser('roles') roles: string[],
     @Body() data: ProcessSkillApprovalDto
   ) {
     if (!managerEmployeeId) throw new UnauthorizedException('Not linked to an employee profile');
     const isHr = roles.includes(SystemRole.HR_ADMIN) || roles.includes(SystemRole.ADMIN);
-    return this.skillsService.processSkillApproval(id, managerEmployeeId, data, isHr);
+    return this.skillsService.processSkillApproval(id, managerEmployeeId, data, actorId, isHr);
   }
 
   @Get('talent-card/:id')
@@ -145,8 +149,11 @@ export class SkillsController {
 
   @Post('categories')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-  async createCategory(@Body() data: CreateSkillCategoryDto) {
-    return this.skillsService.createCategory(data);
+  async createCategory(
+      @Body() data: CreateSkillCategoryDto,
+      @CurrentUser('id') actorId: string,
+    ) {
+    return this.skillsService.createCategory(data, actorId);
   }
 
   @Patch('categories/:id')
@@ -154,8 +161,9 @@ export class SkillsController {
   async updateCategory(
     @Param('id') id: string,
     @Body() data: UpdateSkillCategoryDto,
+    @CurrentUser('id') actorId: string,
   ) {
-    return this.skillsService.updateCategory(id, data);
+    return this.skillsService.updateCategory(id, data, actorId);
   }
 
   @Get('categories/:categoryId/skills')
@@ -191,16 +199,20 @@ export class SkillsController {
 
   @Post('positions')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
-  async addSkillToPosition(@Body() data: AddSkillToPositionDto) {
-    return this.skillsService.addSkillToPosition(data);
+  async addSkillToPosition(
+      @Body() data: AddSkillToPositionDto,
+      @CurrentUser('id') actorId: string,
+    ) {
+    return this.skillsService.addSkillToPosition(data, actorId);
   }
 
   @Delete('positions/:positionId/:skillId')
   @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
   async removeSkillFromPosition(
     @Param('positionId') positionId: string,
-    @Param('skillId') skillId: string
+    @Param('skillId') skillId: string,
+    @CurrentUser('id') actorId: string,
   ) {
-    return this.skillsService.removeSkillFromPosition(positionId, skillId);
+    return this.skillsService.removeSkillFromPosition(positionId, skillId, actorId);
   }
 }

@@ -110,8 +110,9 @@ export class OrgUnitsController {
     addPosition(
         @Param('id') id: string,
         @Body() body: { positionId: string },
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.addPositionToOrg(id, body.positionId);
+        return this.service.addPositionToOrg(id, body.positionId, actorId);
     }
 
     @Delete(':id/positions/:positionId')
@@ -120,8 +121,9 @@ export class OrgUnitsController {
     removePosition(
         @Param('id') id: string,
         @Param('positionId') positionId: string,
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.removePositionFromOrg(id, positionId);
+        return this.service.removePositionFromOrg(id, positionId, actorId);
     }
 
     @Patch(':id/positions/:positionId/limit')
@@ -131,8 +133,9 @@ export class OrgUnitsController {
         @Param('id') id: string,
         @Param('positionId') positionId: string,
         @Body() body: { limit: number },
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.updatePositionLimit(id, positionId, body.limit);
+        return this.service.updatePositionLimit(id, positionId, body.limit, actorId);
     }
 
     /* ── Leaders ─────────────────────────────────────────────────────────────── */
@@ -153,8 +156,9 @@ export class OrgUnitsController {
             isPrimary?: boolean;
             effectiveFrom?: string;
         },
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.addLeader(id, body);
+        return this.service.addLeader(id, body, actorId);
     }
 
     @Delete(':id/leaders/:leaderId')
@@ -163,8 +167,9 @@ export class OrgUnitsController {
     removeLeader(
         @Param('id') id: string,
         @Param('leaderId') leaderId: string,
+        @CurrentUser('id') actorId: string,
     ) {
-        return this.service.removeLeader(id, leaderId);
+        return this.service.removeLeader(id, leaderId, actorId);
     }
 
     /* ── Members ─────────────────────────────────────────────────────────────── */

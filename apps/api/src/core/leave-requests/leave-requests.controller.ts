@@ -61,7 +61,7 @@ export class LeaveRequestsController {
     @Patch('my/:id/cancel')
     async cancel(@Req() req: AuthRequest, @Param('id') id: string) {
         this.requireEmployee(req)
-        return this.service.cancel(req.user.employeeId!, id)
+        return this.service.cancel(req.user.employeeId!, id, req.user.id)
     }
 
     // ── Approver ────────────────────────────────────────────

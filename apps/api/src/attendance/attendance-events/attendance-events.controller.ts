@@ -53,12 +53,12 @@ export class AttendanceEventsController {
     @UseGuards(AuthGuard('jwt'))
     @Post('time-in')
     async timeInAuthenticated(
-        @Req() req: Request & { user: { employeeId: string } },
+        @Req() req: Request & { user: { id: string, employeeId: string } },
         @Body() body: AuthenticatedAttendanceDto,
     ) {
-        const employeeId = req.user.employeeId
         return this.attendanceEventsService.timeInAuthenticated(
-            employeeId,
+            req.user.id,
+            req.user.employeeId,
             body.source,
         )
     }
@@ -66,12 +66,12 @@ export class AttendanceEventsController {
     @UseGuards(AuthGuard('jwt'))
     @Post('time-out')
     async timeOutAuthenticated(
-        @Req() req: Request & { user: { employeeId: string } },
+        @Req() req: Request & { user: { id: string, employeeId: string } },
         @Body() body: AuthenticatedAttendanceDto,
     ) {
-        const employeeId = req.user.employeeId
         return this.attendanceEventsService.timeOutAuthenticated(
-            employeeId,
+            req.user.id,
+            req.user.employeeId,
             body.source,
         )
     }

@@ -6,11 +6,14 @@ import { DatabaseService } from 'src/database/database.service'
 import { roles, userRoles, users, employees, orgUnitLeaders, orgUnits } from '@hybrid-hris/db/schema'
 import { OrgUnitsService } from 'src/core/org-units/org-units.service'
 
+import { AuditService } from 'src/core/audit/audit.service';
+
 @Injectable()
 export class UsersService {
     constructor(
         private readonly db: DatabaseService,
         private readonly orgUnitsService: OrgUnitsService,
+        private readonly auditService: AuditService,
     ) { }
 
     async findActiveByEmail(email: string) {
@@ -98,7 +101,15 @@ export class UsersService {
                 attendancePinLockedUntil: null,
                 updatedAt: new Date(),
             })
-            .where(eq(users.id, userId))
+            .where(eq(users.id, userId));
+        
+        await this.auditService.log({
+            userId,
+            action: 'user.set_pin',
+            entityType: 'user',
+            entityId: userId,
+            metadata: { event: 'Attendance PIN updated successfully' }
+        });
     }
 
     /**

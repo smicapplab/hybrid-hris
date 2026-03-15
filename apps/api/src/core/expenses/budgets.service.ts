@@ -5,20 +5,25 @@ import { OrgUnitBudget } from '@hybrid-hris/db/types';
 import { BudgetLedgerEntryType } from '@hybrid-hris/domain';
 import { and, eq } from 'drizzle-orm';
 import { BudgetLedgerService } from './budget-ledger.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class BudgetsService {
     constructor(
         private readonly db: DatabaseService,
         private readonly ledgerService: BudgetLedgerService,
+        private readonly auditService: AuditService,
     ) { }
 
-    async allocateBudget(data: {
-        orgUnitId: string;
-        budgetPeriodId: string;
-        expenseCategoryId: string;
-        amount: string;
-    }): Promise<OrgUnitBudget> {
+    async allocateBudget(
+        actorId: string,
+        data: {
+            orgUnitId: string;
+            budgetPeriodId: string;
+            expenseCategoryId: string;
+            amount: string;
+        },
+    ): Promise<OrgUnitBudget> {
         return this.db.withTransaction(async (tx) => {
             // 1. Upsert the budget allocation record
             const [existing] = await tx
@@ -35,6 +40,7 @@ export class BudgetsService {
 
             let budgetId: string;
             let ledgerAmount: string;
+            let action: 'budget.allocate' | 'budget.update' = 'budget.allocate';
 
             if (existing) {
                 const diff = parseFloat(data.amount) - parseFloat(existing.amountAllocated);
@@ -48,9 +54,10 @@ export class BudgetsService {
                     })
                     .where(eq(orgUnitBudgets.id, existing.id))
                     .returning();
-                
+
                 budgetId = updated.id;
                 ledgerAmount = diff.toString();
+                action = 'budget.update';
 
                 await this.ledgerService.createEntry(tx, {
                     orgUnitId: data.orgUnitId,
@@ -59,6 +66,15 @@ export class BudgetsService {
                     entryType: BudgetLedgerEntryType.ADJUSTMENT,
                     amount: ledgerAmount,
                     referenceBudgetId: budgetId,
+                });
+
+                await this.auditService.log({
+                    userId: actorId,
+                    action,
+                    entityType: 'org_unit_budget',
+                    entityId: budgetId,
+                    oldValue: existing,
+                    newValue: updated,
                 });
 
                 return updated;
@@ -72,7 +88,7 @@ export class BudgetsService {
                         amountAllocated: data.amount,
                     })
                     .returning();
-                
+
                 budgetId = inserted.id;
                 ledgerAmount = data.amount;
 
@@ -83,6 +99,14 @@ export class BudgetsService {
                     entryType: BudgetLedgerEntryType.ALLOCATION,
                     amount: ledgerAmount,
                     referenceBudgetId: budgetId,
+                });
+
+                await this.auditService.log({
+                    userId: actorId,
+                    action,
+                    entityType: 'org_unit_budget',
+                    entityId: budgetId,
+                    newValue: inserted,
                 });
 
                 return inserted;

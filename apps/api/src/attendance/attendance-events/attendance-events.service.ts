@@ -20,6 +20,7 @@ import {
 } from '@hybrid-hris/domain'
 import { ShiftAssignmentsService } from '../shift-assignments/shift-assignments.service'
 import { AttendanceComputeService } from '../attendance-compute/attendance-compute.service'
+import { AuditService } from 'src/core/audit/audit.service'
 
 @Injectable()
 export class AttendanceEventsService {
@@ -27,7 +28,209 @@ export class AttendanceEventsService {
         private readonly db: DatabaseService,
         private readonly shiftAssignmentsService: ShiftAssignmentsService,
         private readonly computeService: AttendanceComputeService,
+        private readonly auditService: AuditService,
     ) { }
+    
+    private async timeInRow(employeeId: string, source: AttendanceSource) {
+        if (!ATTENDANCE_SOURCES.includes(source)) {
+            throw new BadRequestException('Invalid attendance source')
+        }
+
+        const now = new Date()
+        const timezone = await this.getEmployeeTimezone(employeeId)
+        const { workDate, shift } = await this.resolveWorkDateForNow(employeeId, now, timezone)
+
+        // Compute scheduled timestamps — null when punching outside any assigned shift (unscheduled/overtime)
+        const scheduled = shift
+            ? this.computeScheduledTimes(workDate, shift.startTime, shift.endTime, timezone)
+            : null
+        const scheduledInAt = scheduled?.scheduledInAt ?? null
+        const scheduledOutAt = scheduled?.scheduledOutAt ?? null
+
+        // Check if the latest entry is still open — rules guarantee at most one open entry exists,
+        // so checking the latest row is sufficient (avoids a full-table filter on actualOutAt)
+        const [latestEntry] = await this.db.db
+            .select({
+                id: attendanceLogs.id,
+                workDate: attendanceLogs.workDate,
+                actualInAt: attendanceLogs.actualInAt,
+                actualOutAt: attendanceLogs.actualOutAt,
+            })
+            .from(attendanceLogs)
+            .where(eq(attendanceLogs.employeeId, employeeId))
+            .orderBy(desc(attendanceLogs.createdAt))
+            .limit(1)
+
+        if (latestEntry?.actualInAt && !latestEntry.actualOutAt) {
+            if (latestEntry.workDate === workDate) {
+                throw new BadRequestException('Already timed in for this work date')
+            }
+            throw new BadRequestException(
+                `You have an open entry from ${latestEntry.workDate}. Please time out first.`,
+            )
+        }
+
+        const [existing] = await this.db.db
+            .select()
+            .from(attendanceLogs)
+            .where(
+                and(
+                    eq(attendanceLogs.employeeId, employeeId),
+                    eq(attendanceLogs.workDate, workDate),
+                ),
+            )
+            .limit(1)
+
+        if (existing?.actualInAt) {
+            throw new BadRequestException('You have already recorded a Time In for this work date.')
+        }
+
+        return this.db.withTransaction(async (tx) => {
+            if (existing) {
+                // Row was pre-created (e.g., by a scheduler) but has no actualInAt yet
+                const [updated] = await tx
+                    .update(attendanceLogs)
+                    .set({
+                        actualInAt: now,
+                        sourceIn: source,
+                        updatedAt: now,
+                    })
+                    .where(eq(attendanceLogs.id, existing.id))
+                    .returning()
+
+                return updated
+            }
+
+            const [created] = await tx
+                .insert(attendanceLogs)
+                .values({
+                    employeeId,
+                    workDate,
+                    scheduledInAt,
+                    scheduledOutAt,
+                    actualInAt: now,
+                    sourceIn: source,
+                })
+                .returning()
+
+            return created
+        })
+    }
+
+    private async timeOutRow(employeeId: string, source: AttendanceSource) {
+        if (!ATTENDANCE_SOURCES.includes(source)) {
+            throw new BadRequestException('Invalid attendance source')
+        }
+
+        const now = new Date()
+
+        // Find any open entry across all dates (handles overnight shifts and forgotten timeouts).
+        // Order by createdAt (never null) rather than actualInAt (nullable for pre-created rows).
+        const [openRow] = await this.db.db
+            .select()
+            .from(attendanceLogs)
+            .where(
+                and(
+                    eq(attendanceLogs.employeeId, employeeId),
+                    isNull(attendanceLogs.actualOutAt),
+                ),
+            )
+            .orderBy(desc(attendanceLogs.createdAt))
+            .limit(1)
+
+        if (!openRow || !openRow.actualInAt) {
+            throw new BadRequestException('Cannot TIME_OUT without TIME_IN')
+        }
+
+        const [updated] = await this.db.db
+            .update(attendanceLogs)
+            .set({
+                actualOutAt: now,
+                sourceOut: source,
+                updatedAt: now,
+            })
+            .where(eq(attendanceLogs.id, openRow.id))
+            .returning()
+
+        if (updated) {
+            await this.computeService.computeForLog(updated.id)
+        }
+
+        return updated
+    }
+    
+    private async validatePin(employeeNumber: string, pin: string): Promise<{ userId: string, employeeId: string }> {
+        const [row] = await this.db.db
+            .select({
+                user: users,
+                employee: employees,
+            })
+            .from(users)
+            .leftJoin(employees, eq(users.employeeId, employees.id))
+            .where(eq(employees.employeeNo, employeeNumber))
+            .limit(1)
+
+        const user = row?.user
+        const employee = row?.employee
+
+        if (
+            !user ||
+            !employee ||
+            !user.isActive ||
+            user.deletedAt ||
+            employee.deletedAt ||
+            employee.status !== 'ACTIVE'
+        ) {
+            throw new BadRequestException('Invalid credentials')
+        }
+
+        // Check early: if this is a system user without a linked employee, fail fast
+        // before spending cycles on bcrypt
+        if (!user.employeeId) {
+            throw new BadRequestException('Employee not linked')
+        }
+
+        if (user.attendancePinLockedUntil && user.attendancePinLockedUntil > new Date()) {
+            throw new BadRequestException('PIN temporarily locked')
+        }
+
+        if (!user.attendancePinHash) {
+            throw new BadRequestException('PIN not set')
+        }
+
+        const valid = await bcrypt.compare(pin, user.attendancePinHash)
+
+        if (!valid) {
+            const attempts = (user.attendancePinAttempts ?? 0) + 1
+            const lock = attempts >= 5
+
+            await this.db.db
+                .update(users)
+                .set({
+                    attendancePinAttempts: attempts,
+                    attendancePinLockedUntil: lock
+                        ? new Date(Date.now() + 10 * 60 * 1000)
+                        : null,
+                    updatedAt: new Date(),
+                })
+                .where(eq(users.id, user.id))
+
+            throw new BadRequestException('Invalid credentials')
+        }
+
+        if (user.attendancePinAttempts !== 0 || user.attendancePinLockedUntil) {
+            await this.db.db
+                .update(users)
+                .set({
+                    attendancePinAttempts: 0,
+                    attendancePinLockedUntil: null,
+                    updatedAt: new Date(),
+                })
+                .where(eq(users.id, user.id))
+        }
+
+        return { userId: user.id, employeeId: user.employeeId }
+    }
 
     /* ============================================================
        READ
@@ -103,13 +306,30 @@ export class AttendanceEventsService {
     /* ============================================================
        FLOW 1: AUTHENTICATED USER (JWT)
        ============================================================ */
-
-    async timeInAuthenticated(employeeId: string, source: AttendanceSource) {
-        return this.timeInRow(employeeId, source)
+    async timeInAuthenticated(userId: string, employeeId: string, source: AttendanceSource) {
+        const createdLog = await this.timeInRow(employeeId, source);
+        await this.auditService.log({
+            userId: userId,
+            action: 'attendance.time_in',
+            entityType: 'attendance_log',
+            entityId: createdLog.id,
+            newValue: createdLog,
+        });
+        return createdLog;
     }
 
-    async timeOutAuthenticated(employeeId: string, source: AttendanceSource) {
-        return this.timeOutRow(employeeId, source)
+    async timeOutAuthenticated(userId: string, employeeId: string, source: AttendanceSource) {
+        const updatedLog = await this.timeOutRow(employeeId, source);
+        if (updatedLog) { // Only log if a record was actually updated
+            await this.auditService.log({
+                userId: userId,
+                action: 'attendance.time_out',
+                entityType: 'attendance_log',
+                entityId: updatedLog.id,
+                newValue: updatedLog,
+            });
+        }
+        return updatedLog;
     }
 
     /* ============================================================
@@ -117,13 +337,31 @@ export class AttendanceEventsService {
        ============================================================ */
 
     async punchIn(employeeNumber: string, pin: string, source: AttendanceSource) {
-        const employeeId = await this.validatePin(employeeNumber, pin)
-        return this.timeInRow(employeeId, source)
+        const { userId, employeeId } = await this.validatePin(employeeNumber, pin);
+        const createdLog = await this.timeInRow(employeeId, source);
+        await this.auditService.log({
+            userId: userId,
+            action: 'attendance.kiosk_punch_in',
+            entityType: 'attendance_log',
+            entityId: createdLog.id,
+            newValue: createdLog,
+        });
+        return createdLog;
     }
 
     async punchOut(employeeNumber: string, pin: string, source: AttendanceSource) {
-        const employeeId = await this.validatePin(employeeNumber, pin)
-        return this.timeOutRow(employeeId, source)
+        const { userId, employeeId } = await this.validatePin(employeeNumber, pin);
+        const updatedLog = await this.timeOutRow(employeeId, source);
+        if (updatedLog) { // Only log if a record was actually updated
+            await this.auditService.log({
+                userId: userId,
+                action: 'attendance.kiosk_punch_out',
+                entityType: 'attendance_log',
+                entityId: updatedLog.id,
+                newValue: updatedLog,
+            });
+        }
+        return updatedLog;
     }
 
     /* ============================================================
@@ -255,210 +493,5 @@ export class AttendanceEventsService {
         // No active shift for today/yesterday — allow as unscheduled/overtime punch.
         // workDate = today, scheduledInAt/Out will be null on the log row.
         return { workDate: today, shift: null }
-    }
-
-    private async timeInRow(employeeId: string, source: AttendanceSource) {
-        if (!ATTENDANCE_SOURCES.includes(source)) {
-            throw new BadRequestException('Invalid attendance source')
-        }
-
-        const now = new Date()
-        const timezone = await this.getEmployeeTimezone(employeeId)
-        const { workDate, shift } = await this.resolveWorkDateForNow(employeeId, now, timezone)
-
-        // Compute scheduled timestamps — null when punching outside any assigned shift (unscheduled/overtime)
-        const scheduled = shift
-            ? this.computeScheduledTimes(workDate, shift.startTime, shift.endTime, timezone)
-            : null
-        const scheduledInAt = scheduled?.scheduledInAt ?? null
-        const scheduledOutAt = scheduled?.scheduledOutAt ?? null
-
-        // Check if the latest entry is still open — rules guarantee at most one open entry exists,
-        // so checking the latest row is sufficient (avoids a full-table filter on actualOutAt)
-        const [latestEntry] = await this.db.db
-            .select({
-                id: attendanceLogs.id,
-                workDate: attendanceLogs.workDate,
-                actualInAt: attendanceLogs.actualInAt,
-                actualOutAt: attendanceLogs.actualOutAt,
-            })
-            .from(attendanceLogs)
-            .where(eq(attendanceLogs.employeeId, employeeId))
-            .orderBy(desc(attendanceLogs.createdAt))
-            .limit(1)
-
-        if (latestEntry?.actualInAt && !latestEntry.actualOutAt) {
-            if (latestEntry.workDate === workDate) {
-                throw new BadRequestException('Already timed in for this work date')
-            }
-            throw new BadRequestException(
-                `You have an open entry from ${latestEntry.workDate}. Please time out first.`,
-            )
-        }
-
-        const [existing] = await this.db.db
-            .select()
-            .from(attendanceLogs)
-            .where(
-                and(
-                    eq(attendanceLogs.employeeId, employeeId),
-                    eq(attendanceLogs.workDate, workDate),
-                ),
-            )
-            .limit(1)
-
-        if (existing?.actualInAt) {
-            throw new BadRequestException('You have already recorded a Time In for this work date.')
-        }
-
-        return this.db.withTransaction(async (tx) => {
-            if (existing) {
-                // Row was pre-created (e.g., by a scheduler) but has no actualInAt yet
-                const [updated] = await tx
-                    .update(attendanceLogs)
-                    .set({
-                        actualInAt: now,
-                        sourceIn: source,
-                        updatedAt: now,
-                    })
-                    .where(eq(attendanceLogs.id, existing.id))
-                    .returning()
-
-                return updated
-            }
-
-            const [created] = await tx
-                .insert(attendanceLogs)
-                .values({
-                    employeeId,
-                    workDate,
-                    scheduledInAt,
-                    scheduledOutAt,
-                    actualInAt: now,
-                    sourceIn: source,
-                })
-                .returning()
-
-            return created
-        })
-    }
-
-    private async timeOutRow(employeeId: string, source: AttendanceSource) {
-        if (!ATTENDANCE_SOURCES.includes(source)) {
-            throw new BadRequestException('Invalid attendance source')
-        }
-
-        const now = new Date()
-
-        // Find any open entry across all dates (handles overnight shifts and forgotten timeouts).
-        // Order by createdAt (never null) rather than actualInAt (nullable for pre-created rows).
-        const [openRow] = await this.db.db
-            .select()
-            .from(attendanceLogs)
-            .where(
-                and(
-                    eq(attendanceLogs.employeeId, employeeId),
-                    isNull(attendanceLogs.actualOutAt),
-                ),
-            )
-            .orderBy(desc(attendanceLogs.createdAt))
-            .limit(1)
-
-        if (!openRow || !openRow.actualInAt) {
-            throw new BadRequestException('Cannot TIME_OUT without TIME_IN')
-        }
-
-        const [updated] = await this.db.db
-            .update(attendanceLogs)
-            .set({
-                actualOutAt: now,
-                sourceOut: source,
-                updatedAt: now,
-            })
-            .where(eq(attendanceLogs.id, openRow.id))
-            .returning()
-
-        if (updated) {
-            await this.computeService.computeForLog(updated.id)
-        }
-
-        return updated
-    }
-
-    /* ============================================================
-       PIN VALIDATION (KIOSK FLOW)
-       ============================================================ */
-
-    private async validatePin(employeeNumber: string, pin: string): Promise<string> {
-        const [row] = await this.db.db
-            .select({
-                user: users,
-                employee: employees,
-            })
-            .from(users)
-            .leftJoin(employees, eq(users.employeeId, employees.id))
-            .where(eq(employees.employeeNo, employeeNumber))
-            .limit(1)
-
-        const user = row?.user
-        const employee = row?.employee
-
-        if (
-            !user ||
-            !employee ||
-            !user.isActive ||
-            user.deletedAt ||
-            employee.deletedAt ||
-            employee.status !== 'ACTIVE'
-        ) {
-            throw new BadRequestException('Invalid credentials')
-        }
-
-        // Check early: if this is a system user without a linked employee, fail fast
-        // before spending cycles on bcrypt
-        if (!user.employeeId) {
-            throw new BadRequestException('Employee not linked')
-        }
-
-        if (user.attendancePinLockedUntil && user.attendancePinLockedUntil > new Date()) {
-            throw new BadRequestException('PIN temporarily locked')
-        }
-
-        if (!user.attendancePinHash) {
-            throw new BadRequestException('PIN not set')
-        }
-
-        const valid = await bcrypt.compare(pin, user.attendancePinHash)
-
-        if (!valid) {
-            const attempts = (user.attendancePinAttempts ?? 0) + 1
-            const lock = attempts >= 5
-
-            await this.db.db
-                .update(users)
-                .set({
-                    attendancePinAttempts: attempts,
-                    attendancePinLockedUntil: lock
-                        ? new Date(Date.now() + 10 * 60 * 1000)
-                        : null,
-                    updatedAt: new Date(),
-                })
-                .where(eq(users.id, user.id))
-
-            throw new BadRequestException('Invalid credentials')
-        }
-
-        if (user.attendancePinAttempts !== 0 || user.attendancePinLockedUntil) {
-            await this.db.db
-                .update(users)
-                .set({
-                    attendancePinAttempts: 0,
-                    attendancePinLockedUntil: null,
-                    updatedAt: new Date(),
-                })
-                .where(eq(users.id, user.id))
-        }
-
-        return user.employeeId
     }
 }

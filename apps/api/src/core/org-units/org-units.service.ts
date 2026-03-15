@@ -257,7 +257,7 @@ export class OrgUnitsService {
       .orderBy(asc(positions.title))
   }
 
-  async addPositionToOrg(orgUnitId: string, positionId: string): Promise<{ success: true }> {
+  async addPositionToOrg(orgUnitId: string, positionId: string, actorId: string): Promise<{ success: true }> {
     const [org] = await this.db.db
       .select({ id: orgUnits.id })
       .from(orgUnits)
@@ -274,15 +274,24 @@ export class OrgUnitsService {
 
     if (!position) throw new NotFoundException('Position not found')
 
+    const data = { orgUnitId, positionId };
     await this.db.db
       .insert(orgUnitPositions)
-      .values({ orgUnitId, positionId })
+      .values(data)
       .onConflictDoNothing()
+    
+    await this.auditService.log({
+        userId: actorId,
+        action: 'org_unit.add_position',
+        entityType: 'org_unit_position',
+        entityId: `${orgUnitId}:${positionId}`,
+        newValue: data,
+    });
 
     return { success: true }
   }
 
-  async removePositionFromOrg(orgUnitId: string, positionId: string): Promise<{ success: true }> {
+  async removePositionFromOrg(orgUnitId: string, positionId: string, actorId: string): Promise<{ success: true }> {
     await this.db.db
       .delete(orgUnitPositions)
       .where(
@@ -291,6 +300,13 @@ export class OrgUnitsService {
           eq(orgUnitPositions.positionId, positionId),
         ),
       )
+    
+    await this.auditService.log({
+        userId: actorId,
+        action: 'org_unit.remove_position',
+        entityType: 'org_unit_position',
+        entityId: `${orgUnitId}:${positionId}`,
+    });
 
     return { success: true }
   }
@@ -350,10 +366,17 @@ export class OrgUnitsService {
 
   /* ── Leaders ─────────────────────────────────────────────────────────────── */
 
-  async updatePositionLimit(orgUnitId: string, positionId: string, limit: number) {
+  async updatePositionLimit(orgUnitId: string, positionId: string, limit: number, actorId: string) {
       if (limit < 0) throw new BadRequestException('Limit cannot be negative');
 
-      await this.db.db
+      const [existing] = await this.db.db.select().from(orgUnitPositions).where(and(
+          eq(orgUnitPositions.orgUnitId, orgUnitId),
+          eq(orgUnitPositions.positionId, positionId)
+      )).limit(1);
+
+      if (!existing) throw new NotFoundException('Org unit position not found');
+
+      const updated = await this.db.db
           .update(orgUnitPositions)
           .set({ 
               headcountLimit: limit
@@ -361,7 +384,16 @@ export class OrgUnitsService {
           .where(and(
               eq(orgUnitPositions.orgUnitId, orgUnitId),
               eq(orgUnitPositions.positionId, positionId)
-          ));
+          )).returning();
+      
+      await this.auditService.log({
+          userId: actorId,
+          action: 'org_unit.update_position_limit',
+          entityType: 'org_unit_position',
+          entityId: `${orgUnitId}:${positionId}`,
+          oldValue: existing,
+          newValue: updated[0],
+      });
 
       return { success: true };
   }
@@ -405,6 +437,7 @@ export class OrgUnitsService {
       isPrimary?: boolean
       effectiveFrom?: string
     },
+    actorId: string,
   ): Promise<{ success: true }> {
     const [org] = await this.db.db
       .select({ id: orgUnits.id })
@@ -424,20 +457,29 @@ export class OrgUnitsService {
 
     const today = new Date().toISOString().split('T')[0]
 
-    await this.db.db.insert(orgUnitLeaders).values({
+    const values = {
       orgUnitId,
       employeeId: data.employeeId,
       role: data.role,
       isPrimary: data.isPrimary ?? false,
       effectiveFrom: data.effectiveFrom ?? today,
-    })
+    };
+    const [inserted] = await this.db.db.insert(orgUnitLeaders).values(values).returning();
+    
+    await this.auditService.log({
+        userId: actorId,
+        action: 'org_unit.add_leader',
+        entityType: 'org_unit_leader',
+        entityId: inserted.id,
+        newValue: inserted,
+    });
 
     return { success: true }
   }
 
-  async removeLeader(orgUnitId: string, leaderId: string): Promise<{ success: true }> {
+  async removeLeader(orgUnitId: string, leaderId: string, actorId: string): Promise<{ success: true }> {
     const [existing] = await this.db.db
-      .select({ id: orgUnitLeaders.id })
+      .select()
       .from(orgUnitLeaders)
       .where(
         and(
@@ -450,10 +492,19 @@ export class OrgUnitsService {
 
     if (!existing) throw new NotFoundException('Leader assignment not found')
 
-    await this.db.db
+    const [updated] = await this.db.db
       .update(orgUnitLeaders)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(orgUnitLeaders.id, leaderId))
+      .where(eq(orgUnitLeaders.id, leaderId)).returning();
+    
+    await this.auditService.log({
+        userId: actorId,
+        action: 'org_unit.remove_leader',
+        entityType: 'org_unit_leader',
+        entityId: leaderId,
+        oldValue: existing,
+        newValue: updated,
+    });
 
     return { success: true }
   }

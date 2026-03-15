@@ -264,7 +264,7 @@ export class SkillsService {
     });
   }
 
-  async declareSkill(employeeId: string, data: DeclareSkillDto) {
+  async declareSkill(employeeId: string, data: DeclareSkillDto, actorId: string) {
     // Check if already has this skill
     const existing = await this.db.db
       .select()
@@ -289,19 +289,40 @@ export class SkillsService {
         notes: data.notes ?? null,
       })
       .returning();
+    
+    await this.auditService.log({
+        userId: actorId,
+        action: 'employee_skill.declare',
+        entityType: 'employee_skill',
+        entityId: inserted.id,
+        newValue: inserted,
+    });
 
     return inserted;
   }
 
-  async removeSkill(employeeId: string, employeeSkillId: string) {
-    const deleted = await this.db.db
+  async removeSkill(employeeId: string, employeeSkillId: string, actorId: string) {
+    const [existing] = await this.db.db
+        .select()
+        .from(employeeSkills)
+        .where(and(eq(employeeSkills.id, employeeSkillId), eq(employeeSkills.employeeId, employeeId)))
+        .limit(1);
+
+    if (!existing) {
+        throw new NotFoundException('Skill declaration not found');
+    }
+
+    await this.db.db
       .delete(employeeSkills)
       .where(and(eq(employeeSkills.id, employeeSkillId), eq(employeeSkills.employeeId, employeeId)))
-      .returning();
-
-    if (!deleted.length) {
-      throw new NotFoundException('Skill declaration not found');
-    }
+      
+    await this.auditService.log({
+        userId: actorId,
+        action: 'employee_skill.remove',
+        entityType: 'employee_skill',
+        entityId: employeeSkillId,
+        oldValue: existing,
+    });
 
     return { success: true };
   }
@@ -448,6 +469,7 @@ export class SkillsService {
   async assignSkillToReport(
     managerEmployeeId: string,
     data: AssignSkillDto,
+    actorId: string,
     isHr: boolean = false
   ) {
     // 1. Verify access
@@ -460,6 +482,8 @@ export class SkillsService {
 
       if (!report) throw new UnauthorizedException('Target employee is not your direct report');
     }
+
+    const [existing] = await this.db.db.select().from(employeeSkills).where(and(eq(employeeSkills.employeeId, data.employeeId), eq(employeeSkills.skillId, data.skillId))).limit(1);
 
     // 2. Upsert as VERIFIED
     const [inserted] = await this.db.db
@@ -488,6 +512,15 @@ export class SkillsService {
         }
       })
       .returning();
+    
+    await this.auditService.log({
+        userId: actorId,
+        action: existing ? 'employee_skill.assign_update' : 'employee_skill.assign_create',
+        entityType: 'employee_skill',
+        entityId: inserted.id,
+        oldValue: existing,
+        newValue: inserted,
+    });
 
     return inserted;
   }
@@ -531,6 +564,7 @@ export class SkillsService {
     employeeSkillId: string,
     managerEmployeeId: string,
     data: ProcessSkillApprovalDto,
+    actorId: string,
     isHr: boolean = false
   ) {
     // 1. Verify this is a pending skill for a direct report (if not HR)
@@ -543,14 +577,14 @@ export class SkillsService {
       whereClauses.push(eq(employees.supervisorId, managerEmployeeId));
     }
 
-    const result = await this.db.db
-      .select({ id: employeeSkills.id })
+    const [existing] = await this.db.db
+      .select()
       .from(employeeSkills)
       .innerJoin(employees, eq(employeeSkills.employeeId, employees.id))
       .where(and(...whereClauses))
       .limit(1);
 
-    if (!result.length) {
+    if (!existing) {
       throw new NotFoundException('Pending skill declaration not found');
     }
 
@@ -565,6 +599,15 @@ export class SkillsService {
       })
       .where(eq(employeeSkills.id, employeeSkillId))
       .returning();
+    
+    await this.auditService.log({
+        userId: actorId,
+        action: data.status === 'VERIFIED' ? 'employee_skill.approve' : 'employee_skill.reject',
+        entityType: 'employee_skill',
+        entityId: employeeSkillId,
+        oldValue: existing.employee_skills,
+        newValue: updated,
+    });
 
     return updated;
   }
@@ -580,7 +623,7 @@ export class SkillsService {
       .orderBy(asc(skillCategories.name));
   }
 
-  async createCategory(data: CreateSkillCategoryDto) {
+  async createCategory(data: CreateSkillCategoryDto, actorId: string) {
     const existing = await this.db.db
       .select({ id: skillCategories.id })
       .from(skillCategories)
@@ -599,10 +642,23 @@ export class SkillsService {
       })
       .returning();
 
+    await this.auditService.log({
+        userId: actorId,
+        action: 'skill_category.create',
+        entityType: 'skill_category',
+        entityId: inserted.id,
+        newValue: inserted,
+    });
+
     return inserted;
   }
 
-  async updateCategory(id: string, data: UpdateSkillCategoryDto) {
+  async updateCategory(id: string, data: UpdateSkillCategoryDto, actorId: string) {
+    const [existing] = await this.db.db.select().from(skillCategories).where(eq(skillCategories.id, id)).limit(1);
+    if (!existing) {
+        throw new NotFoundException('Category not found');
+    }
+
     const [updated] = await this.db.db
       .update(skillCategories)
       .set({
@@ -615,6 +671,15 @@ export class SkillsService {
     if (!updated) {
       throw new NotFoundException('Category not found');
     }
+    
+    await this.auditService.log({
+        userId: actorId,
+        action: 'skill_category.update',
+        entityType: 'skill_category',
+        entityId: id,
+        oldValue: existing,
+        newValue: updated,
+    });
 
     return updated;
   }
@@ -730,7 +795,9 @@ export class SkillsService {
       .orderBy(asc(skills.name));
   }
 
-  async addSkillToPosition(data: AddSkillToPositionDto) {
+  async addSkillToPosition(data: AddSkillToPositionDto, actorId: string) {
+    const [existing] = await this.db.db.select().from(positionSkills).where(and(eq(positionSkills.positionId, data.positionId), eq(positionSkills.skillId, data.skillId))).limit(1);
+
     const [inserted] = await this.db.db
       .insert(positionSkills)
       .values({
@@ -744,13 +811,35 @@ export class SkillsService {
       })
       .returning();
 
+    await this.auditService.log({
+        userId: actorId,
+        action: existing ? 'position_skill.update' : 'position_skill.create',
+        entityType: 'position_skill',
+        entityId: `${data.positionId}:${data.skillId}`,
+        oldValue: existing,
+        newValue: inserted,
+    });
+
     return inserted;
   }
 
-  async removeSkillFromPosition(positionId: string, skillId: string) {
+  async removeSkillFromPosition(positionId: string, skillId: string, actorId: string) {
+    const [existing] = await this.db.db.select().from(positionSkills).where(and(eq(positionSkills.positionId, positionId), eq(positionSkills.skillId, skillId))).limit(1);
+    if (!existing) {
+        throw new NotFoundException('Position skill not found');
+    }
+
     await this.db.db
       .delete(positionSkills)
       .where(and(eq(positionSkills.positionId, positionId), eq(positionSkills.skillId, skillId)));
+    
+    await this.auditService.log({
+        userId: actorId,
+        action: 'position_skill.delete',
+        entityType: 'position_skill',
+        entityId: `${positionId}:${skillId}`,
+        oldValue: existing,
+    });
 
     return { success: true };
   }

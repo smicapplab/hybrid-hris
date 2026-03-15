@@ -68,7 +68,7 @@ export class ProfileController {
         if (!req.user.employeeId) {
             throw new UnprocessableEntityException('No employee record linked to this account')
         }
-        return this.profileService.updateMyProfile(req.user.employeeId, req.user.email, body)
+        return this.profileService.updateMyProfile(req.user.id, req.user.employeeId, req.user.email, body)
     }
 
     @Patch('me/password')

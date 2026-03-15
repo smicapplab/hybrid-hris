@@ -33,6 +33,7 @@ import {
 
 import { OrgUnitsService } from '../org-units/org-units.service'
 import { ActOnLeaveRequestDto, CreateLeaveRequestDto, LeaveRequestFilterDto } from './dto/create-leave-request.dto'
+import { AuditService } from '../audit/audit.service'
 
 
 @Injectable()
@@ -41,6 +42,7 @@ export class LeaveRequestsService {
         private readonly db: DatabaseService,
         private readonly usersService: UsersService,
         private readonly orgUnitsService: OrgUnitsService,
+        private readonly auditService: AuditService,
     ) { }
 
     // ─── helpers ────────────────────────────────────────────
@@ -314,6 +316,14 @@ export class LeaveRequestsService {
                 status: 'PENDING',
             })
 
+            await this.auditService.log({
+                userId: userId,
+                action: 'leave_request.create',
+                entityType: 'leave_request',
+                entityId: request.id,
+                newValue: request,
+            })
+
             return request
         })
     }
@@ -323,7 +333,7 @@ export class LeaveRequestsService {
      * PENDING → CANCELLED (no ledger impact)
      * APPROVED → CANCELLED (restore balance via ADJUSTMENT)
      */
-    async cancel(employeeId: string, requestId: string) {
+    async cancel(employeeId: string, requestId: string, userId: string) {
         const [request] = await this.db.db
             .select()
             .from(leaveRequests)
@@ -379,6 +389,14 @@ export class LeaveRequestsService {
                 .set({ status: 'CANCELLED', updatedAt: new Date() })
                 .where(eq(leaveRequests.id, requestId))
                 .returning()
+
+            await this.auditService.log({
+                userId: userId,
+                action: 'leave_request.cancel',
+                entityType: 'leave_request',
+                entityId: updated.id,
+                newValue: updated,
+            })
 
             return updated
         })
@@ -777,6 +795,18 @@ export class LeaveRequestsService {
                 .where(eq(leaveRequests.id, requestId))
                 .returning()
 
+            await this.auditService.log({
+                userId: userId,
+                action: 'leave_request.approve',
+                entityType: 'leave_request',
+                entityId: updated.id,
+                                                oldValue: requestId, 
+                newValue: {
+                    ...updated,
+                    remarks: dto.remarks,
+                },
+            });
+
             return updated
         })
     }
@@ -804,6 +834,17 @@ export class LeaveRequestsService {
                 .where(eq(leaveRequests.id, requestId))
                 .returning()
 
+            await this.auditService.log({
+                userId: userId,
+                action: 'leave_request.reject',
+                entityType: 'leave_request',
+                entityId: updated.id,
+                                                oldValue: requestId, 
+                newValue: {
+                    ...updated,
+                    remarks: dto.remarks,
+                },
+            });
             return updated
         })
     }
