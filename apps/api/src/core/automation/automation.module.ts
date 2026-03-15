@@ -6,6 +6,7 @@ import { LeaveAccrualsModule } from '../leave-accruals/leave-accruals.module';
 import { AutomationService } from './automation.service';
 import { AutomationController } from './automation.controller';
 import { AutomationCron } from './automation.cron';
+import { PendingShiftAssignmentsModule } from '../../attendance/pending-shift-assignments/pending-shift-assignments.module';
 
 @Module({
     imports: [
@@ -13,6 +14,7 @@ import { AutomationCron } from './automation.cron';
         DatabaseModule,
         forwardRef(() => HrSettingsModule), // For HolidaysService
         LeaveAccrualsModule,
+        PendingShiftAssignmentsModule,
     ],
     providers: [AutomationService, AutomationCron],
     controllers: [AutomationController],

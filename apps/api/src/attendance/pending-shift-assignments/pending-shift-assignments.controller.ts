@@ -13,11 +13,14 @@ export class PendingShiftAssignmentsController {
     constructor(private readonly service: PendingShiftAssignmentsService) { }
 
     @Get()
-    async findByEmployee(
-        @Query('employeeId') employeeId: string,
+    async findAll(
+        @Query('employeeId') employeeId?: string,
         @Query('status') status?: 'PENDING' | 'APPLIED' | 'CANCELLED'
     ) {
-        return this.service.findByEmployee(employeeId, status)
+        if (employeeId) {
+            return this.service.findByEmployee(employeeId, status)
+        }
+        return this.service.findAll(status)
     }
 
     @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)

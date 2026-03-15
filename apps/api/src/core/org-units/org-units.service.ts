@@ -18,7 +18,41 @@ export class OrgUnitsService {
     private readonly db: DatabaseService,
     private readonly auditService: AuditService,
   ) { }
+    
+    // ... (existing methods) ...
 
+    /**
+    * Finds all direct and indirect subordinate employee IDs for a given manager/supervisor.
+    * This is the core of the hierarchical authority model.
+    */
+    async findSubordinateIdsByManager(managerEmployeeId: string): Promise<string[]> {
+        // 1. Find all Org Units this manager is an active leader of.
+        const managedUnits = await this.db.db
+            .select({ id: orgUnitLeaders.orgUnitId })
+            .from(orgUnitLeaders)
+            .where(and(
+                eq(orgUnitLeaders.employeeId, managerEmployeeId),
+                isNull(orgUnitLeaders.deletedAt)
+            ));
+        
+        const managedUnitIds = managedUnits.map(u => u.id);
+        if (managedUnitIds.length === 0) return [];
+
+        // 2. Get all descendant org units.
+        const descendantUnitIds = await this.getDescendantOrgUnitIds(managedUnitIds);
+
+        // 3. Combine managed units and their descendants.
+        const allVisibleUnitIds = [...new Set([...managedUnitIds, ...descendantUnitIds])];
+        
+        // 4. Find all employees in those org units.
+        const subordinateEmployees = await this.db.db
+            .select({ id: employees.id })
+            .from(employees)
+            .where(inArray(employees.orgUnitId, allVisibleUnitIds));
+        
+        return subordinateEmployees.map(e => e.id);
+    }
+    
   async getFlat(showDeleted = false, leavesOnly = false, search?: string): Promise<OrgUnit[]> {
     let query = this.db.db.select().from(orgUnits).$dynamic();
     

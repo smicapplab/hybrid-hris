@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { CoreModule } from "../core/core.module";
 import { AttendanceEventsModule } from './attendance-events/attendance-events.module';
 import { ShiftTemplatesModule } from './shift-templates/shift-templates.module';
 import { ShiftAssignmentsModule } from './shift-assignments/shift-assignments.module';
@@ -6,7 +7,7 @@ import { PendingShiftAssignmentsModule } from './pending-shift-assignments/pendi
 import { AttendanceAdjustmentsModule } from './attendance-adjustments/attendance-adjustments.module';
 import { OvertimeRequestsModule } from './overtime-requests/overtime-requests.module';
 import { AttendanceComputeModule } from './attendance-compute/attendance-compute.module';
-import { CoreModule } from '../core/core.module';
+import { PresenceModule } from "./presence/presence.module";
 
 @Module({
     imports: [
@@ -18,6 +19,7 @@ import { CoreModule } from '../core/core.module';
         OvertimeRequestsModule,
         AttendanceEventsModule,
         AttendanceComputeModule,
+        PresenceModule,
     ],
     providers: [],
     exports: [
@@ -28,6 +30,7 @@ import { CoreModule } from '../core/core.module';
         AttendanceAdjustmentsModule,
         OvertimeRequestsModule,
         AttendanceComputeModule,
+        PresenceModule,
     ],
 })
 

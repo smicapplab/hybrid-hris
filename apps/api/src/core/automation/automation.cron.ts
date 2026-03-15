@@ -12,7 +12,7 @@ export class AutomationCron {
      * Runs every day at 00:05 AM.
      * Processes holiday pay for the previous day if it was a holiday.
      */
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    @Cron(CronExpression.EVERY_DAY_AT_1AM)
     async handleDailyJobs() {
         if (process.env.ENABLE_INTERNAL_SCHEDULER !== 'true') {
             return;
@@ -26,6 +26,7 @@ export class AutomationCron {
         const dateStr = yesterday.toISOString().split('T')[0];
 
         await this.automationService.processHolidayPay(dateStr);
+        await this.automationService.processScheduleChanges();
     }
 
     /**

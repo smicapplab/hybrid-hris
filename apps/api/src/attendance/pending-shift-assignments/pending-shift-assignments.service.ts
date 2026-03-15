@@ -8,6 +8,7 @@ import {
     pendingEmployeeShiftAssignments,
     employeeShiftAssignments,
     shiftTemplates,
+    employees,
     PendingEmployeeShiftAssignment,
     NewPendingEmployeeShiftAssignment,
 } from '@hybrid-hris/db'
@@ -21,6 +22,33 @@ export class PendingShiftAssignmentsService {
         private readonly db: DatabaseService,
         private readonly auditService: AuditService,
     ) { }
+
+    async findAll(status?: 'PENDING' | 'APPLIED' | 'CANCELLED') {
+        const clauses: SQL[] = []
+        if (status) {
+            clauses.push(eq(pendingEmployeeShiftAssignments.status, status))
+        }
+
+        const result = await this.db.db
+            .select({
+                pending: pendingEmployeeShiftAssignments,
+                employee: {
+                    firstName: employees.firstName,
+                    lastName: employees.lastName,
+                    employeeNo: employees.employeeNo,
+                }
+            })
+            .from(pendingEmployeeShiftAssignments)
+            .leftJoin(employees, eq(pendingEmployeeShiftAssignments.employeeId, employees.id))
+            .where(and(...clauses))
+            .orderBy(pendingEmployeeShiftAssignments.effectiveDate)
+
+        // Drizzle doesn't have a clean way to type this join, so we map it
+        return result.map(r => ({
+            ...r.pending,
+            employee: r.employee,
+        }))
+    }
 
     async findByEmployee(employeeId: string, status?: 'PENDING' | 'APPLIED' | 'CANCELLED'): Promise<PendingEmployeeShiftAssignment[]> {
         const clauses: SQL[] = [eq(pendingEmployeeShiftAssignments.employeeId, employeeId)]
@@ -133,6 +161,30 @@ export class PendingShiftAssignmentsService {
         })
 
         return updated
+    }
+
+    /**
+     * Finds all pending assignments whose effective date has arrived and applies them.
+     */
+    async applyAllReady(): Promise<{ count: number }> {
+        const today = new Date().toISOString().split('T')[0]!
+        const ready = await this.db.db
+            .select({ id: pendingEmployeeShiftAssignments.id, employeeId: pendingEmployeeShiftAssignments.employeeId })
+            .from(pendingEmployeeShiftAssignments)
+            .where(
+                and(
+                    eq(pendingEmployeeShiftAssignments.status, 'PENDING'),
+                    lte(pendingEmployeeShiftAssignments.effectiveDate, today),
+                ),
+            )
+
+        if (ready.length === 0) return { count: 0 }
+
+        for (const item of ready) {
+            await this.applyPendingForEmployee(item.employeeId, today)
+        }
+
+        return { count: ready.length }
     }
 
     /**

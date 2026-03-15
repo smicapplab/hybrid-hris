@@ -135,3 +135,27 @@ export type ShiftAssignment = {
     createdAt: string;
     updatedAt: string;
 };
+
+export type PendingChangeItem = {
+    id: string;
+    employeeId: string;
+    shiftTemplateId: string;
+    startTime: string;
+    endTime: string;
+    breakMinutes: number;
+    isFlexible: boolean;
+    isMon: boolean;
+    isTue: boolean;
+    isWed: boolean;
+    isThu: boolean;
+    isFri: boolean;
+    isSat: boolean;
+    isSun: boolean;
+    effectiveDate: string;
+    status: 'PENDING' | 'APPLIED' | 'CANCELLED';
+    employee: {
+        firstName: string;
+        lastName: string;
+        employeeNo: string;
+    };
+};

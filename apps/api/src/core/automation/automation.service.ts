@@ -4,6 +4,7 @@ import { HolidaysService } from '../hr-settings/holidays/holidays.service';
 import { LeaveAccrualsService } from '../leave-accruals/leave-accruals.service';
 import { attendanceLogs, employees } from '@hybrid-hris/db/schema';
 import { and, eq, isNull, notInArray } from 'drizzle-orm';
+import { PendingShiftAssignmentsService } from '../../attendance/pending-shift-assignments/pending-shift-assignments.service';
 
 @Injectable()
 export class AutomationService {
@@ -14,6 +15,7 @@ export class AutomationService {
         @Inject(forwardRef(() => HolidaysService))
         private readonly holidaysService: HolidaysService,
         private readonly leaveAccrualsService: LeaveAccrualsService,
+        private readonly pendingShiftsService: PendingShiftAssignmentsService,
     ) { }
 
     /**
@@ -81,5 +83,15 @@ export class AutomationService {
 
         this.logger.log(`Triggering leave accruals for ${month}/${year}`);
         return this.leaveAccrualsService.processMonthlyAccruals(year, month);
+    }
+    
+    /**
+     * Triggers the application of all pending shift assignments that are due.
+     */
+    async processScheduleChanges() {
+        this.logger.log('Applying all pending schedule changes...');
+        const result = await this.pendingShiftsService.applyAllReady();
+        this.logger.log(`Applied ${result.count} schedule changes.`);
+        return result;
     }
 }

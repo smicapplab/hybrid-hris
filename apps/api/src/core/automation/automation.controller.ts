@@ -29,4 +29,12 @@ export class AutomationController {
     async processAccruals() {
         return this.automationService.processAccruals();
     }
+
+    /**
+     * Trigger the application of pending shift assignments.
+     */
+    @Post('process-schedule-changes')
+    async processScheduleChanges() {
+        return this.automationService.processScheduleChanges();
+    }
 }

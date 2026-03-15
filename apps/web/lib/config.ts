@@ -20,8 +20,8 @@ import {
     UserPlus,
     GraduationCap,
     Library,
-    UserCheck,
     Umbrella,
+    ArrowRight,
 } from "lucide-react";
 
 export const navigation: NavCategory[] = [
@@ -182,6 +182,11 @@ export const navigation: NavCategory[] = [
                 title: "Shift Templates",
                 url: "/admin/shift-templates",
                 icon: Clock,
+            },
+            {
+                title: "Pending Changes",
+                url: "/admin/pending-changes",
+                icon: ArrowRight,
             },
             {
                 title: "Team Budgets",
