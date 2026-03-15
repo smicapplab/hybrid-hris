@@ -129,7 +129,7 @@ export function OrgManpowerRequestsTable({ orgId, onChangeAction }: OrgManpowerR
             <div className="flex items-center justify-between">
                 <h3 className="font-bold">Manpower Requests</h3>
                 <Tabs value={tab} onValueChange={(v) => setTab(v as 'active' | 'history')} className="space-y-4">
-                    <TabsList>
+                    <TabsList className="grid w-full grid-cols-2 max-w-150 bg-muted/50 p-1 rounded-lg shrink-0 border">
                         <TabsTrigger 
                             value="active"
                         >

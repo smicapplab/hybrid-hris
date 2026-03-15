@@ -29,7 +29,7 @@ export default function PlantillaPage() {
                 </div>
             </div>
             <Tabs defaultValue="requests" className="space-y-4">
-                <TabsList>
+                <TabsList className="grid w-full grid-cols-3 max-w-150 bg-muted/50 p-1 rounded-lg shrink-0 border">
                     <TabsTrigger value="requests">Manpower Requests</TabsTrigger>
                     <TabsTrigger value="inventory">Plantilla Inventory</TabsTrigger>
                     <TabsTrigger value="postings" disabled>Job Postings (Coming Soon)</TabsTrigger>

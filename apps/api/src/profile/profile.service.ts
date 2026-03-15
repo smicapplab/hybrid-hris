@@ -5,10 +5,10 @@ import { employees, employeeProfiles, users, positions, orgUnits, orgUnitLeaders
 import { DatabaseService } from 'src/database/database.service'
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
-import {
-    MyProfileResponse,
-    OrgContextResponse,
-    PaginatedTeamMembersResponse
+import { 
+    MyProfileResponse, 
+    OrgContextResponse, 
+    PaginatedTeamMembersResponse 
 } from './dto/profile.dto'
 import { AuditService } from 'src/core/audit/audit.service'
 
@@ -234,7 +234,7 @@ export class ProfileService {
             'password2', 'password3', 'spiderman', 'starwars', 'hello123', '123123',
             'p@ssword', 'pa$$word', 'p@ssw0rd', 'monkey1', 'love1234', 'test',
         ])
-
+        
         if (COMMON_PASSWORDS.has(dto.newPassword.toLowerCase())) {
             throw new BadRequestException('New password is too common')
         }

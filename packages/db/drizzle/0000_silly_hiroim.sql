@@ -840,6 +840,9 @@ ALTER TABLE "position_skills" ADD CONSTRAINT "position_skills_skill_id_skills_id
 CREATE UNIQUE INDEX "employees_employee_no_uq" ON "employees" USING btree ("employee_no");--> statement-breakpoint
 CREATE INDEX "employees_hire_date_idx" ON "employees" USING btree ("hire_date");--> statement-breakpoint
 CREATE INDEX "employees_last_name_idx" ON "employees" USING btree ("last_name");--> statement-breakpoint
+CREATE INDEX "employees_first_name_lower_idx" ON "employees" USING btree (lower("first_name"));--> statement-breakpoint
+CREATE INDEX "employees_last_name_lower_idx" ON "employees" USING btree (lower("last_name"));--> statement-breakpoint
+CREATE INDEX "employees_middle_name_lower_idx" ON "employees" USING btree (lower("middle_name"));--> statement-breakpoint
 CREATE INDEX "employees_status_idx" ON "employees" USING btree ("employee_status");--> statement-breakpoint
 CREATE INDEX "employees_deleted_at_idx" ON "employees" USING btree ("deleted_at");--> statement-breakpoint
 CREATE INDEX "employees_org_unit_idx" ON "employees" USING btree ("org_unit_id");--> statement-breakpoint
@@ -875,6 +878,9 @@ CREATE INDEX "user_refresh_tokens_user_idx" ON "user_refresh_tokens" USING btree
 CREATE UNIQUE INDEX "user_refresh_tokens_jti_uq" ON "user_refresh_tokens" USING btree ("jti");--> statement-breakpoint
 CREATE INDEX "user_refresh_tokens_token_hash_idx" ON "user_refresh_tokens" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_identities_provider_id_uq" ON "user_identities" USING btree ("provider","provider_id");--> statement-breakpoint
+CREATE INDEX "audit_logs_user_idx" ON "audit_logs" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "audit_logs_entity_idx" ON "audit_logs" USING btree ("entity_type","entity_id");--> statement-breakpoint
+CREATE INDEX "audit_logs_created_at_idx" ON "audit_logs" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "ot_requests_employee_idx" ON "overtime_requests" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "ot_requests_status_idx" ON "overtime_requests" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "ot_requests_date_idx" ON "overtime_requests" USING btree ("date");--> statement-breakpoint
@@ -892,6 +898,8 @@ CREATE UNIQUE INDEX "leave_policies_code_uq" ON "leave_policies" USING btree ("c
 CREATE UNIQUE INDEX "leave_policies_default_uq" ON "leave_policies" USING btree ("is_default") WHERE "leave_policies"."is_default" = true;--> statement-breakpoint
 CREATE UNIQUE INDEX "leave_policy_rules_policy_leave_type_uq" ON "leave_policy_rules" USING btree ("policy_id","leave_type_id");--> statement-breakpoint
 CREATE INDEX "leave_requests_employee_idx" ON "leave_requests" USING btree ("employee_id");--> statement-breakpoint
+CREATE INDEX "leave_requests_employee_history_idx" ON "leave_requests" USING btree ("employee_id","created_at");--> statement-breakpoint
+CREATE INDEX "leave_requests_pending_idx" ON "leave_requests" USING btree ("start_date") WHERE status = 'PENDING';--> statement-breakpoint
 CREATE INDEX "leave_requests_leave_type_idx" ON "leave_requests" USING btree ("leave_type_id");--> statement-breakpoint
 CREATE INDEX "leave_requests_status_idx" ON "leave_requests" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "leave_request_approvals_request_idx" ON "leave_request_approvals" USING btree ("leave_request_id");--> statement-breakpoint
@@ -899,12 +907,14 @@ CREATE INDEX "leave_request_approvals_approver_idx" ON "leave_request_approvals"
 CREATE UNIQUE INDEX "leave_request_approvals_request_level_uq" ON "leave_request_approvals" USING btree ("leave_request_id","level");--> statement-breakpoint
 CREATE INDEX "leave_ledger_employee_idx" ON "leave_ledger" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "leave_ledger_leave_type_idx" ON "leave_ledger" USING btree ("leave_type_id");--> statement-breakpoint
+CREATE INDEX "leave_ledger_balance_lookup_idx" ON "leave_ledger" USING btree ("employee_id","leave_type_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "leave_ledger_accrual_key_uq" ON "leave_ledger" USING btree ("employee_id","leave_type_id","accrual_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "shift_templates_code_uq" ON "shift_templates" USING btree ("code") WHERE deleted_at IS NULL;--> statement-breakpoint
 CREATE INDEX "shift_templates_is_active_idx" ON "shift_templates" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "shift_templates_deleted_at_idx" ON "shift_templates" USING btree ("deleted_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "employee_shift_assignments_employee_uq" ON "employee_shift_assignments" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "employee_shift_assignments_shift_template_idx" ON "employee_shift_assignments" USING btree ("shift_template_id");--> statement-breakpoint
+CREATE INDEX "shift_assignments_range_idx" ON "employee_shift_assignments" USING btree ("employee_id","effective_from","effective_until");--> statement-breakpoint
 CREATE INDEX "pending_shift_assignments_employee_idx" ON "pending_employee_shift_assignments" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "pending_shift_assignments_effective_date_idx" ON "pending_employee_shift_assignments" USING btree ("effective_date");--> statement-breakpoint
 CREATE INDEX "pending_shift_assignments_status_idx" ON "pending_employee_shift_assignments" USING btree ("status");--> statement-breakpoint
@@ -914,6 +924,7 @@ CREATE INDEX "attendance_logs_employee_idx" ON "attendance_logs" USING btree ("e
 CREATE INDEX "attendance_logs_work_date_idx" ON "attendance_logs" USING btree ("work_date");--> statement-breakpoint
 CREATE INDEX "attendance_logs_is_locked_idx" ON "attendance_logs" USING btree ("is_locked");--> statement-breakpoint
 CREATE UNIQUE INDEX "attendance_logs_employee_work_date_uq" ON "attendance_logs" USING btree ("employee_id","work_date");--> statement-breakpoint
+CREATE UNIQUE INDEX "attendance_logs_open_entry_uq" ON "attendance_logs" USING btree ("employee_id") WHERE actual_out_at IS NULL;--> statement-breakpoint
 CREATE INDEX "attendance_adjustments_employee_idx" ON "attendance_adjustments" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "attendance_adjustments_status_idx" ON "attendance_adjustments" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "attendance_adjustments_log_idx" ON "attendance_adjustments" USING btree ("attendance_log_id");--> statement-breakpoint
@@ -924,6 +935,8 @@ CREATE UNIQUE INDEX "budget_periods_code_uq" ON "budget_periods" USING btree ("c
 CREATE UNIQUE INDEX "org_unit_budgets_uq" ON "org_unit_budgets" USING btree ("org_unit_id","budget_period_id","expense_category_id");--> statement-breakpoint
 CREATE INDEX "expense_claims_employee_idx" ON "expense_claims" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "expense_claims_org_unit_idx" ON "expense_claims" USING btree ("org_unit_id");--> statement-breakpoint
+CREATE INDEX "expense_claims_category_idx" ON "expense_claims" USING btree ("expense_category_id");--> statement-breakpoint
+CREATE INDEX "expense_claims_budget_period_idx" ON "expense_claims" USING btree ("budget_period_id");--> statement-breakpoint
 CREATE INDEX "expense_claims_status_idx" ON "expense_claims" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "expense_claim_approvals_claim_idx" ON "expense_claim_approvals" USING btree ("expense_claim_id");--> statement-breakpoint
 CREATE INDEX "expense_claim_approvals_approver_idx" ON "expense_claim_approvals" USING btree ("approver_user_id");--> statement-breakpoint
@@ -941,12 +954,18 @@ CREATE INDEX "job_postings_slug_idx" ON "job_postings" USING btree ("slug");--> 
 CREATE INDEX "job_postings_status_idx" ON "job_postings" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "skills_name_idx" ON "skills" USING btree ("name");--> statement-breakpoint
 CREATE INDEX "skills_category_idx" ON "skills" USING btree ("category_id");--> statement-breakpoint
+CREATE INDEX "skill_endorsements_skill_idx" ON "employee_skill_endorsements" USING btree ("employee_skill_id");--> statement-breakpoint
+CREATE INDEX "skill_endorsements_endorser_idx" ON "employee_skill_endorsements" USING btree ("endorser_id");--> statement-breakpoint
 CREATE INDEX "employee_skills_employee_idx" ON "employee_skills" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "employee_skills_skill_idx" ON "employee_skills" USING btree ("skill_id");--> statement-breakpoint
 CREATE INDEX "employee_skills_status_idx" ON "employee_skills" USING btree ("skill_verification_status");--> statement-breakpoint
 CREATE UNIQUE INDEX "org_unit_mandatory_trainings_uq" ON "org_unit_mandatory_trainings" USING btree ("org_unit_id","program_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "position_mandatory_trainings_uq" ON "position_mandatory_trainings" USING btree ("position_id","program_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "training_prerequisites_uq" ON "training_prerequisites" USING btree ("program_id","prerequisite_program_id");--> statement-breakpoint
+CREATE INDEX "training_schedule_sessions_schedule_idx" ON "training_schedule_sessions" USING btree ("schedule_id");--> statement-breakpoint
+CREATE INDEX "training_schedules_program_idx" ON "training_schedules" USING btree ("program_id");--> statement-breakpoint
+CREATE INDEX "training_schedules_trainer_idx" ON "training_schedules" USING btree ("trainer_id");--> statement-breakpoint
+CREATE INDEX "training_enrollments_employee_idx" ON "training_enrollments" USING btree ("employee_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "training_enrollments_schedule_employee_uq" ON "training_enrollments" USING btree ("schedule_id","employee_id");--> statement-breakpoint
 CREATE INDEX "position_skills_position_idx" ON "position_skills" USING btree ("position_id");--> statement-breakpoint
 CREATE INDEX "position_skills_skill_idx" ON "position_skills" USING btree ("skill_id");

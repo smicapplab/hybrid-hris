@@ -92,7 +92,7 @@ export default function OrganizationPage() {
 
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full lg:w-auto">
-                    <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 lg:min-w-162.5 h-10 p-1 bg-muted/50 rounded-lg">
+                    <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 lg:min-w-162.5 h-10 p-1 bg-muted/50 rounded-lg border">
                         <TabsTrigger value="my-org" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
                             <Building2 className="w-4 h-4" /> <span className="hidden sm:inline">My Org</span><span className="sm:hidden text-[10px]">Org</span>
                         </TabsTrigger>

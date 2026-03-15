@@ -19,6 +19,7 @@ import {
     AttendanceSource,
 } from '@hybrid-hris/domain'
 import { ShiftAssignmentsService } from '../shift-assignments/shift-assignments.service'
+import { PendingShiftAssignmentsService } from '../pending-shift-assignments/pending-shift-assignments.service'
 import { AttendanceComputeService } from '../attendance-compute/attendance-compute.service'
 import { AuditService } from 'src/core/audit/audit.service'
 
@@ -27,6 +28,7 @@ export class AttendanceEventsService {
     constructor(
         private readonly db: DatabaseService,
         private readonly shiftAssignmentsService: ShiftAssignmentsService,
+        private readonly pendingShiftService: PendingShiftAssignmentsService,
         private readonly computeService: AttendanceComputeService,
         private readonly auditService: AuditService,
     ) { }
@@ -38,6 +40,11 @@ export class AttendanceEventsService {
 
         const now = new Date()
         const timezone = await this.getEmployeeTimezone(employeeId)
+        
+        // Auto-apply any pending schedule change whose effective date has arrived
+        const dateStr = this.toLocalDateString(now, timezone)
+        await this.pendingShiftService.applyPendingForEmployee(employeeId, dateStr)
+
         const { workDate, shift } = await this.resolveWorkDateForNow(employeeId, now, timezone)
 
         // Compute scheduled timestamps — null when punching outside any assigned shift (unscheduled/overtime)

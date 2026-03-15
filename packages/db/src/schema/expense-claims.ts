@@ -60,6 +60,8 @@ export const expenseClaims = pgTable(
     (t) => ({
         employeeIdx: index('expense_claims_employee_idx').on(t.employeeId),
         orgUnitIdx: index('expense_claims_org_unit_idx').on(t.orgUnitId),
+        categoryIdx: index('expense_claims_category_idx').on(t.expenseCategoryId),
+        budgetPeriodIdx: index('expense_claims_budget_period_idx').on(t.budgetPeriodId),
         statusIdx: index('expense_claims_status_idx').on(t.status),
     }),
 );

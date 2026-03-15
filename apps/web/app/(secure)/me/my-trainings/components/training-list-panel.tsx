@@ -67,7 +67,7 @@ export function TrainingListPanel({
           onValueChange={(v) => onTabChangeAction(v as 'upcoming' | 'history')}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-2 h-8 p-1">
+          <TabsList className="grid w-full grid-cols-2 h-8 p-1 border">
             <TabsTrigger value="upcoming" className="text-[10px] uppercase font-bold gap-2">
               <Calendar className="w-3 h-3" /> Upcoming
             </TabsTrigger>

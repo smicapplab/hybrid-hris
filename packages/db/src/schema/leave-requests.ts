@@ -72,6 +72,13 @@ export const leaveRequests = pgTable(
   },
   (t) => ({
     employeeIdx: index('leave_requests_employee_idx').on(t.employeeId),
+    employeeHistoryIdx: index('leave_requests_employee_history_idx').on(
+      t.employeeId,
+      t.createdAt,
+    ),
+    pendingRequestsIdx: index('leave_requests_pending_idx')
+      .on(t.startDate) // Sorts pending requests by date automatically
+      .where(sql`status = 'PENDING'`),
     leaveTypeIdx: index('leave_requests_leave_type_idx').on(t.leaveTypeId),
     statusIdx: index('leave_requests_status_idx').on(t.status),
     dateOrderCheck: check(

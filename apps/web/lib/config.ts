@@ -179,6 +179,11 @@ export const navigation: NavCategory[] = [
                 icon: Umbrella,
             },
             {
+                title: "Shift Templates",
+                url: "/admin/shift-templates",
+                icon: Clock,
+            },
+            {
                 title: "Team Budgets",
                 url: "/admin/budgets",
                 icon: Calculator,

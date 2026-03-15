@@ -1,145 +1,101 @@
-# Hybrid HRIS 🚀
+# Hybrid HRIS
 
 ## Project Overview
 
-Hybrid HRIS is a high-performance, modular, and enterprise-grade Human Resource Information System. It is architected for **hybrid deployment**, allowing it to run as a standalone containerized application or within serverless environments (AWS Lambda).
+Hybrid HRIS is a high-performance, modular Human Resource Information System designed for hybrid deployment. It supports standalone containerized environments and serverless architectures like AWS Lambda. The system prioritizes domain-driven design, database-level integrity, and hierarchical authority models.
 
-The system is built with a heavy focus on **domain-driven design**, **database-level integrity**, and **hierarchical authority models**. It solves complex HR challenges like recursive leadership oversight, immutable audit trails for finance-related modules (Leave/Budget), and automated professional development pipelines.
+### Live Demo
 
-### 🌐 Live Demo
+- **URL:** [https://hybrid-hris-web.vercel.app](https://hybrid-hris-web.vercel.app)  
+- **Admin Access:** `admin@hybrid-hris.local` / `Admin123!`
 
-**URL:** [https://hybrid-hris-web.vercel.app](https://hybrid-hris-web.vercel.app)  
-**Admin Access:** `admin@hybrid-hris.local` / `Admin123!`
+## System Architecture
 
----
-
-## 🏗 System Architecture
-
-The project is managed as a **Monorepo** using PNPM Workspaces, ensuring strict type safety and code reuse across the stack.
+The project uses a monorepo structure managed with PNPM Workspaces for strict type safety and code reuse.
 
 ### Applications
-- **`apps/api` (NestJS 11):** A robust RESTful API featuring hardened RBAC, Passport-based authentication, and optimized database queries using Drizzle ORM.
-- **`apps/web` (Next.js 16 + Turbopack):** A modern, responsive dashboard built with the App Router, Shadcn UI, and Tailwind CSS. It features a rich, interactive UI with real-time feedback.
+- **apps/api (NestJS 11):** RESTful API with hardened RBAC, Passport-based authentication, and Drizzle ORM.
+- **apps/web (Next.js 16 + Turbopack):** Responsive dashboard built with App Router, Shadcn UI, and Tailwind CSS.
 
 ### Shared Packages
-- **`packages/db`:** The single source of truth for the database schema, migrations, and enterprise-grade seed scripts using Drizzle ORM.
-- **`packages/domain`:** Shared TypeScript interfaces, enums, and business logic constants used by both frontend and backend.
+- **packages/db:** Single source of truth for database schema and migrations using Drizzle ORM.
+- **packages/domain:** Shared TypeScript interfaces, enums, and constants.
 
----
+## Core Modules
 
-## ✨ Core Modules & Features
-
-### 🏢 Organizational Intelligence
+### Organizational Intelligence
 - **Hierarchical Org Tree:** Managed through Org Units with recursive leadership models.
-- **Recursive Authority:** Powered by **PostgreSQL Recursive CTEs**, allowing leaders to automatically inherit authority and visibility over their entire downline.
-- **Plantilla & Headcount:** Real-time tracking of authorized slots. Expansion requires formalized Manpower Requests and multi-level approvals.
+- **Recursive Authority:** Powered by PostgreSQL Recursive CTEs for automatic authority inheritance.
+- **Plantilla and Headcount:** Real-time tracking of authorized slots and manpower requests.
 
-### 🎓 Skills & Training (New!)
-- **3-Layer Mandatory Training:** HR can define requirements at the **Global**, **Position**, and **Org Unit** levels.
-- **Three-State Compliance:** Actionable tracking that distinguishes between:
-  - 🔴 **Missing:** No completion and NO upcoming enrollment (Needs Action).
-  - 🟡 **Scheduled:** Enrolled in a future session (Action Taken).
-  - 🟢 **Completed:** Requirement fulfilled.
-- **Training Feedback System:** Employees can rate sessions (1-5 stars) and provide comments upon completion. HR can monitor these via a global **Feedback Analytics** dashboard.
-- **Automated Skill Granting:** Successful training completion automatically updates employee profiles with verified skills.
-- **HR Global View:** HR Admins can toggle between their immediate team and the **Entire Organization** scope across all managerial dashboards.
+### Schedule and Attendance (New)
+- **Advanced Schedule Management:** HR can define global shift templates and assign them to employees.
+- **Future-Dated Shifts:** Support for queuing upcoming schedule changes that take effect automatically.
+- **Auto-Promotion:** Pending shifts are automatically applied to the active record when an employee records attendance.
+- **Attendance History:** Detailed tracking of time-in, time-out, and total hours with shift matching.
 
-### 📅 Attendance & Leave
-- **Hierarchical Overtime Approvals:** OT requests now follow the same recursive authority model as Leave. 
-  - **Supervisors** see requests from their direct reports.
-  - **Org Leaders** see requests from their unit and leaders of child units.
-  - **Admins/HR Admins** maintain global visibility.
-- **Ledger-Based Accruals:** Every leave credit/debit is a financial-style transaction. No "floating" balances; every minute is accounted for.
-- **Shift Management:** Flexible shift templates with localized timezone support.
-- **Real-time Attendance:** Bio-metric ready attendance logging with automatic shift matching.
+### Skills and Training
+- **3-Layer Mandatory Training:** Define requirements at Global, Position, and Org Unit levels.
+- **Compliance Tracking:** Real-time monitoring of missing, scheduled, and completed requirements.
+- **Automated Skill Granting:** Successful training completion automatically updates employee profiles.
 
-### 💰 Expense & Budgeting
-- **Hierarchical Budgets:** Allocations are set per Org Unit and Category.
-- **Zero-Trust Validation:** Expenses are validated in real-time against the available budget ledger before submission.
+### Leave and Expenses
+- **Ledger-Based Accruals:** Financial-style transaction logging for all leave credits and debits.
+- **Hierarchical Approvals:** Multi-level approval workflows for overtime, leave, and expenses.
+- **Zero-Trust Budgets:** Real-time validation of expense claims against available budget ledgers.
 
----
+## Tech Stack
 
-## 🛠 Tech Stack
+- **Frontend:** Next.js 16, Tailwind CSS, Shadcn UI, Lucide Icons
+- **Backend:** NestJS 11, Node.js 22, Drizzle ORM
+- **Database:** PostgreSQL
+- **DevOps:** Docker, PNPM Workspaces
 
-| Layer | Technologies |
-| :--- | :--- |
-| **Frontend** | Next.js 16 (App Router), Turbopack, Tailwind CSS, Shadcn UI, Lucide Icons |
-| **Backend** | NestJS 11, Node.js 22, Class Validator, Passport.js, Drizzle ORM |
-| **Database** | PostgreSQL, Drizzle ORM, Zod |
-| **DevOps** | PNPM Workspaces, Docker, AWS Lambda Strategy |
-| **Testing/Data** | Faker.js, Jest |
+## Getting Started
 
----
-
-## 🚀 Getting Started
-
-### 1. Prerequisites
-- **Node.js 22+**
-- **PNPM 9+**
-- **Docker** (for local PostgreSQL)
-
-### 2. Installation
+### 1. Installation
 ```bash
 pnpm install
 ```
 
-### 3. Environment Setup
-Copy `.env.sample` to `.env` in the following locations:
-- Root directory
-- `apps/api`
+### 2. Environment Setup
+Copy `.env.sample` to `.env` in the root directory and `apps/api`.
 
-### 4. Database Initialization
+### 3. Database Initialization
 ```bash
-# Start PostgreSQL (if using docker-compose)
 docker-compose up -d
-
-# Build shared packages first
 pnpm build:shared
-
-# Run migrations and seed the data
 pnpm --filter @hybrid-hris/db run db:migrate
 LOAD_TEST_DATA=true pnpm --filter @hybrid-hris/db run seed
 ```
-*Note: The seed script generates ~100 realistic employees, a 3-level org structure, full training/skills history, and pending overtime requests for testing hierarchical approvals.*
 
-### 5. Running the Apps
+### 4. Running the Apps
 ```bash
-# Start API (Port 4000)
 pnpm --filter api start:dev
-
-# Start Web (Port 3000)
 pnpm --filter web dev
 ```
 
----
+## Performance and Optimizations
 
-## 📈 Performance & Optimizations
+- **Database Performance:** Strategic indexing across all high-traffic tables including audit logs, employees, and attendance.
+- **Parallel Data Fetching:** Concurrent API calls for complex views to reduce latency.
+- **Tabbed Interface:** Refactored employee profiles for better information organization and faster loading.
+- **Type-Safe Component Architecture:** Reusable UI components with strict prop typing and error handling.
 
-- **Recursive Authority Logic:** Centralized leadership and reporting line checks to ensure consistent data visibility across Leave, Attendance, and Overtime modules.
-- **Parallelized Data Fetching:** Complex views like the **Talent Card** use `Promise.all` to fetch skills, training, leaves, and schedules concurrently, reducing API latency by ~60%.
-- **Efficient Joins:** Combined mandatory training checks into single-pass SQL queries to avoid N+1 issues.
-- **Type-Safe Errors:** Standardized `(err: unknown)` pattern with descriptive toast notifications across the entire frontend.
-- **Smart Refresh:** Automatic UI data invalidation after key actions (like enrolling a student) to ensure state consistency without full page reloads.
+## Roadmap
 
----
+### Recently Completed
+- **Schedule Management System:** Shift templates, pending shifts, and auto-promotion logic.
+- **Database Optimization:** Comprehensive indexing strategy for enterprise-scale data.
+- **Employee Profile Refactor:** Improved UX with tabbed navigation and integrated attendance history.
+- **System Audit Logs:** Global traceability for all sensitive data mutations.
 
-## 🗺 Roadmap
+### Future Enhancements
+- **Payroll and Compensation:** Base pay tracking and government-mandated deductions.
+- **Performance Management:** Annual review cycles and KPI/OKR tracking.
+- **Notification Engine:** In-app and email alerts for pending actions.
+- **Advanced Analytics:** Organizational risk heatmaps and skill density reports.
 
-### 🎯 Completed Recently
-- [x] **System Audit Logs (#6):** Global traceability for every sensitive change (who, what, when, old vs new values).
-- [x] **Hierarchical Overtime Approvals (#12):** Implemented recursive leadership-based OT visibility and approval workflows.
-- [x] **Time & Attendance Refinement (#2):** Formalized Overtime (OT) workflows, Holiday Calendar management, and shift differential logic.
+## License
 
-### 🚀 Future Enhancements
-- [ ] **Payroll & Compensation:** Base pay tracking, government-mandated deductions (PH context), and immutable salary history.
-- [ ] **Performance Management:** Annual review cycles, KPI/OKR tracking, and 360-degree feedback loops.
-- [ ] **Notification Engine:** In-app, Email, and Slack alerts for pending approvals and critical events.
-- [ ] **Digital 201 File:** Secure document vault for contracts, IDs, and government forms.
-- [ ] **Advanced Analytics:** Company-wide skill density reports and organizational risk analysis heatmaps.
-- [ ] **Job Board API:** Direct posting to LinkedIn and Jobstreet from the Recruitment module.
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.

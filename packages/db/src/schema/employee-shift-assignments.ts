@@ -65,6 +65,11 @@ export const employeeShiftAssignments = pgTable(
         // 1:1 — exactly one active assignment per employee at any time
         employeeUq: uniqueIndex('employee_shift_assignments_employee_uq').on(t.employeeId),
         shiftTemplateIdx: index('employee_shift_assignments_shift_template_idx').on(t.shiftTemplateId),
+        scdRangeIdx: index('shift_assignments_range_idx').on(
+            t.employeeId,
+            t.effectiveFrom,
+            t.effectiveUntil
+        ),
     }),
 )
 

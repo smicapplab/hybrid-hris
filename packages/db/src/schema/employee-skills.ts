@@ -74,5 +74,9 @@ export const employeeSkillEndorsements = pgTable(
     message: text('message'),
 
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  }
+  },
+  (t) => ({
+    skillIdx: index('skill_endorsements_skill_idx').on(t.employeeSkillId),
+    endorserIdx: index('skill_endorsements_endorser_idx').on(t.endorserId),
+  })
 );

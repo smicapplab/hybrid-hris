@@ -6,9 +6,8 @@ import { useToast } from '@/hooks/use-toast';
 import { ShieldAlert, Trash2, Plus, Building2, Briefcase, Loader2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AsyncSearchSelect } from '@/components/ui/async-search-select';
-import { Badge } from '@/components/ui/badge';
 
 interface ProgramOption {
   id: string;
@@ -68,7 +67,7 @@ export function MandatoryRequirementsPanel() {
         : `/training/mandatory/org-units/${targetId}`;
       const res = await apiFetch<MandatoryItem[]>(endpoint);
       setRequirements(res);
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Failed to load requirements',
         description: err instanceof Error ? err.message : 'Please try again.',
@@ -77,6 +76,7 @@ export function MandatoryRequirementsPanel() {
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId, activeSubTab, toast, refreshKey]);
 
   useEffect(() => {
@@ -99,7 +99,7 @@ export function MandatoryRequirementsPanel() {
       toast({ title: 'Requirement added successfully', variant: 'success' });
       setProgramId(null);
       setRefreshKey(prev => prev + 1);
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Failed to add requirement',
         description: err instanceof Error ? err.message : 'Please try again.',
@@ -118,7 +118,7 @@ export function MandatoryRequirementsPanel() {
       await apiFetch(endpoint, { method: 'DELETE' });
       toast({ title: 'Requirement removed', variant: 'success' });
       setRefreshKey(prev => prev + 1);
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Failed to remove requirement',
         description: err instanceof Error ? err.message : 'Please try again.',
@@ -139,7 +139,7 @@ export function MandatoryRequirementsPanel() {
       </div>
 
       <Tabs value={activeSubTab} onValueChange={(v) => { setActiveSubTab(v); setTargetId(null); setRequirements([]); }} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-80 h-10 p-1 bg-muted/50 rounded-lg">
+        <TabsList className="grid w-full grid-cols-2 max-w-80 h-10 p-1 bg-muted/50 rounded-lg border">
           <TabsTrigger value="position" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
             <Briefcase className="w-3.5 h-3.5" /> By Position
           </TabsTrigger>

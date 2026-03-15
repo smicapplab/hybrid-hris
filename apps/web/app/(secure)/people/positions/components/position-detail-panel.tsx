@@ -134,7 +134,7 @@ export function PositionDetailPanel({
 
             {/* ── Content Tabs ── */}
             <Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
-                <TabsList className="grid w-full grid-cols-2 max-w-100 bg-muted/50 p-1 rounded-lg shrink-0">
+                <TabsList className="grid w-full grid-cols-2 max-w-100 bg-muted/50 p-1 rounded-lg shrink-0 border">
                     <TabsTrigger value="overview" className="gap-2 text-xs font-bold uppercase tracking-tight data-[state=active]:bg-background data-[state=active]:shadow-sm">
                         <ListChecks className="w-3.5 h-3.5" /> Overview
                     </TabsTrigger>

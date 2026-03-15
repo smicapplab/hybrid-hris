@@ -152,8 +152,8 @@ export function ManpowerRequestsList() {
     return (
         <div className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between gap-4">
-                <Tabs value={tab} onValueChange={handleTabChange} className="w-full sm:w-auto">
-                    <TabsList className={`grid w-full ${historyTotal > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                <Tabs value={tab} onValueChange={handleTabChange} className="w-full sm:w-auto ">
+                    <TabsList className={`grid w-full border ${historyTotal > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                         <TabsTrigger value="active">Active</TabsTrigger>
                         {historyTotal > 0 && <TabsTrigger value="history">History</TabsTrigger>}
                     </TabsList>

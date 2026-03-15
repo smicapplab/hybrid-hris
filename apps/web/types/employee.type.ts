@@ -4,6 +4,7 @@ import type {
     EmployeeProfile as DbEmployeeProfile,
     EmployeeIdentifier as DbEmployeeIdentifier,
 } from '@hybrid-hris/db/types'
+import type { ShiftAssignment } from './attendance.types'
 
 // ── Serialization utility ─────────────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ export type Employee = WithSerializedTimestamps<DbEmployee> & {
     orgUnitName?: string | null
     policyId?: string | null
     roleIds?: string[]
+    shiftAssignment?: ShiftAssignment | null
 }
 
 // ── Auxiliary API types ───────────────────────────────────────────────────────

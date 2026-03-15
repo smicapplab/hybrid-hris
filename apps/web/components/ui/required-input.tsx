@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { ReactNode } from 'react'
 
 type RequiredInputProps = {
-    label: string
+    label?: string
     value: string
     onChangeAction: (value: string) => void
     placeholder?: string
@@ -16,6 +16,7 @@ type RequiredInputProps = {
     helperText?: ReactNode
     disabled?: boolean
     className?: string
+    type?: string
 }
 
 export function RequiredInput({
@@ -29,6 +30,7 @@ export function RequiredInput({
     helperText,
     disabled,
     className,
+    type = 'text',
 }: RequiredInputProps) {
     const isInvalid =
         required &&
@@ -45,6 +47,7 @@ export function RequiredInput({
             </Label>
 
             <Input
+                type={type}
                 value={value}
                 placeholder={placeholder}
                 disabled={disabled}

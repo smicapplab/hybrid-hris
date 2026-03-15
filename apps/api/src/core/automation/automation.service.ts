@@ -11,7 +11,7 @@ export class AutomationService {
 
     constructor(
         private readonly db: DatabaseService,
-        @Inject(forwardRef(() => HolidaysService)) // WRAP THIS HERE
+        @Inject(forwardRef(() => HolidaysService))
         private readonly holidaysService: HolidaysService,
         private readonly leaveAccrualsService: LeaveAccrualsService,
     ) { }

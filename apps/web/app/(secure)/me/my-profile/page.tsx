@@ -204,7 +204,7 @@ export default function MyProfilePage() {
     return (
         <div className="p-6 space-y-6 max-w-6xl">
             <Tabs defaultValue="personal" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 max-w-100 h-10 p-1 bg-muted/50 rounded-lg">
+                <TabsList className="grid w-full grid-cols-2 max-w-100 bg-muted/50 rounded-lg border">
                     <TabsTrigger value="personal" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm">
                         <UserIcon className="w-4 h-4" /> Personal Information
                     </TabsTrigger>

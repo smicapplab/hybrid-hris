@@ -1,5 +1,5 @@
 {
-  "id": "461fe764-07a0-4271-b823-2ec4837356f6",
+  "id": "e0a953d5-7df6-4790-8117-4f2a21937d5d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -187,6 +187,51 @@
               "expression": "last_name",
               "isExpression": false,
               "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "employees_first_name_lower_idx": {
+          "name": "employees_first_name_lower_idx",
+          "columns": [
+            {
+              "expression": "lower(\"first_name\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "employees_last_name_lower_idx": {
+          "name": "employees_last_name_lower_idx",
+          "columns": [
+            {
+              "expression": "lower(\"last_name\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "employees_middle_name_lower_idx": {
+          "name": "employees_middle_name_lower_idx",
+          "columns": [
+            {
+              "expression": "lower(\"middle_name\")",
+              "asc": true,
+              "isExpression": true,
               "nulls": "last"
             }
           ],
@@ -1590,7 +1635,59 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "audit_logs_user_idx": {
+          "name": "audit_logs_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_logs_entity_idx": {
+          "name": "audit_logs_entity_idx",
+          "columns": [
+            {
+              "expression": "entity_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "entity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_logs_created_at_idx": {
+          "name": "audit_logs_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "audit_logs_user_id_users_id_fk": {
           "name": "audit_logs_user_id_users_id_fk",
@@ -2825,6 +2922,43 @@
           "method": "btree",
           "with": {}
         },
+        "leave_requests_employee_history_idx": {
+          "name": "leave_requests_employee_history_idx",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leave_requests_pending_idx": {
+          "name": "leave_requests_pending_idx",
+          "columns": [
+            {
+              "expression": "start_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "status = 'PENDING'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "leave_requests_leave_type_idx": {
           "name": "leave_requests_leave_type_idx",
           "columns": [
@@ -3156,6 +3290,33 @@
           "columns": [
             {
               "expression": "leave_type_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leave_ledger_balance_lookup_idx": {
+          "name": "leave_ledger_balance_lookup_idx",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "leave_type_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3675,6 +3836,33 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "shift_assignments_range_idx": {
+          "name": "shift_assignments_range_idx",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "effective_from",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "effective_until",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -4153,6 +4341,22 @@
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attendance_logs_open_entry_uq": {
+          "name": "attendance_logs_open_entry_uq",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "actual_out_at IS NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -4845,6 +5049,36 @@
           "columns": [
             {
               "expression": "org_unit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "expense_claims_category_idx": {
+          "name": "expense_claims_category_idx",
+          "columns": [
+            {
+              "expression": "expense_category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "expense_claims_budget_period_idx": {
+          "name": "expense_claims_budget_period_idx",
+          "columns": [
+            {
+              "expression": "budget_period_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6065,7 +6299,38 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "skill_endorsements_skill_idx": {
+          "name": "skill_endorsements_skill_idx",
+          "columns": [
+            {
+              "expression": "employee_skill_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "skill_endorsements_endorser_idx": {
+          "name": "skill_endorsements_endorser_idx",
+          "columns": [
+            {
+              "expression": "endorser_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "employee_skill_endorsements_employee_skill_id_employee_skills_id_fk": {
           "name": "employee_skill_endorsements_employee_skill_id_employee_skills_id_fk",
@@ -6785,7 +7050,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "training_schedule_sessions_schedule_idx": {
+          "name": "training_schedule_sessions_schedule_idx",
+          "columns": [
+            {
+              "expression": "schedule_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "training_schedule_sessions_schedule_id_training_schedules_id_fk": {
           "name": "training_schedule_sessions_schedule_id_training_schedules_id_fk",
@@ -6883,7 +7164,38 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "training_schedules_program_idx": {
+          "name": "training_schedules_program_idx",
+          "columns": [
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_schedules_trainer_idx": {
+          "name": "training_schedules_trainer_idx",
+          "columns": [
+            {
+              "expression": "trainer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "training_schedules_program_id_training_programs_id_fk": {
           "name": "training_schedules_program_id_training_programs_id_fk",
@@ -7008,6 +7320,21 @@
         }
       },
       "indexes": {
+        "training_enrollments_employee_idx": {
+          "name": "training_enrollments_employee_idx",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "training_enrollments_schedule_employee_uq": {
           "name": "training_enrollments_schedule_employee_uq",
           "columns": [

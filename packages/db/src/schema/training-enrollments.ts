@@ -4,6 +4,7 @@ import {
   timestamp,
   text,
   uniqueIndex,
+  index,
 } from 'drizzle-orm/pg-core';
 import { trainingSchedules } from './training-schedules';
 import { employees } from './employees';
@@ -43,6 +44,7 @@ export const trainingEnrollments = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
+    employeeIdx: index('training_enrollments_employee_idx').on(t.employeeId),
     // Prevent duplicate enrollment for the same schedule
     scheduleEmployeeUq: uniqueIndex('training_enrollments_schedule_employee_uq').on(
       t.scheduleId,

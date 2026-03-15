@@ -11,7 +11,7 @@ import {
 import { cn } from '@/lib/utils'
 
 type RequiredSelectProps = {
-    label: string
+    label?: string
     value: string
     onChangeAction: (value: string) => void
     required?: boolean

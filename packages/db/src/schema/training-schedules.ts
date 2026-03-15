@@ -5,6 +5,7 @@ import {
   timestamp,
   text,
   integer,
+  index,
 } from 'drizzle-orm/pg-core';
 import { trainingPrograms } from './training-programs';
 import { employees } from './employees';
@@ -36,7 +37,11 @@ export const trainingSchedules = pgTable(
 
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  }
+  },
+  (t) => ({
+    programIdx: index('training_schedules_program_idx').on(t.programId),
+    trainerIdx: index('training_schedules_trainer_idx').on(t.trainerId),
+  })
 );
 
 // Support for multi-day schedules (e.g. Session 1, Session 2)
@@ -56,5 +61,8 @@ export const trainingScheduleSessions = pgTable(
 
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  }
+  },
+  (t) => ({
+    scheduleIdx: index('training_schedule_sessions_schedule_idx').on(t.scheduleId),
+  })
 );

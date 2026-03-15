@@ -5,6 +5,7 @@ import {
   timestamp,
   jsonb,
   text,
+  index,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
@@ -29,5 +30,10 @@ export const auditLogs = pgTable(
     metadata: jsonb('metadata'), // Extra context like "Reason for change"
     
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  }
+  },
+  (t) => ({
+    userIdx: index('audit_logs_user_idx').on(t.userId),
+    entityIdx: index('audit_logs_entity_idx').on(t.entityType, t.entityId),
+    createdAtIdx: index('audit_logs_created_at_idx').on(t.createdAt),
+  })
 );

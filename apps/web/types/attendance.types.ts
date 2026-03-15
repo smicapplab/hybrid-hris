@@ -94,3 +94,44 @@ export type PendingAdjustmentItem = {
         employeeNo: string;
     };
 };
+
+export type ShiftTemplate = {
+    id: string;
+    code: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+    breakMinutes: number;
+    isFlexible: boolean;
+    isActive: boolean;
+    isMon: boolean;
+    isTue: boolean;
+    isWed: boolean;
+    isThu: boolean;
+    isFri: boolean;
+    isSat: boolean;
+    isSun: boolean;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type ShiftAssignment = {
+    id: string;
+    employeeId: string;
+    shiftTemplateId: string;
+    startTime: string;
+    endTime: string;
+    breakMinutes: number;
+    isFlexible: boolean;
+    isMon: boolean;
+    isTue: boolean;
+    isWed: boolean;
+    isThu: boolean;
+    isFri: boolean;
+    isSat: boolean;
+    isSun: boolean;
+    effectiveFrom: string;
+    effectiveUntil: string | null;
+    createdAt: string;
+    updatedAt: string;
+};

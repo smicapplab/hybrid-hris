@@ -164,15 +164,15 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-120 h-10 p-1 bg-muted/50 rounded-lg">
+        <TabsList className="grid w-full grid-cols-3 max-w-120 bg-muted/50 rounded-lg border">
           <TabsTrigger value="overview" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
-            <Info className="w-3.5 h-3.5" /> Overview
+            <Info className="w-3.5" /> Overview
           </TabsTrigger>
           <TabsTrigger value="schedules" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
-            <Calendar className="w-3.5 h-3.5" /> Schedules
+            <Calendar className="w-3.5" /> Schedules
           </TabsTrigger>
           <TabsTrigger value="feedback" className="gap-2 rounded-md transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm text-foreground">
-            <Star className="w-3.5 h-3.5" /> Feedback
+            <Star className="w-3.5" /> Feedback
           </TabsTrigger>
         </TabsList>
 
@@ -259,10 +259,10 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
         </TabsContent>
 
         <TabsContent value="schedules" className="mt-6">
-          <ScheduleList 
-            programId={programId} 
+          <ScheduleList
+            programId={programId}
             programTitle={program.title}
-            onManageAttendeesAction={onManageAttendeesAction} 
+            onManageAttendeesAction={onManageAttendeesAction}
           />
         </TabsContent>
 

@@ -81,7 +81,7 @@ export default function TrainingManagementPage() {
           }}
           className="w-full sm:w-auto"
         >
-          <TabsList className="grid w-full grid-cols-3 lg:min-w-90 h-10 p-1 bg-muted/50 rounded-lg">
+          <TabsList className="grid w-full grid-cols-3 lg:min-w-90 h-10 p-1 bg-muted/50 rounded-lg border">
             <TabsTrigger value="catalog" className="gap-2 text-xs font-bold uppercase tracking-tight">Catalog</TabsTrigger>
             <TabsTrigger value="requirements" className="gap-2 text-xs font-bold uppercase tracking-tight text-primary">Requirements</TabsTrigger>
             <TabsTrigger value="feedback" className="gap-2 text-xs font-bold uppercase tracking-tight text-amber-600">Feedback</TabsTrigger>

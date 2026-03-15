@@ -10,6 +10,7 @@ import {
     decimal,
     varchar,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 import { employees } from './employees'
 import { ATTENDANCE_SOURCES } from '@hybrid-hris/domain'
@@ -74,6 +75,10 @@ export const attendanceLogs = pgTable(
         // One row per employee per work date — no soft delete so no partial condition needed
         employeeWorkDateUq: uniqueIndex('attendance_logs_employee_work_date_uq')
             .on(t.employeeId, t.workDate),
+        // Business rule: at most one open entry (no timeout) per employee
+        openEntryUq: uniqueIndex('attendance_logs_open_entry_uq')
+            .on(t.employeeId)
+            .where(sql`actual_out_at IS NULL`),
     }),
 )
 
