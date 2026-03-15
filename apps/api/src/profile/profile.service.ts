@@ -1,14 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common'
-import { and, asc, desc, eq, gte, isNull, sql, or, inArray, SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNull, sql, or, inArray, SQL, lte } from 'drizzle-orm'
 import * as bcrypt from 'bcrypt'
 import { employees, employeeProfiles, users, positions, orgUnits, orgUnitLeaders, employeeShiftAssignments, shiftTemplates, attendanceLogs, attendanceAdjustments } from '@hybrid-hris/db'
 import { DatabaseService } from 'src/database/database.service'
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
-import { 
-    MyProfileResponse, 
-    OrgContextResponse, 
-    PaginatedTeamMembersResponse 
+import {
+    MyProfileResponse,
+    OrgContextResponse,
+    PaginatedTeamMembersResponse
 } from './dto/profile.dto'
 import { AuditService } from 'src/core/audit/audit.service'
 
@@ -234,7 +234,7 @@ export class ProfileService {
             'password2', 'password3', 'spiderman', 'starwars', 'hello123', '123123',
             'p@ssword', 'pa$$word', 'p@ssw0rd', 'monkey1', 'love1234', 'test',
         ])
-        
+
         if (COMMON_PASSWORDS.has(dto.newPassword.toLowerCase())) {
             throw new BadRequestException('New password is too common')
         }
@@ -416,31 +416,28 @@ export class ProfileService {
     }
 
     async getMyAttendanceHistory(employeeId: string) {
-        const since = new Date()
-        since.setUTCDate(since.getUTCDate() - 30)
-        const sinceStr = since.toISOString().slice(0, 10)
+        const since = new Date();
+        since.setUTCDate(since.getUTCDate() - 30);
+        const sinceStr = since.toISOString().slice(0, 10);
 
         return this.db.db
             .select({
                 id: attendanceLogs.id,
                 workDate: sql<string>`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`,
-                scheduledInAt: attendanceLogs.scheduledInAt,
-                scheduledOutAt: attendanceLogs.scheduledOutAt,
+                // ADD THESE BACK:
                 actualInAt: attendanceLogs.actualInAt,
                 actualOutAt: attendanceLogs.actualOutAt,
                 sourceIn: attendanceLogs.sourceIn,
                 sourceOut: attendanceLogs.sourceOut,
                 isLocked: attendanceLogs.isLocked,
-                // Include raw shift times from assignment
+                status: attendanceLogs.status,
+                // Existing fields:
                 startTime: employeeShiftAssignments.startTime,
                 endTime: employeeShiftAssignments.endTime,
-                // Pending adjustment info
+                pendingStatus: attendanceAdjustments.status,
                 pendingAdjustmentId: attendanceAdjustments.id,
                 pendingActualInAt: attendanceAdjustments.requestedActualInAt,
                 pendingActualOutAt: attendanceAdjustments.requestedActualOutAt,
-                pendingStatus: attendanceAdjustments.status,
-                pendingRemarks: attendanceAdjustments.remarks,
-                pendingApproverRemarks: attendanceAdjustments.approverRemarks,
             })
             .from(attendanceLogs)
             .fullJoin(
@@ -454,8 +451,13 @@ export class ProfileService {
             .leftJoin(
                 employeeShiftAssignments,
                 and(
-                    eq(sql`COALESCE(${attendanceLogs.employeeId}, ${attendanceAdjustments.employeeId})`, employeeId),
-                    sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate}) >= ${employeeShiftAssignments.effectiveFrom}`,
+                    eq(employeeShiftAssignments.employeeId, employeeId),
+                    // RANGE JOIN: Finds the exact shift active on this specific work date
+                    lte(employeeShiftAssignments.effectiveFrom, sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`),
+                    or(
+                        isNull(employeeShiftAssignments.effectiveUntil),
+                        gte(employeeShiftAssignments.effectiveUntil, sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`)
+                    )
                 )
             )
             .where(
@@ -464,6 +466,6 @@ export class ProfileService {
                     gte(sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`, sinceStr),
                 ),
             )
-            .orderBy(desc(sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`))
+            .orderBy(desc(sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`));
     }
 }

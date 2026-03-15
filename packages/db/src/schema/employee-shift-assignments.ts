@@ -51,6 +51,7 @@ export const employeeShiftAssignments = pgTable(
 
         // The date from which this assignment is in effect (audit trail)
         effectiveFrom: date('effective_from').notNull(),
+        effectiveUntil: date('effective_until'), // NULL indicates current active shift
 
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
