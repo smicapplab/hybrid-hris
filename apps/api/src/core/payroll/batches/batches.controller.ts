@@ -41,4 +41,10 @@ export class BatchesController {
         // TODO: In a real system, we'd check if the EMPLOYEE is the owner of the payslip
         return this.batchesService.getPayslipDetail(id);
     }
+
+    @Get('payslips/employee/:id')
+    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.EMPLOYEE)
+    getEmployeePayslips(@Param('id') id: string) {
+        return this.batchesService.findEmployeePayslips(id);
+    }
 }

@@ -10,8 +10,9 @@ export async function seedStatutoryBrackets(db: any) {
     // Full table has ~50 rows, we will seed a few key ones representing the 2024 14% rate
     brackets.push(
         { type: 'SSS', name: '2024 SSS Schedule', effectiveFrom, minCompensation: '0.00', maxCompensation: '4249.99', employeeShareAmount: '180.00', employerShareAmount: '390.00' },
-        { type: 'SSS', name: '2024 SSS Schedule', effectiveFrom, minCompensation: '4250.00', maxCompensation: '4749.99', employeeShareAmount: '202.50', employerShareAmount: '437.50' },
-        { type: 'SSS', name: '2024 SSS Schedule', effectiveFrom, minCompensation: '19750.00', maxCompensation: '20249.99', employeeShareAmount: '900.00', employerShareAmount: '1900.00' },
+        { type: 'SSS', name: '2024 SSS Schedule', effectiveFrom, minCompensation: '4250.00', maxCompensation: '14749.99', employeeShareAmount: '202.50', employerShareAmount: '437.50' },
+        { type: 'SSS', name: '2024 SSS Schedule', effectiveFrom, minCompensation: '14750.00', maxCompensation: '24749.99', employeeShareAmount: '800.00', employerShareAmount: '1700.00' },
+        { type: 'SSS', name: '2024 SSS Schedule', effectiveFrom, minCompensation: '24750.00', maxCompensation: '29749.99', employeeShareAmount: '1125.00', employerShareAmount: '2400.00' },
         { type: 'SSS', name: '2024 SSS Schedule', effectiveFrom, minCompensation: '29750.00', maxCompensation: null, employeeShareAmount: '1350.00', employerShareAmount: '2860.00' } // Max bracket
     );
 

@@ -208,26 +208,60 @@ export async function seedPayroll(db: any) {
             // D. Statutories (Once a month - 2nd Period)
             const isStatutoryPeriod = period.end.getDate() > 15 || !isSemiMonthly;
             if (isStatutoryPeriod) {
-                const sss = statutoryGrid.find((b: any) => b.type === 'SSS' && monthlyBasic >= Number(b.minCompensation) && (b.maxCompensation === null || monthlyBasic <= Number(b.maxCompensation)));
+                // SSS
+                const sss = statutoryGrid.find((b: any) => 
+                    b.type === 'SSS' && 
+                    monthlyBasic >= Number(b.minCompensation) && 
+                    (b.maxCompensation === null || monthlyBasic <= Number(b.maxCompensation))
+                );
                 if (sss) {
                     const amt = Number(sss.employeeShareAmount);
                     items.push({ code: 'SSS', name: 'SSS Contribution', type: 'DEDUCTION', amount: amt.toFixed(2) });
                     totalDeductions += amt;
                     items.push({ code: 'ER_SSS', name: 'Employer SSS', type: 'EMPLOYER_COST', amount: Number(sss.employerShareAmount || 0).toFixed(2) });
                 }
-                const phic = statutoryGrid.find((b: any) => b.type === 'PHIC');
+
+                // PHIC (Salary Based)
+                const phic = statutoryGrid.find((b: any) => 
+                    b.type === 'PHIC' && 
+                    monthlyBasic >= Number(b.minCompensation) && 
+                    (b.maxCompensation === null || monthlyBasic <= Number(b.maxCompensation))
+                );
                 if (phic) {
-                    const amt = monthlyBasic * Number(phic.employeeShareRate || 0.025);
+                    const rate = Number(phic.employeeShareRate || 0);
+                    const amt = rate > 0 ? (monthlyBasic * rate) : Number(phic.employeeShareAmount || 0);
                     items.push({ code: 'PHIC', name: 'PhilHealth', type: 'DEDUCTION', amount: amt.toFixed(2) });
                     totalDeductions += amt;
                     items.push({ code: 'ER_PHIC', name: 'Employer PhilHealth', type: 'EMPLOYER_COST', amount: amt.toFixed(2) });
                 }
-                const hdmf = statutoryGrid.find((b: any) => b.type === 'HDMF');
+
+                // HDMF (Fixed or rate based on 1.5k threshold)
+                const hdmf = statutoryGrid.find((b: any) => 
+                    b.type === 'HDMF' && 
+                    monthlyBasic >= Number(b.minCompensation) && 
+                    (b.maxCompensation === null || monthlyBasic <= Number(b.maxCompensation))
+                );
                 if (hdmf) {
-                    const amt = Number(hdmf.employeeShareAmount || 200);
+                    const rate = Number(hdmf.employeeShareRate || 0);
+                    const amt = rate > 0 ? (monthlyBasic * rate) : Number(hdmf.employeeShareAmount || 200);
                     items.push({ code: 'HDMF', name: 'Pag-IBIG', type: 'DEDUCTION', amount: amt.toFixed(2) });
                     totalDeductions += amt;
                     items.push({ code: 'ER_HDMF', name: 'Employer Pag-IBIG', type: 'EMPLOYER_COST', amount: amt.toFixed(2) });
+                }
+            }
+
+            // E. Withholding Tax (WTAX) - Every Cutoff (Semi-Monthly)
+            const wtaxBracket = statutoryGrid.find((b: any) => 
+                b.type === 'WTAX' && 
+                taxableIncome >= Number(b.minCompensation) && 
+                (b.maxCompensation === null || taxableIncome <= Number(b.maxCompensation))
+            );
+            if (wtaxBracket) {
+                const excess = taxableIncome - Number(wtaxBracket.minCompensation);
+                const wtaxAmt = Number(wtaxBracket.baseTaxAmount || 0) + (excess * Number(wtaxBracket.excessTaxRate || 0));
+                if (wtaxAmt > 0) {
+                    items.push({ code: 'WTAX', name: 'Withholding Tax', type: 'DEDUCTION', amount: wtaxAmt.toFixed(2) });
+                    totalDeductions += wtaxAmt;
                 }
             }
 

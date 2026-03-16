@@ -77,6 +77,29 @@ export class BatchesService {
         };
     }
 
+    async findEmployeePayslips(employeeId: string) {
+        return this.db.db
+            .select({
+                id: payslips.id,
+                grossPay: payslips.grossPay,
+                totalDeductions: payslips.totalDeductions,
+                netPay: payslips.netPay,
+                createdAt: payslips.createdAt,
+                batch: {
+                    name: payrollBatches.name,
+                    startDate: payrollBatches.startDate,
+                    endDate: payrollBatches.endDate,
+                },
+            })
+            .from(payslips)
+            .innerJoin(payrollBatches, eq(payslips.batchId, payrollBatches.id))
+            .where(and(
+                eq(payslips.employeeId, employeeId),
+                eq(payrollBatches.status, 'COMPLETED')
+            ))
+            .orderBy(desc(payrollBatches.endDate));
+    }
+
     async create(dto: CreatePayrollBatchDto) {
         const [batch] = await this.db.db.insert(payrollBatches).values({
             ...dto,

@@ -416,12 +416,6 @@ export default function EmployeeDetailPage() {
                         Schedule & Attendance
                     </TabsTrigger>
                     {(currentUser?.roles.includes('ADMIN') || currentUser?.roles.includes('HR_ADMIN')) && (
-                        <TabsTrigger value="final-pay" className="rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm font-semibold text-xs uppercase tracking-wider">
-                            <ArrowRight className="w-3 h-3 mr-2 opacity-50" />
-                            Final Pay
-                        </TabsTrigger>
-                    )}
-                    {(currentUser?.roles.includes('ADMIN') || currentUser?.roles.includes('HR_ADMIN')) && (
                         <>
                         <TabsTrigger value="payroll" className="rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm font-semibold text-xs uppercase tracking-wider">
                             <FileText className="w-3 h-3 mr-2 opacity-50" />
@@ -431,6 +425,12 @@ export default function EmployeeDetailPage() {
                             <Wallet className="w-3 h-3 mr-2 opacity-50" />
                             Compensation
                         </TabsTrigger>
+                        {employee.status !== 'ACTIVE' && employee.status !== 'PROBATION' && (
+                            <TabsTrigger value="final-pay" className="rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm font-semibold text-xs uppercase tracking-wider">
+                                <ArrowRight className="w-3 h-3 mr-2 opacity-50" />
+                                Final Pay
+                            </TabsTrigger>
+                        )}
                         </>
                     )}
                 </TabsList>
@@ -489,9 +489,11 @@ export default function EmployeeDetailPage() {
                             fetchAncillaryData={fetchAncillaryData}
                         />
                     </TabsContent>
-                    <TabsContent value="final-pay" className="space-y-6 outline-hidden">
-                        <FinalPayTab employee={employee} />
-                    </TabsContent>
+                    {employee.status !== 'ACTIVE' && employee.status !== 'PROBATION' && (
+                        <TabsContent value="final-pay" className="space-y-6 outline-hidden">
+                            <FinalPayTab employee={employee} />
+                        </TabsContent>
+                    )}
                     </>
                 )}
             </Tabs>
