@@ -1,6 +1,12 @@
 # Hybrid HRIS
 
-A high-performance, modular Human Resource Information System designed for hybrid deployment.
+A high-performance, modular Human Resource Information System.
+
+## Important: Philippine Localization
+
+This system is specifically architected to comply with **Philippine labor laws and taxation regulations**. While many modules (like Org Management, Skills, and Training) are universally applicable, the **Payroll, Benefits, and Accounting** modules are tailored for DOLE, BIR, and statutory requirements (SSS, PhilHealth, Pag-IBIG) of the Philippines.
+
+Adapting the payroll engine for other countries would require significant modifications.
 
 ### Live Demo & Access
 
