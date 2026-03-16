@@ -32,6 +32,7 @@ import { attendanceLogs } from '../schema/attendance-logs';
 import { manpowerRequests } from '../schema/manpower-requests';
 import { manpowerRequestApprovals } from '../schema/manpower-request-approvals';
 import { jobPostings } from '../schema/job-postings';
+import { jobLevels } from '../schema/job-levels';
 import { faker } from '@faker-js/faker';
 import { seedSkillsEssential } from './skills-seed-essential';
 import { seedSkillsDemo } from './skills-seed-demo';
@@ -192,8 +193,8 @@ export async function seedSystem() {
     const allOrgUnits = await db.select().from(orgUnits);
     const leafOrgs = allOrgUnits.filter(ou => !allOrgUnits.some(child => child.parentId === ou.id));
 
-    // --- 6. Positions ---
-    console.log('  - Seeding positions...');
+    // --- 6. Positions & Job Levels ---
+    console.log('  - Seeding positions & job levels...');
     const posData = [
         { code: 'CEO', title: 'Chief Executive Officer' },
         { code: 'DIV_HEAD', title: 'Division Director' },
@@ -212,6 +213,7 @@ export async function seedSystem() {
         await db.insert(positions).values({ ...pos, isActive: true }).onConflictDoNothing();
     }
     const allPositions = await db.select().from(positions);
+    const allLevels = await db.select().from(jobLevels);
 
     // --- 7. Employees & Users (Hierarchical) ---
     console.log('  - Generating employees with proper reporting lines...');
@@ -220,9 +222,10 @@ export async function seedSystem() {
     const unitManagers = new Map<string, string>(); // orgUnitId -> employeeId
 
     async function createEmployee(data: {
-        email: string, roleCode: string, posCode: string, orgId: string, fname: string, lname: string, empNo: string, supervisorId?: string
+        email: string, roleCode: string, posCode: string, levelCode: string, orgId: string, fname: string, lname: string, empNo: string, supervisorId?: string
     }) {
         const pos = allPositions.find(p => p.code === data.posCode) || allPositions[0];
+        const level = allLevels.find(l => l.code === data.levelCode) || allLevels[0];
 
         const [emp] = await db.insert(employees).values({
             employeeNo: data.empNo,
@@ -230,6 +233,7 @@ export async function seedSystem() {
             lastName: data.lname,
             orgUnitId: data.orgId,
             positionId: pos.id,
+            jobLevelId: level.id,
             supervisorId: data.supervisorId || null,
             hireDate: '2022-01-01',
             status: 'ACTIVE',
@@ -301,12 +305,12 @@ export async function seedSystem() {
     // A. Root Management
     console.log('    * Seeding Root Leaders...');
     const { emp: ceo, usr: ceoUser } = await createEmployee({
-        email: 'ceo@hybrid-hris.local', roleCode: 'MANAGER', posCode: 'CEO', orgId: hqId, fname: 'Arthur', lname: 'Chief', empNo: 'EMP-000001'
+        email: 'ceo@hybrid-hris.local', roleCode: 'MANAGER', posCode: 'CEO', levelCode: 'L6', orgId: hqId, fname: 'Arthur', lname: 'Chief', empNo: 'EMP-000001'
     });
     unitManagers.set(hqId, ceo.id);
 
     const { emp: sysAdmin, usr: adminUser } = await createEmployee({
-        email: 'admin@hybrid-hris.local', roleCode: 'ADMIN', posCode: 'SYS_ADMIN', orgId: hqId, fname: 'System', lname: 'Root', empNo: 'EMP-000002', supervisorId: ceo.id
+        email: 'admin@hybrid-hris.local', roleCode: 'ADMIN', posCode: 'SYS_ADMIN', levelCode: 'L4', orgId: hqId, fname: 'System', lname: 'Root', empNo: 'EMP-000002', supervisorId: ceo.id
     });
     adminUserObj = adminUser;
     employeeList.push(ceo, sysAdmin);
@@ -318,6 +322,7 @@ export async function seedSystem() {
             email: `${div.code.toLowerCase()}@hybrid-hris.local`, 
             roleCode: 'MANAGER', 
             posCode: 'DIV_HEAD', 
+            levelCode: 'L5',
             orgId: div.id, 
             fname: faker.person.firstName(), 
             lname: faker.person.lastName(), 
@@ -340,6 +345,7 @@ export async function seedSystem() {
             email: isHR ? 'hr@hybrid-hris.local' : `${leaf.code.toLowerCase()}-mgr@hybrid-hris.local`, 
             roleCode: isHR ? 'HR_ADMIN' : 'MANAGER', 
             posCode: isHR ? 'HR_MGR' : 'DEPT_MGR', 
+            levelCode: 'L4',
             orgId: leaf.id, 
             fname: faker.person.firstName(), 
             lname: faker.person.lastName(), 
@@ -366,6 +372,7 @@ export async function seedSystem() {
             email: faker.internet.email({ firstName: fname, lastName: lname }).toLowerCase(),
             roleCode: SystemRole.EMPLOYEE,
             posCode: leaf.code === 'HR' ? 'HR_GEN' : (leaf.code === 'FIN' ? 'ACC' : (leaf.code === 'QA' ? 'QA_ENG' : 'SWE')),
+            levelCode: faker.helpers.arrayElement(['L1', 'L2']),
             orgId: leaf.id,
             fname,
             lname,

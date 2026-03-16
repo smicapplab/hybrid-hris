@@ -14,6 +14,7 @@ import { sql } from 'drizzle-orm';
 
 import { orgUnits } from './org-units';
 import { positions } from './positions';
+import { jobLevels } from './job-levels';
 import { EMPLOYEE_STATUSES, EMPLOYMENT_TYPES } from '@hybrid-hris/domain';
 
 export const employmentTypeEnum = pgEnum('employment_type', EMPLOYMENT_TYPES);
@@ -62,6 +63,9 @@ export const employees = pgTable(
       .notNull()
       .references(() => positions.id, { onDelete: 'restrict' }),
 
+    jobLevelId: uuid('job_level_id')
+      .references(() => jobLevels.id, { onDelete: 'set null' }),
+
     supervisorId: uuid('supervisor_id'),
 
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -80,6 +84,7 @@ export const employees = pgTable(
     deletedAtIdx: index('employees_deleted_at_idx').on(t.deletedAt),
     orgUnitIdx: index('employees_org_unit_idx').on(t.orgUnitId),
     positionIdx: index('employees_position_idx').on(t.positionId),
+    jobLevelIdx: index('employees_job_level_idx').on(t.jobLevelId),
     orgUnitPositionIdx: index('employees_org_unit_position_idx').on(
       t.orgUnitId,
       t.positionId,

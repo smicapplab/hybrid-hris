@@ -16,6 +16,7 @@ export interface PresenceRecord {
         workDate: string;
         actualInAt: Date | null;
         scheduledInAt: Date | null;
+        gracePeriodMinutes: number;
     } | null;
 }
 
@@ -75,14 +76,24 @@ export class PresenceService {
             }
 
             const scheduledInAt = this.getScheduledInTime(today, schedule.startTime);
+            const gracePeriodMinutes = schedule.gracePeriodMinutes ?? 0;
 
             if (!log?.actualInAt) {
-                return { employee: emp, status: 'ABSENT', log: { workDate: today, scheduledInAt, actualInAt: null } };
+                return { 
+                    employee: emp, 
+                    status: 'ABSENT', 
+                    log: { 
+                        workDate: today, 
+                        scheduledInAt, 
+                        actualInAt: null,
+                        gracePeriodMinutes
+                    } 
+                };
             }
 
-            // 5 minute grace period
-            const gracePeriod = 5 * 60 * 1000;
-            const status = log.actualInAt.getTime() > scheduledInAt.getTime() + gracePeriod ? 'LATE' : 'ON_TIME';
+            // Apply grace period from shift snapshot
+            const gracePeriodMs = gracePeriodMinutes * 60 * 1000;
+            const status = log.actualInAt.getTime() > scheduledInAt.getTime() + gracePeriodMs ? 'LATE' : 'ON_TIME';
 
             return {
                 employee: emp,
@@ -91,6 +102,7 @@ export class PresenceService {
                     workDate: today,
                     actualInAt: log.actualInAt,
                     scheduledInAt,
+                    gracePeriodMinutes
                 }
             };
         });
@@ -107,7 +119,6 @@ export class PresenceService {
 
         // Supervisors/Managers see their subordinates
         if (actor.employeeId && (actor.roles.includes(SystemRole.MANAGER) || actor.roles.includes(SystemRole.SUPERVISOR))) {
-             // This method needs to be implemented or found in OrgUnitsService
             return this.orgUnitsService.findSubordinateIdsByManager(actor.employeeId);
         }
         

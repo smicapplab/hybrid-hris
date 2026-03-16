@@ -30,6 +30,7 @@ CREATE TYPE "public"."manpower_request_type" AS ENUM('NEW_HEADCOUNT', 'REPLACEME
 CREATE TYPE "public"."request_priority" AS ENUM('LOW', 'NORMAL', 'HIGH', 'URGENT');--> statement-breakpoint
 CREATE TYPE "public"."manpower_approval_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
 CREATE TYPE "public"."job_posting_status" AS ENUM('DRAFT', 'OPEN', 'CLOSED');--> statement-breakpoint
+CREATE TYPE "public"."payroll_component_type" AS ENUM('EARNING', 'DEDUCTION');--> statement-breakpoint
 CREATE TABLE "employees" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"employee_no" varchar(50) NOT NULL,
@@ -49,6 +50,7 @@ CREATE TABLE "employees" (
 	"timezone" varchar(50),
 	"org_unit_id" uuid NOT NULL,
 	"position_id" uuid NOT NULL,
+	"job_level_id" uuid,
 	"supervisor_id" uuid,
 	"deleted_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -376,6 +378,7 @@ CREATE TABLE "shift_templates" (
 	"start_time" varchar(5) NOT NULL,
 	"end_time" varchar(5) NOT NULL,
 	"break_minutes" integer NOT NULL,
+	"grace_period_minutes" integer DEFAULT 0 NOT NULL,
 	"is_flexible" boolean DEFAULT false NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"is_mon" boolean DEFAULT true NOT NULL,
@@ -397,6 +400,7 @@ CREATE TABLE "employee_shift_assignments" (
 	"start_time" varchar(5) NOT NULL,
 	"end_time" varchar(5) NOT NULL,
 	"break_minutes" integer NOT NULL,
+	"grace_period_minutes" integer DEFAULT 0 NOT NULL,
 	"is_flexible" boolean NOT NULL,
 	"is_mon" boolean NOT NULL,
 	"is_tue" boolean NOT NULL,
@@ -418,6 +422,7 @@ CREATE TABLE "pending_employee_shift_assignments" (
 	"start_time" varchar(5) NOT NULL,
 	"end_time" varchar(5) NOT NULL,
 	"break_minutes" integer NOT NULL,
+	"grace_period_minutes" integer DEFAULT 0 NOT NULL,
 	"is_flexible" boolean NOT NULL,
 	"is_mon" boolean NOT NULL,
 	"is_tue" boolean NOT NULL,
@@ -752,8 +757,36 @@ CREATE TABLE "position_skills" (
 	CONSTRAINT "position_skills_position_skill_uq" UNIQUE("position_id","skill_id")
 );
 --> statement-breakpoint
+CREATE TABLE "job_levels" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"code" varchar(50) NOT NULL,
+	"name" varchar(100) NOT NULL,
+	"description" text,
+	"rank_order" integer NOT NULL,
+	"deleted_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "payroll_components" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"code" varchar(50) NOT NULL,
+	"name" varchar(150) NOT NULL,
+	"description" text,
+	"type" "payroll_component_type" NOT NULL,
+	"is_taxable" boolean DEFAULT true NOT NULL,
+	"is_de_minimis" boolean DEFAULT false NOT NULL,
+	"is_statutory" boolean DEFAULT false NOT NULL,
+	"is_recurring" boolean DEFAULT true NOT NULL,
+	"tax_exempt_limit" numeric(12, 2) DEFAULT '0' NOT NULL,
+	"deleted_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_positions_id_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employees" ADD CONSTRAINT "employees_job_level_id_job_levels_id_fk" FOREIGN KEY ("job_level_id") REFERENCES "public"."job_levels"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_supervisor_fk" FOREIGN KEY ("supervisor_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employee_identifiers" ADD CONSTRAINT "employee_identifiers_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "employee_profiles" ADD CONSTRAINT "employee_profiles_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -847,6 +880,7 @@ CREATE INDEX "employees_status_idx" ON "employees" USING btree ("employee_status
 CREATE INDEX "employees_deleted_at_idx" ON "employees" USING btree ("deleted_at");--> statement-breakpoint
 CREATE INDEX "employees_org_unit_idx" ON "employees" USING btree ("org_unit_id");--> statement-breakpoint
 CREATE INDEX "employees_position_idx" ON "employees" USING btree ("position_id");--> statement-breakpoint
+CREATE INDEX "employees_job_level_idx" ON "employees" USING btree ("job_level_id");--> statement-breakpoint
 CREATE INDEX "employees_org_unit_position_idx" ON "employees" USING btree ("org_unit_id","position_id");--> statement-breakpoint
 CREATE INDEX "employees_supervisor_idx" ON "employees" USING btree ("supervisor_id");--> statement-breakpoint
 CREATE INDEX "employee_identifiers_employee_id_idx" ON "employee_identifiers" USING btree ("employee_id");--> statement-breakpoint
@@ -968,4 +1002,6 @@ CREATE INDEX "training_schedules_trainer_idx" ON "training_schedules" USING btre
 CREATE INDEX "training_enrollments_employee_idx" ON "training_enrollments" USING btree ("employee_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "training_enrollments_schedule_employee_uq" ON "training_enrollments" USING btree ("schedule_id","employee_id");--> statement-breakpoint
 CREATE INDEX "position_skills_position_idx" ON "position_skills" USING btree ("position_id");--> statement-breakpoint
-CREATE INDEX "position_skills_skill_idx" ON "position_skills" USING btree ("skill_id");
+CREATE INDEX "position_skills_skill_idx" ON "position_skills" USING btree ("skill_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "job_levels_code_uq" ON "job_levels" USING btree ("code") WHERE deleted_at IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "payroll_components_code_uq" ON "payroll_components" USING btree ("code") WHERE deleted_at IS NULL;

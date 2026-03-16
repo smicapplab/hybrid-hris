@@ -29,6 +29,7 @@ export const shiftTemplates = pgTable(
         endTime: varchar('end_time', { length: 5 }).notNull(),
 
         breakMinutes: integer('break_minutes').notNull(),
+        gracePeriodMinutes: integer('grace_period_minutes').default(0).notNull(),
 
         isFlexible: boolean('is_flexible').default(false).notNull(),
         isActive: boolean('is_active').default(true).notNull(),

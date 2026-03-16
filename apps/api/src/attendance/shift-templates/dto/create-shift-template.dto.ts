@@ -28,6 +28,10 @@ export class CreateShiftTemplateDto {
     @Min(0)
     breakMinutes!: number
 
+    @IsInt()
+    @Min(0)
+    gracePeriodMinutes!: number
+
     @IsBoolean()
     isFlexible!: boolean
 

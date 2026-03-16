@@ -34,6 +34,7 @@ const INITIAL_FORM_DATA = {
     startTime: '08:00',
     endTime: '17:00',
     breakMinutes: 60,
+    gracePeriodMinutes: 0,
     isFlexible: false,
     isActive: true,
     isMon: true, isTue: true, isWed: true, isThu: true, isFri: true, isSat: false, isSun: false
@@ -92,6 +93,7 @@ export default function ShiftTemplatesPage() {
             startTime: t.startTime,
             endTime: t.endTime,
             breakMinutes: t.breakMinutes,
+            gracePeriodMinutes: t.gracePeriodMinutes || 0,
             isFlexible: t.isFlexible,
             isActive: t.isActive,
             isMon: t.isMon, isTue: t.isTue, isWed: t.isWed, isThu: t.isThu, isFri: t.isFri, isSat: t.isSat, isSun: t.isSun
@@ -184,7 +186,9 @@ export default function ShiftTemplatesPage() {
                                     <TableCell>
                                         <div className="flex flex-col">
                                             <span className="font-bold text-sm">{t.startTime} - {t.endTime}</span>
-                                            <span className="text-[10px] text-muted-foreground uppercase">{t.breakMinutes}m break · {t.isFlexible ? 'Flexible' : 'Fixed'}</span>
+                                            <span className="text-[10px] text-muted-foreground uppercase">
+                                                {t.breakMinutes}m break · {t.gracePeriodMinutes || 0}m grace · {t.isFlexible ? 'Flexible' : 'Fixed'}
+                                            </span>
                                         </div>
                                     </TableCell>
                                     <TableCell>
@@ -269,6 +273,15 @@ export default function ShiftTemplatesPage() {
                                 label="Break (Minutes)" 
                                 value={formData.breakMinutes.toString()} 
                                 onChangeAction={v => setFormData({...formData, breakMinutes: parseInt(v) || 0})}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <RequiredInput 
+                                type="number"
+                                label="Grace Period (Mins)" 
+                                value={formData.gracePeriodMinutes.toString()} 
+                                onChangeAction={v => setFormData({...formData, gracePeriodMinutes: parseInt(v) || 0})}
                             />
                         </div>
 

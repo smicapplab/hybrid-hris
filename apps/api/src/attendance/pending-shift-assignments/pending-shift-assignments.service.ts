@@ -103,6 +103,7 @@ export class PendingShiftAssignmentsService {
                 startTime: ov.startTime ?? template.startTime,
                 endTime: ov.endTime ?? template.endTime,
                 breakMinutes: ov.breakMinutes ?? template.breakMinutes,
+                gracePeriodMinutes: ov.gracePeriodMinutes ?? template.gracePeriodMinutes,
                 isFlexible: ov.isFlexible ?? template.isFlexible,
                 isMon: ov.isMon ?? template.isMon,
                 isTue: ov.isTue ?? template.isTue,
@@ -167,7 +168,7 @@ export class PendingShiftAssignmentsService {
      * Finds all pending assignments whose effective date has arrived and applies them.
      */
     async applyAllReady(): Promise<{ count: number }> {
-        const today = new Date().toISOString().split('T')[0]!
+        const today = new Date().toISOString().slice(0, 10);
         const ready = await this.db.db
             .select({ id: pendingEmployeeShiftAssignments.id, employeeId: pendingEmployeeShiftAssignments.employeeId })
             .from(pendingEmployeeShiftAssignments)
@@ -215,6 +216,7 @@ export class PendingShiftAssignmentsService {
                     startTime: pending.startTime,
                     endTime: pending.endTime,
                     breakMinutes: pending.breakMinutes,
+                    gracePeriodMinutes: pending.gracePeriodMinutes,
                     isFlexible: pending.isFlexible,
                     isMon: pending.isMon,
                     isTue: pending.isTue,
@@ -229,10 +231,11 @@ export class PendingShiftAssignmentsService {
                     target: employeeShiftAssignments.employeeId,
                     set: {
                         shiftTemplateId: pending.shiftTemplateId,
-                        startTime: pending.startTime,
-                        endTime: pending.endTime,
+                        startTime:    pending.startTime,
+                        endTime:      pending.endTime,
                         breakMinutes: pending.breakMinutes,
-                        isFlexible: pending.isFlexible,
+                        gracePeriodMinutes: pending.gracePeriodMinutes,
+                        isFlexible:   pending.isFlexible,
                         isMon: pending.isMon,
                         isTue: pending.isTue,
                         isWed: pending.isWed,

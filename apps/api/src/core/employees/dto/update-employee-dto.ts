@@ -120,6 +120,10 @@ export class UpdateEmployeeDto {
 
     @IsOptional()
     @IsUUID()
+    jobLevelId?: string | null
+
+    @IsOptional()
+    @IsUUID()
     supervisorId?: string | null
 
     @IsOptional()

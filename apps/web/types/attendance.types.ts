@@ -102,6 +102,7 @@ export type ShiftTemplate = {
     startTime: string;
     endTime: string;
     breakMinutes: number;
+    gracePeriodMinutes: number;
     isFlexible: boolean;
     isActive: boolean;
     isMon: boolean;
@@ -122,6 +123,7 @@ export type ShiftAssignment = {
     startTime: string;
     endTime: string;
     breakMinutes: number;
+    gracePeriodMinutes: number;
     isFlexible: boolean;
     isMon: boolean;
     isTue: boolean;
@@ -143,6 +145,7 @@ export type PendingChangeItem = {
     startTime: string;
     endTime: string;
     breakMinutes: number;
+    gracePeriodMinutes: number;
     isFlexible: boolean;
     isMon: boolean;
     isTue: boolean;
@@ -158,4 +161,37 @@ export type PendingChangeItem = {
         lastName: string;
         employeeNo: string;
     };
+};
+
+export type PresenceStatus = 'ON_TIME' | 'LATE' | 'ABSENT' | 'ON_LEAVE' | 'OFF_DAY' | 'NO_SCHEDULE';
+
+export type PresenceRecord = {
+    employee: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        employeeNo: string;
+    };
+    status: PresenceStatus;
+    log: {
+        workDate: string;
+        actualInAt: string | null;
+        scheduledInAt: string | null;
+        gracePeriodMinutes: number;
+    } | null;
+};
+
+export type PayrollComponent = {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    type: 'EARNING' | 'DEDUCTION';
+    isTaxable: boolean;
+    isDeMinimis: boolean;
+    isStatutory: boolean;
+    isRecurring: boolean;
+    taxExemptLimit: string;
+    createdAt: string;
+    updatedAt: string;
 };

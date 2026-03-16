@@ -101,6 +101,7 @@ export class EmployeesService {
             profile: result.profile ?? null,
             identifiers: result.identifiers ?? null,
             policyId: result.policyId ?? null,
+            jobLevelName: result.jobLevelName ?? null,
             roleIds: result.roleIds,
         }
     }
@@ -157,6 +158,7 @@ export class EmployeesService {
                 orgUnitId: dto.orgUnitId,
                 positionId: dto.positionId,
                 supervisorId: dto.supervisorId ?? null,
+                jobLevelId: dto.jobLevelId ?? null,
                 hireDate: dto.hireDate,
                 employmentType,
                 // PROBATIONARY hires start in PROBATION status; everyone else starts ACTIVE
@@ -290,7 +292,7 @@ export class EmployeesService {
                 'firstName', 'middleName', 'lastName', 'alternateEmail',
                 'hireDate', 'employmentType', 'addressLine1', 'addressLine2',
                 'city', 'province', 'postalCode', 'countryCode', 'timezone',
-                'orgUnitId', 'positionId', 'supervisorId',
+                'orgUnitId', 'positionId', 'supervisorId', 'jobLevelId',
             ]
 
             const updatePayload: Partial<InferSelectModel<typeof employees>> = {}

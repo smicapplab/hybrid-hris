@@ -12,15 +12,16 @@ import {
 import { Button } from '@/components/ui/button'
 import { DatePickerField } from '@/components/ui/date-picker-field'
 import { RequiredSelect } from '@/components/ui/required-select'
+import { RequiredInput } from '@/components/ui/required-input'
 import { SelectItem } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { apiFetch } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import type { ShiftTemplate, ShiftAssignment } from '@/types/attendance.types'
+import type { ShiftTemplate } from '@/types/attendance.types'
 import { format } from 'date-fns'
-import { Clock, Calendar, AlertCircle } from 'lucide-react'
+import { Clock, Calendar } from 'lucide-react'
 
 interface ChangeScheduleDialogProps {
     employeeId: string
@@ -49,6 +50,7 @@ export function ChangeScheduleDialog({
     const [startTime, setStartTime] = useState('08:00')
     const [endTime, setEndTime] = useState('17:00')
     const [breakMinutes, setBreakMinutes] = useState(60)
+    const [gracePeriodMinutes, setGracePeriodMinutes] = useState(0)
     const [days, setDays] = useState({
         isMon: true, isTue: true, isWed: true, isThu: true, isFri: true, isSat: false, isSun: false
     })
@@ -57,6 +59,7 @@ export function ChangeScheduleDialog({
         if (open) {
             fetchTemplates()
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open])
 
     async function fetchTemplates() {
@@ -79,6 +82,7 @@ export function ChangeScheduleDialog({
         setStartTime(t.startTime)
         setEndTime(t.endTime)
         setBreakMinutes(t.breakMinutes)
+        setGracePeriodMinutes(t.gracePeriodMinutes || 0)
         setDays({
             isMon: t.isMon,
             isTue: t.isTue,
@@ -111,6 +115,7 @@ export function ChangeScheduleDialog({
                     startTime,
                     endTime,
                     breakMinutes,
+                    gracePeriodMinutes,
                     ...days
                 } : undefined
             }
@@ -144,7 +149,7 @@ export function ChangeScheduleDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-125">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-primary" />
@@ -206,7 +211,7 @@ export function ChangeScheduleDialog({
                                     type="time" 
                                     value={startTime} 
                                     onChange={e => setStartTime(e.target.value)}
-                                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                 />
                             </div>
                             <div className="space-y-1.5">
@@ -215,7 +220,23 @@ export function ChangeScheduleDialog({
                                     type="time" 
                                     value={endTime} 
                                     onChange={e => setEndTime(e.target.value)}
-                                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                />
+                            </div>
+                            <div className="pt-2">
+                                <RequiredInput 
+                                    type="number"
+                                    label="Break (Mins)" 
+                                    value={breakMinutes.toString()} 
+                                    onChangeAction={v => setBreakMinutes(parseInt(v) || 0)}
+                                />
+                            </div>
+                            <div className="pt-2">
+                                <RequiredInput 
+                                    type="number"
+                                    label="Grace (Mins)" 
+                                    value={gracePeriodMinutes.toString()} 
+                                    onChangeAction={v => setGracePeriodMinutes(parseInt(v) || 0)}
                                 />
                             </div>
                         </div>
@@ -246,7 +267,7 @@ export function ChangeScheduleDialog({
                     <Button variant="ghost" onClick={() => onOpenChange(false)} className="font-bold">
                         Cancel
                     </Button>
-                    <Button onClick={handleSubmit} disabled={loading || !selectedTemplateId} className="font-bold min-w-[120px]">
+                    <Button onClick={handleSubmit} disabled={loading || !selectedTemplateId} className="font-bold min-w-30">
                         {loading ? 'Processing...' : 'Save Schedule'}
                     </Button>
                 </DialogFooter>

@@ -89,7 +89,7 @@ export class ShiftTemplatesService {
         }
 
         const allowedFields: (keyof UpdateShiftTemplateDto)[] = [
-            'name', 'startTime', 'endTime', 'breakMinutes', 'isFlexible', 'isActive',
+            'name', 'startTime', 'endTime', 'breakMinutes', 'gracePeriodMinutes', 'isFlexible', 'isActive',
             'isMon', 'isTue', 'isWed', 'isThu', 'isFri', 'isSat', 'isSun',
         ]
 

@@ -44,3 +44,5 @@ export * from './training-programs';
 export * from './training-schedules';
 export * from './training-enrollments';
 export * from './position-skills';
+export * from './job-levels';
+export * from './payroll-components';

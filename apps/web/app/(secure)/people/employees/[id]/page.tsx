@@ -25,7 +25,7 @@ import type { OrgUnitOption } from '@/types/org-unit.type'
 import type { PositionOption } from '@/types/position.types'
 import type { LeavePolicy } from '@/types/leave.types'
 import type { Role } from '@/lib/auth-types'
-import type { ShiftAssignment, AttendanceLog } from '@/types/attendance.types'
+import type { ShiftAssignment, AttendanceLog, PendingChangeItem } from '@/types/attendance.types'
 import {
     isEmployeeStatus,
     isEmploymentType,
@@ -41,7 +41,7 @@ import { COUNTRY_OPTIONS, EMPLOYMENT_TYPE_LABELS, STATUS_CONFIG, TIMEZONE_OPTION
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Clock, Calendar as CalendarIcon, ArrowRight, ShieldCheck, User as UserIcon, Trash2 } from 'lucide-react'
+import { Clock, Calendar as CalendarIcon, ArrowRight, ShieldCheck, User as UserIcon, Trash2, Wallet } from 'lucide-react'
 import { ChangeScheduleDialog } from '../components/change-schedule-dialog'
 import {
     Table,
@@ -52,6 +52,25 @@ import {
     TableRow,
 } from '@/components/ui/table'
 
+interface JobLevel {
+    id: string;
+    code: string;
+    name: string;
+}
+
+// Helper to format days of week for any shift-like object
+const getShiftDays = (s: ShiftAssignment | PendingChangeItem) => {
+    const days = [];
+    if (s.isMon) days.push('Mon');
+    if (s.isTue) days.push('Tue');
+    if (s.isWed) days.push('Wed');
+    if (s.isThu) days.push('Thu');
+    if (s.isFri) days.push('Fri');
+    if (s.isSat) days.push('Sat');
+    if (s.isSun) days.push('Sun');
+    return days.join(', ');
+}
+
 export default function EmployeeDetailPage() {
     const { id } = useParams<{ id: string }>()
     const router = useRouter()
@@ -61,6 +80,7 @@ export default function EmployeeDetailPage() {
     const [originalStatus, setOriginalStatus] = useState<string | null>(null)
     const [allowedNextStatuses, setAllowedNextStatuses] = useState<string[]>([])
     const [positions, setPositions] = useState<PositionOption[]>([])
+    const [jobLevels, setJobLevels] = useState<JobLevel[]>([])
     const [policies, setPolicies] = useState<LeavePolicy[]>([])
     const [roles, setRoles] = useState<Role[]>([])
     const [currentOrgUnit, setCurrentOrgUnit] = useState<OrgUnitOption | null>(null)
@@ -70,41 +90,52 @@ export default function EmployeeDetailPage() {
     const [formError, setFormError] = useState<string | null>(null)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
     const [activeTab, setActiveTab] = useState('work')
-    const [pendingShifts, setPendingShifts] = useState<any[]>([])
+    const [pendingShifts, setPendingShifts] = useState<PendingChangeItem[]>([])
     const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([])
     const [isChangeScheduleOpen, setIsChangeScheduleOpen] = useState(false)
 
     const fetchOrgUnits = useCallback(async (search: string) => {
-        const list = await apiFetch<OrgUnitOption[]>(
-            `/org-units/search?leavesOnly=true&showDeleted=false&limit=20&query=${encodeURIComponent(search)}`,
-        )
-        if (currentOrgUnit && !list.some((ou) => ou.id === currentOrgUnit.id)) {
-            return [currentOrgUnit, ...list]
+        try {
+            const list = await apiFetch<OrgUnitOption[]>(
+                `/org-units/search?leavesOnly=true&showDeleted=false&limit=20&query=${encodeURIComponent(search)}`,
+            )
+            if (currentOrgUnit && !list.some((ou) => ou.id === currentOrgUnit.id)) {
+                return [currentOrgUnit, ...list]
+            }
+            return list
+        } catch (err) {
+            console.error('Failed to fetch org units:', err)
+            return []
         }
-        return list
     }, [currentOrgUnit])
 
     const fetchSupervisors = useCallback(async (search: string) => {
-        const res = await apiFetch<{ data: SupervisorOption[] }>(
-            `/employees?status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`,
-        )
-        return res.data
+        try {
+            const res = await apiFetch<{ data: SupervisorOption[] }>(
+                `/employees?status=ACTIVE&search=${encodeURIComponent(search)}&pageSize=20`,
+            )
+            return res.data
+        } catch (err) {
+            console.error('Failed to fetch supervisors:', err)
+            return []
+        }
     }, [])
 
-    async function refreshStatusOptions() {
+    const refreshStatusOptions = useCallback(async () => {
         try {
             const opts = await apiFetch<StatusOptionsResponse>(`/employees/${id}/status/options`)
             setAllowedNextStatuses(opts.allowedNext)
-        } catch {
+        } catch (err) {
+            console.error('Failed to refresh status options:', err)
             setAllowedNextStatuses([])
         }
-    }
+    }, [id])
 
     const refreshShift = useCallback(async () => {
         try {
             const [shift, pending, logs] = await Promise.all([
                 apiFetch<ShiftAssignment>(`/shift-assignments?employeeId=${id}`).catch(() => null),
-                apiFetch<any[]>(`/pending-shift-assignments?employeeId=${id}&status=PENDING`).catch(() => []),
+                apiFetch<PendingChangeItem[]>(`/pending-shift-assignments?employeeId=${id}&status=PENDING`).catch(() => []),
                 apiFetch<AttendanceLog[]>(`/attendance?employeeId=${id}`).catch(() => [])
             ])
             setEmployee(prev => prev ? { ...prev, shiftAssignment: shift } : prev)
@@ -122,16 +153,18 @@ export default function EmployeeDetailPage() {
                 setEmployee(data)
                 setOriginalStatus(data.status)
 
-                const [, orgUnit, positionsData, policiesData, rolesData] = await Promise.all([
+                const [, orgUnit, positionsData, jobLevelsData, policiesData, rolesData] = await Promise.all([
                     refreshStatusOptions(),
                     apiFetch<OrgUnitOption>(`/org-units/${data.orgUnitId}`),
                     apiFetch<PositionOption[]>(`/org-units/${data.orgUnitId}/positions`),
+                    apiFetch<JobLevel[]>('/job-levels'),
                     apiFetch<LeavePolicy[]>('/leave-policies?active=true'),
                     apiFetch<Role[]>('/roles'),
                 ])
 
                 setCurrentOrgUnit(orgUnit)
                 setPositions(positionsData)
+                setJobLevels(jobLevelsData)
                 setPolicies(policiesData)
                 setRoles(rolesData)
 
@@ -142,15 +175,14 @@ export default function EmployeeDetailPage() {
                 // Fetch shift assignment and logs
                 refreshShift()
             } catch (err) {
-                console.error(err)
+                console.error('Failed to fetch employee details:', err)
             } finally {
                 setLoading(false)
             }
         }
 
         if (id) fetchEmployee()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, refreshShift])
+    }, [id, refreshShift, refreshStatusOptions])
 
     function validateEmployee(e: Employee, availablePositions: PositionOption[]): Record<string, string> {
         const errors: Record<string, string> = {}
@@ -198,7 +230,7 @@ export default function EmployeeDetailPage() {
                 variant: "success",
             });
         } catch (err) {
-            console.error(err)
+            console.error('Failed to change status:', err)
             setEmployee((prev) => {
                 if (!prev) return prev
                 const revert = originalStatus && isEmployeeStatus(originalStatus) ? originalStatus : prev.status
@@ -206,7 +238,7 @@ export default function EmployeeDetailPage() {
             })
             toast({
                 title: "Status Update Failed",
-                description: "Unable to update employee status. Please try again.",
+                description: err instanceof Error ? err.message : "Unable to update employee status. Please try again.",
                 variant: "destructive",
             });
         } finally {
@@ -233,6 +265,7 @@ export default function EmployeeDetailPage() {
             const {
                 firstName, lastName, middleName, alternateEmail, email,
                 hireDate, employmentType, orgUnitId, positionId, supervisorId,
+                jobLevelId,
                 policyId,
                 roleIds,
                 addressLine1, addressLine2, city, province, postalCode, countryCode,
@@ -251,6 +284,7 @@ export default function EmployeeDetailPage() {
                     employmentType,
                     orgUnitId,
                     positionId,
+                    jobLevelId: jobLevelId ?? null,
                     supervisorId: supervisorId ?? null,
                     policyId: policyId ?? null,
                     roleIds: roleIds ?? [],
@@ -280,7 +314,7 @@ export default function EmployeeDetailPage() {
             });
             router.refresh()
         } catch (err) {
-            console.error(err)
+            console.error('Failed to save employee:', err)
             setFormError(err instanceof Error ? err.message : 'Failed to save. Please try again.')
             toast({
                 title: "Update Failed",
@@ -304,10 +338,10 @@ export default function EmployeeDetailPage() {
             })
             refreshShift()
         } catch (err) {
-            console.error(err)
+            console.error('Failed to cancel pending shift:', err)
             toast({
                 title: "Error",
-                description: "Failed to cancel the pending change.",
+                description: err instanceof Error ? err.message : "Failed to cancel the pending change.",
                 variant: "destructive"
             })
         }
@@ -336,19 +370,6 @@ export default function EmployeeDetailPage() {
     const isSystemAdmin = currentUser?.roles.includes('ADMIN')
     const currentRoleId = employee.roleIds?.[0]
     const currentRoleName = roles.find(r => r.id === currentRoleId)?.name || 'No System Access'
-
-    // Helper to format days of week for shift
-    const getShiftDays = (s: any) => {
-        const days = [];
-        if (s.isMon) days.push('Mon');
-        if (s.isTue) days.push('Tue');
-        if (s.isWed) days.push('Wed');
-        if (s.isThu) days.push('Thu');
-        if (s.isFri) days.push('Fri');
-        if (s.isSat) days.push('Sat');
-        if (s.isSun) days.push('Sun');
-        return days.join(', ');
-    }
 
     return (
         <div className="p-6 space-y-6">
@@ -444,6 +465,10 @@ export default function EmployeeDetailPage() {
                         <Clock className="w-3 h-3 mr-2 opacity-50" />
                         Schedule & Attendance
                     </TabsTrigger>
+                    <TabsTrigger value="compensation" className="rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm font-bold text-xs uppercase tracking-widest">
+                        <Wallet className="w-3 h-3 mr-2 opacity-50" />
+                        Compensation
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="work" className="space-y-6 outline-hidden">
@@ -531,6 +556,17 @@ export default function EmployeeDetailPage() {
                                     </RequiredSelect>
 
                                     <RequiredSelect
+                                        label="Job Level / Rank"
+                                        value={employee.jobLevelId ?? 'none'}
+                                        onChangeAction={(v) => setEmployee({ ...employee, jobLevelId: v === 'none' ? null : v })}
+                                    >
+                                        <SelectItem value="none">Not Assigned</SelectItem>
+                                        {jobLevels.map((l) => (
+                                            <SelectItem key={l.id} value={l.id}>{l.name} ({l.code})</SelectItem>
+                                        ))}
+                                    </RequiredSelect>
+
+                                    <RequiredSelect
                                         label="Timezone"
                                         value={employee.timezone ?? 'UTC'}
                                         onChangeAction={(v) => setEmployee({ ...employee, timezone: v })}
@@ -549,8 +585,10 @@ export default function EmployeeDetailPage() {
                                                     if (!value) return
                                                     setEmployee((prev) => prev ? { ...prev, orgUnitId: value } : prev)
                                                     try {
-                                                        setCurrentOrgUnit(await apiFetch<OrgUnitOption>(`/org-units/${value}`))
-                                                    } catch {
+                                                        const ou = await apiFetch<OrgUnitOption>(`/org-units/${value}`)
+                                                        setCurrentOrgUnit(ou)
+                                                    } catch (err) {
+                                                        console.error(err)
                                                         setCurrentOrgUnit(null)
                                                     }
                                                     const positionsData = await apiFetch<PositionOption[]>(`/org-units/${value}/positions`)
@@ -680,7 +718,7 @@ export default function EmployeeDetailPage() {
                             </div>
 
                             <div className="flex justify-end pt-4">
-                                <Button onClick={handleSave} disabled={saving} className="font-bold min-w-[140px]">
+                                <Button onClick={handleSave} disabled={saving} className="font-bold min-w-35">
                                     {saving ? 'Saving...' : 'Save All Changes'}
                                 </Button>
                             </div>
@@ -848,7 +886,7 @@ export default function EmployeeDetailPage() {
                             </div>
 
                             <div className="flex justify-end pt-4">
-                                <Button onClick={handleSave} disabled={saving} className="font-bold min-w-[140px]">
+                                <Button onClick={handleSave} disabled={saving} className="font-bold min-w-35">
                                     {saving ? 'Saving...' : 'Save All Changes'}
                                 </Button>
                             </div>
@@ -882,7 +920,7 @@ export default function EmployeeDetailPage() {
                                                         {employee.shiftAssignment.startTime} — {employee.shiftAssignment.endTime}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        {employee.shiftAssignment.breakMinutes} min break · {employee.shiftAssignment.isFlexible ? 'Flexible' : 'Fixed'}
+                                                        {employee.shiftAssignment.breakMinutes}m break · {employee.shiftAssignment.gracePeriodMinutes || 0}m grace · {employee.shiftAssignment.isFlexible ? 'Flexible' : 'Fixed'}
                                                     </p>
                                                 </div>
                                             </div>
@@ -914,10 +952,10 @@ export default function EmployeeDetailPage() {
                                         <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
                                             <Clock className="w-6 h-6 text-muted-foreground" />
                                         </div>
-                                        <div className="max-w-[300px] space-y-1">
+                                        <div className="max-w-75 space-y-1">
                                             <p className="font-bold">No active shift assigned</p>
                                             <p className="text-xs text-muted-foreground">
-                                                This employee doesn't have a regular shift schedule yet. 
+                                                This employee doesn&apos;t have a regular shift schedule yet. 
                                                 Assign one to enable automated attendance tracking.
                                             </p>
                                         </div>
@@ -1041,6 +1079,32 @@ export default function EmployeeDetailPage() {
                                     <p className="text-sm">No attendance records found for this employee.</p>
                                 </div>
                             )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="compensation" className="space-y-6 outline-hidden">
+                    <Card className="shadow-sm border-muted/60">
+                        <CardContent className="pt-10 pb-20 flex flex-col items-center justify-center text-center space-y-4">
+                            <div className="w-16 h-16 bg-primary/5 rounded-full flex items-center justify-center mb-2">
+                                <Wallet className="w-8 h-8 text-primary" />
+                            </div>
+                            <div className="max-w-100 space-y-2">
+                                <h3 className="text-xl font-bold">Compensation & Benefits</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Manage salaries, recurring allowances, and statutory benefits for this employee. 
+                                    This module is part of the upcoming Payroll integration.
+                                </p>
+                            </div>
+                            {employee.jobLevelName && (
+                                <div className="mt-4 p-4 border rounded-xl bg-muted/30">
+                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Current Job Level</p>
+                                    <p className="text-lg font-extrabold">{employee.jobLevelName}</p>
+                                </div>
+                            )}
+                            <Button variant="outline" className="mt-4 font-bold border-primary/20 hover:bg-primary/5 text-primary">
+                                Configuration Coming Soon
+                            </Button>
                         </CardContent>
                     </Card>
                 </TabsContent>

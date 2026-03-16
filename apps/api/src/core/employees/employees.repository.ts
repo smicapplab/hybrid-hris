@@ -14,6 +14,7 @@ import {
     userRoles,
     users,
     employeeLeavePolicies,
+    jobLevels,
 } from '@hybrid-hris/db'
 
 @Injectable()
@@ -174,6 +175,7 @@ export class EmployeesRepository {
         profile: InferSelectModel<typeof employeeProfiles> | null
         identifiers: InferSelectModel<typeof employeeIdentifiers> | null
         policyId: string | null
+        jobLevelName: string | null
         roleIds: string[]
     } | null> {
         const includeDeleted = opts?.includeDeleted ?? false
@@ -189,11 +191,13 @@ export class EmployeesRepository {
                 profile: employeeProfiles,
                 identifiers: employeeIdentifiers,
                 policyId: employeeLeavePolicies.policyId,
+                jobLevelName: jobLevels.name,
             })
             .from(employees)
             .leftJoin(users, eq(users.employeeId, employees.id))
             .leftJoin(employeeProfiles, eq(employeeProfiles.employeeId, employees.id))
             .leftJoin(employeeIdentifiers, eq(employeeIdentifiers.employeeId, employees.id))
+            .leftJoin(jobLevels, eq(employees.jobLevelId, jobLevels.id))
             .leftJoin(
                 employeeLeavePolicies,
                 and(

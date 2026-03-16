@@ -51,6 +51,10 @@ export class CreateEmployeeDto {
 
     @IsOptional()
     @IsUUID()
+    jobLevelId?: string
+
+    @IsOptional()
+    @IsUUID()
     supervisorId?: string
 
     @IsDateString()

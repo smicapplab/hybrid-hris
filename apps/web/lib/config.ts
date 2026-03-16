@@ -22,6 +22,7 @@ import {
     Library,
     Umbrella,
     ArrowRight,
+    UserCheck,
 } from "lucide-react";
 
 export const navigation: NavCategory[] = [
@@ -131,6 +132,12 @@ export const navigation: NavCategory[] = [
                 icon: Timer,
                 roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR', 'MANAGER'],
             },
+            {
+                title: "Real-time Presence",
+                url: "/attendance/presence",
+                icon: UserCheck,
+                roles: ['ADMIN', 'HR_ADMIN', 'SUPERVISOR', 'MANAGER'],
+            },
         ]
     },
     {
@@ -182,6 +189,16 @@ export const navigation: NavCategory[] = [
                 title: "Shift Templates",
                 url: "/admin/shift-templates",
                 icon: Clock,
+            },
+            {
+                title: "Job Levels",
+                url: "/admin/job-levels",
+                icon: Shield,
+            },
+            {
+                title: "Payroll Components",
+                url: "/admin/payroll-components",
+                icon: ReceiptText,
             },
             {
                 title: "Pending Changes",

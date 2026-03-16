@@ -38,6 +38,7 @@ export const employeeShiftAssignments = pgTable(
         startTime: varchar('start_time', { length: 5 }).notNull(),
         endTime: varchar('end_time', { length: 5 }).notNull(),
         breakMinutes: integer('break_minutes').notNull(),
+        gracePeriodMinutes: integer('grace_period_minutes').default(0).notNull(),
         isFlexible: boolean('is_flexible').notNull(),
 
         // Work-day snapshot — which days of the week this employee works

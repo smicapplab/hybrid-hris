@@ -109,6 +109,7 @@ export class ShiftAssignmentsService {
                 startTime:    ov.startTime    ?? template.startTime,
                 endTime:      ov.endTime      ?? template.endTime,
                 breakMinutes: ov.breakMinutes ?? template.breakMinutes,
+                gracePeriodMinutes: ov.gracePeriodMinutes ?? template.gracePeriodMinutes,
                 isFlexible:   ov.isFlexible   ?? template.isFlexible,
                 isMon: ov.isMon ?? template.isMon,
                 isTue: ov.isTue ?? template.isTue,
@@ -137,6 +138,7 @@ export class ShiftAssignmentsService {
                         startTime:    values.startTime,
                         endTime:      values.endTime,
                         breakMinutes: values.breakMinutes,
+                        gracePeriodMinutes: values.gracePeriodMinutes,
                         isFlexible:   values.isFlexible,
                         isMon: values.isMon,
                         isTue: values.isTue,
@@ -177,7 +179,7 @@ export class ShiftAssignmentsService {
 
         const allowedFields: (keyof UpdateShiftAssignmentDto)[] = [
             'effectiveFrom',
-            'startTime', 'endTime', 'breakMinutes', 'isFlexible',
+            'startTime', 'endTime', 'breakMinutes', 'gracePeriodMinutes', 'isFlexible',
             'isMon', 'isTue', 'isWed', 'isThu', 'isFri', 'isSat', 'isSun',
         ]
 

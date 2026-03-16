@@ -29,6 +29,11 @@ class OverrideShiftDto {
     breakMinutes?: number
 
     @IsOptional()
+    @IsInt()
+    @Min(0)
+    gracePeriodMinutes?: number
+
+    @IsOptional()
     @IsBoolean()
     isFlexible?: boolean
 

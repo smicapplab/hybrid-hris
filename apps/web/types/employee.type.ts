@@ -27,6 +27,8 @@ export type Employee = WithSerializedTimestamps<DbEmployee> & {
     identifiers?: EmployeeIdentifiers | null
     positionTitle?: string | null
     orgUnitName?: string | null
+    jobLevelId?: string | null
+    jobLevelName?: string | null
     policyId?: string | null
     roleIds?: string[]
     shiftAssignment?: ShiftAssignment | null

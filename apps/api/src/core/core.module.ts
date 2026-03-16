@@ -13,6 +13,7 @@ import { SkillsModule } from './skills/skills.module';
 import { TrainingModule } from './training/training.module';
 import { AutomationModule } from './automation/automation.module';
 import { PendingShiftAssignmentsModule } from '../attendance/pending-shift-assignments/pending-shift-assignments.module';
+import { CompensationModule } from './compensation/compensation.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { PendingShiftAssignmentsModule } from '../attendance/pending-shift-assig
     TrainingModule,
     AutomationModule,
     PendingShiftAssignmentsModule,
+    CompensationModule,
   ],
   providers: [],
   exports: [
@@ -46,6 +48,7 @@ import { PendingShiftAssignmentsModule } from '../attendance/pending-shift-assig
     SkillsModule,
     TrainingModule,
     AutomationModule,
+    CompensationModule,
   ]
 })
 export class CoreModule { }
