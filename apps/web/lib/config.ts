@@ -217,6 +217,11 @@ export const navigation: NavCategory[] = [
                 icon: Calculator,
             },
             {
+                title: "13th Month Management",
+                url: "/admin/payroll/thirteenth-month",
+                icon: Wallet,
+            },
+            {
                 title: "Pending Changes",
                 url: "/admin/pending-changes",
                 icon: ArrowRight,

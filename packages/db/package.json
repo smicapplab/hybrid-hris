@@ -24,6 +24,7 @@
   "dependencies": {
     "@hybrid-hris/domain": "workspace:*",
     "bcryptjs": "^3.0.3",
+    "date-fns": "^4.1.0",
     "drizzle-orm": "^0.45.1",
     "pg": "^8.18.0"
   },

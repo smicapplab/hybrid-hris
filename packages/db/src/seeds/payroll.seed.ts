@@ -10,46 +10,49 @@ import {
     statutoryBrackets, 
     premiumPayRates,
     thirteenthMonthLedger,
-    employeeProfiles
+    employeeProfiles,
+    holidays
 } from '../schema';
+import { differenceInDays, parseISO } from 'date-fns';
 
 export async function seedPayroll(db: any) {
-    console.log('🚀 Simulating 6 months of historical payroll (semi-monthly)...');
-
     const today = new Date('2026-03-17'); // Source of truth
     const employeeList = await db.select().from(employees).where(eq(employees.status, 'ACTIVE'));
 
-    // 1. Define the 12 semi-monthly periods for the last 6 months
+    console.log('🚀 Simulating semi-monthly historical payroll (2 months)...');
+
+    // 1. Define the semi-monthly periods for the last 2 months
     const periods: { start: Date; end: Date; name: string }[] = [];
     
-    for (let i = 5; i >= 0; i--) {
-        const year = i > 2 ? 2025 : 2026; // Rough estimate for the seed logic
+    // We'll generate for current month and previous month
+    for (let i = 1; i >= 0; i--) {
         const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
         const yearNum = monthDate.getFullYear();
         const monthNum = monthDate.getMonth();
         const monthName = monthDate.toLocaleString('default', { month: 'long' });
 
         // Period 1: 1st to 15th
-        periods.push({
-            start: new Date(yearNum, monthNum, 1),
-            end: new Date(yearNum, monthNum, 15),
-            name: `${monthName} 1-15, ${yearNum}`
-        });
+        const p1Start = new Date(yearNum, monthNum, 1);
+        const p1End = new Date(yearNum, monthNum, 15);
+        if (p1Start <= today) {
+            periods.push({
+                start: p1Start,
+                end: p1End,
+                name: `${monthName} 1-15, ${yearNum}`
+            });
+        }
 
         // Period 2: 16th to End
-        periods.push({
-            start: new Date(yearNum, monthNum, 16),
-            end: new Date(yearNum, monthNum + 1, 0),
-            name: `${monthName} 16-End, ${yearNum}`
-        });
+        const p2Start = new Date(yearNum, monthNum, 16);
+        const p2End = new Date(yearNum, monthNum + 1, 0);
+        if (p2Start <= today) {
+            periods.push({
+                start: p2Start,
+                end: p2End,
+                name: `${monthName} 16-End, ${yearNum}`
+            });
+        }
     }
-
-    // Add March 1-15 if it passed
-    periods.push({
-        start: new Date(2026, 2, 1),
-        end: new Date(2026, 2, 15),
-        name: `March 1-15, 2026`
-    });
 
     // 2. Pre-fetch shared data
     const statutoryGrid = await db.select().from(statutoryBrackets);
@@ -61,6 +64,14 @@ export async function seedPayroll(db: any) {
         const startIso = period.start.toISOString().split('T')[0];
         const endIso = period.end.toISOString().split('T')[0];
         
+        // Detect Frequency
+        const dayDiff = differenceInDays(period.end, period.start) + 1;
+        const isSemiMonthly = dayDiff <= 16;
+        const frequencyMultiplier = isSemiMonthly ? 0.5 : 1.0;
+
+        // Fetch Holidays for the period
+        const holidayList = await db.select().from(holidays).where(between(holidays.date, startIso, endIso));
+
         console.log(`  - Processing batch: ${period.name}...`);
 
         // Create Batch
@@ -69,14 +80,13 @@ export async function seedPayroll(db: any) {
             startDate: startIso,
             endDate: endIso,
             status: 'COMPLETED',
-            totalAmount: '0', // Will update later
+            totalAmount: '0', 
             processedAt: new Date(),
         }).returning();
 
         let batchTotal = 0;
 
         for (const emp of employeeList) {
-            // Replicate core calculation logic
             const compensations = await db
                 .select({
                     amount: employeeCompensations.amount,
@@ -113,71 +123,115 @@ export async function seedPayroll(db: any) {
             let taxableIncome = 0;
             let totalDeductions = 0;
 
-            // Basic Pay (Divide by 2 for semi-monthly)
-            const basicSemiAmount = monthlyBasic / 2;
-            items.push({ code: 'BASIC', name: 'Basic Pay', type: 'EARNING', amount: basicSemiAmount.toFixed(2) });
-            grossPay += basicSemiAmount;
-            taxableIncome += basicSemiAmount;
-
-            // Attendance Earning Premiums
-            const otHours = logs.reduce((acc: number, l: any) => acc + Number(l.overtimeHours || 0), 0);
-            if (otHours > 0) {
-                const otRate = premiumGrid.find((p: any) => p.code === 'ORD_OT')?.multiplier || '1.25';
-                const otAmt = otHours * hourlyRate * Number(otRate);
-                items.push({ code: 'OT', name: 'Overtime Pay', type: 'EARNING', amount: otAmt.toFixed(2) });
-                grossPay += otAmt;
-                taxableIncome += otAmt;
-            }
-
-            // Attendance Deductions (Lates/UT)
-            let tardyHours = 0;
-            logs.forEach((l: any) => {
-                if (l.scheduledInAt && l.actualInAt) {
-                    const diff = new Date(l.actualInAt).getTime() - new Date(l.scheduledInAt).getTime();
-                    if (diff > 0) tardyHours += diff / (1000 * 60 * 60);
-                }
+            // A. Basic Pay (Frequency Adjusted)
+            const basicCycleAmount = monthlyBasic * frequencyMultiplier;
+            items.push({ 
+                code: 'BASIC', 
+                name: 'Basic Pay', 
+                type: 'EARNING', 
+                amount: basicCycleAmount.toFixed(2),
+                description: isSemiMonthly ? `Semi-monthly Basic (50% of ${monthlyBasic})` : `Monthly Basic`,
             });
-            if (tardyHours > 0) {
-                const lateAmt = tardyHours * hourlyRate;
-                items.push({ code: 'D_LATE', name: 'Tardiness', type: 'DEDUCTION', amount: lateAmt.toFixed(2) });
-                totalDeductions += lateAmt;
+            grossPay += basicCycleAmount;
+            taxableIncome += basicCycleAmount;
+
+            // B. Attendance Premiums
+            let totalOTAmount = 0;
+            let totalNDAmount = 0;
+            let totalHolidayPremAmount = 0;
+            let totalLatesAmount = 0;
+
+            for (const log of logs) {
+                const logDate = log.workDate;
+                const hDay = holidayList.find((h: any) => h.date === logDate);
+                const isRestDay = !log.scheduledInAt;
+                const getPremiumValue = (code: string) => Number(premiumGrid.find((p: any) => p.code === code)?.multiplier || 1.0);
+
+                if (Number(log.overtimeHours) > 0) {
+                    let otMultiplier = getPremiumValue('ORD_OT');
+                    if (hDay?.type === 'REGULAR') otMultiplier = getPremiumValue('REG_HOL_OT');
+                    else if (isRestDay) otMultiplier = getPremiumValue('REST_DAY_OT');
+                    totalOTAmount += Number(log.overtimeHours) * hourlyRate * otMultiplier;
+                }
+
+                if (Number(log.nightDiffHours) > 0) {
+                    totalNDAmount += Number(log.nightDiffHours) * hourlyRate * (getPremiumValue('ND') - 1);
+                }
+
+                if (Number(log.holidayHours) > 0 || isRestDay) {
+                    let premMultiplier = 0;
+                    if (hDay?.type === 'REGULAR') premMultiplier = getPremiumValue('REG_HOL') - 1;
+                    else if (isRestDay) premMultiplier = getPremiumValue('REST_DAY') - 1;
+                    
+                    if (premMultiplier > 0) {
+                        totalHolidayPremAmount += Math.min(Number(log.totalHours || 8), 8) * hourlyRate * premMultiplier;
+                    }
+                }
+
+                if (log.scheduledInAt && log.actualInAt) {
+                    const diff = new Date(log.actualInAt).getTime() - new Date(log.scheduledInAt).getTime();
+                    if (diff > 0) totalLatesAmount += (diff / (1000 * 60 * 60)) * hourlyRate;
+                }
             }
 
-            // Other earnings (Allowances - divide by 2)
+            if (totalOTAmount > 0) {
+                items.push({ code: 'OT', name: 'Overtime Pay', type: 'EARNING', amount: totalOTAmount.toFixed(2) });
+                grossPay += totalOTAmount;
+                taxableIncome += totalOTAmount;
+            }
+            if (totalNDAmount > 0) {
+                items.push({ code: 'ND', name: 'Night Differential', type: 'EARNING', amount: totalNDAmount.toFixed(2) });
+                grossPay += totalNDAmount;
+                taxableIncome += totalNDAmount;
+            }
+            if (totalHolidayPremAmount > 0) {
+                items.push({ code: 'PREM_PAY', name: 'Holiday/Rest Day Premium', type: 'EARNING', amount: totalHolidayPremAmount.toFixed(2) });
+                grossPay += totalHolidayPremAmount;
+                taxableIncome += totalHolidayPremAmount;
+            }
+            if (totalLatesAmount > 0) {
+                items.push({ code: 'D_LATE', name: 'Tardiness / Undertime', type: 'DEDUCTION', amount: totalLatesAmount.toFixed(2) });
+                totalDeductions += totalLatesAmount;
+            }
+
+            // C. Other earnings (Allowances - Frequency Adjusted)
             compensations.filter((c: any) => c.type === 'EARNING' && c.code !== 'BASIC').forEach((c: any) => {
-                const semiAmt = Number(c.amount) / 2;
-                items.push({ code: c.code, name: c.name, type: 'EARNING', amount: semiAmt.toFixed(2) });
-                grossPay += semiAmt;
+                const amt = Number(c.amount) * frequencyMultiplier;
+                items.push({ code: c.code, name: c.name, type: 'EARNING', amount: amt.toFixed(2) });
+                grossPay += amt;
                 if (c.isTaxable) {
-                   const limit = Number(c.taxExemptLimit || 0) / 2;
-                   taxableIncome += Math.max(0, semiAmt - limit);
+                   const limit = Number(c.taxExemptLimit || 0) * frequencyMultiplier;
+                   taxableIncome += Math.max(0, amt - limit);
                 }
             });
 
-            // Simplified Statutories (Only once a month, let's say 2nd period)
-            const isSecondPeriod = period.end.getDate() > 15;
-            if (isSecondPeriod) {
+            // D. Statutories (Once a month - 2nd Period)
+            const isStatutoryPeriod = period.end.getDate() > 15 || !isSemiMonthly;
+            if (isStatutoryPeriod) {
                 const sss = statutoryGrid.find((b: any) => b.type === 'SSS' && monthlyBasic >= Number(b.minCompensation) && (b.maxCompensation === null || monthlyBasic <= Number(b.maxCompensation)));
                 if (sss) {
                     const amt = Number(sss.employeeShareAmount);
-                    items.push({ code: 'D_SSS', name: 'SSS', type: 'DEDUCTION', amount: amt.toFixed(2) });
+                    items.push({ code: 'SSS', name: 'SSS Contribution', type: 'DEDUCTION', amount: amt.toFixed(2) });
                     totalDeductions += amt;
+                    items.push({ code: 'ER_SSS', name: 'Employer SSS', type: 'EMPLOYER_COST', amount: Number(sss.employerShareAmount || 0).toFixed(2) });
                 }
                 const phic = statutoryGrid.find((b: any) => b.type === 'PHIC');
                 if (phic) {
                     const amt = monthlyBasic * Number(phic.employeeShareRate || 0.025);
-                    items.push({ code: 'D_PHIC', name: 'PhilHealth', type: 'DEDUCTION', amount: amt.toFixed(2) });
+                    items.push({ code: 'PHIC', name: 'PhilHealth', type: 'DEDUCTION', amount: amt.toFixed(2) });
                     totalDeductions += amt;
+                    items.push({ code: 'ER_PHIC', name: 'Employer PhilHealth', type: 'EMPLOYER_COST', amount: amt.toFixed(2) });
                 }
                 const hdmf = statutoryGrid.find((b: any) => b.type === 'HDMF');
                 if (hdmf) {
-                    const amt = Number(hdmf.employeeShareAmount);
-                    items.push({ code: 'D_HDMF', name: 'Pag-IBIG', type: 'DEDUCTION', amount: amt.toFixed(2) });
+                    const amt = Number(hdmf.employeeShareAmount || 200);
+                    items.push({ code: 'HDMF', name: 'Pag-IBIG', type: 'DEDUCTION', amount: amt.toFixed(2) });
                     totalDeductions += amt;
+                    items.push({ code: 'ER_HDMF', name: 'Employer Pag-IBIG', type: 'EMPLOYER_COST', amount: amt.toFixed(2) });
                 }
             }
 
-            const netPay = grossPay - totalDeductions;
+            const netPay = Math.max(0, grossPay - totalDeductions);
 
             // Save Payslip
             const [savedPayslip] = await db.insert(payslips).values({
@@ -201,7 +255,7 @@ export async function seedPayroll(db: any) {
             }
 
             // Record 13th Month Accrual
-            const accrualAmt = (basicSemiAmount) / 12;
+            const accrualAmt = basicCycleAmount / 12;
             await db.insert(thirteenthMonthLedger).values({
                 employeeId: emp.id,
                 payslipId: savedPayslip.id,

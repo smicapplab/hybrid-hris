@@ -22,9 +22,9 @@ echo "3. Starting fresh Postgres..."
 docker compose up -d
 
 echo "4. Waiting for Postgres to be ready..."
-until docker exec hris-postgres pg_isready -U hris -d hris_db > /dev/null 2>&1; do
+until docker exec hris-postgres psql -U hris -d hris_db -c "select 1" > /dev/null 2>&1; do
   sleep 1
-  echo "Waiting for Postgres..."
+  echo "Waiting for hris role and database to be fully initialized..."
 done
 
 echo "Postgres is ready."

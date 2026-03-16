@@ -37,3 +37,19 @@ export interface PayslipItem {
     amount: string;
     description: string | null;
 }
+
+export interface FinalPayItem {
+    code: string;
+    name: string;
+    amount: string;
+    units?: string;
+}
+
+export interface FinalPayCalculation {
+    employeeId: string;
+    employeeName: string;
+    monthlyBasic: string;
+    dailyRate: string;
+    items: FinalPayItem[];
+    totalFinalPay: string;
+}

@@ -3,7 +3,7 @@
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "target": "ES2023",
+    "target": "esnext",
     "declaration": true,
     "composite": true,
     "declarationMap": true,
