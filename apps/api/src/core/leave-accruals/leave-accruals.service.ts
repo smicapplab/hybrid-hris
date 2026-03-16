@@ -28,6 +28,7 @@ export class LeaveAccrualsService {
             .select({
                 employeeId: employees.id,
                 policyId: employeeLeavePolicies.policyId,
+                employmentType: employees.employmentType,
             })
             .from(employees)
             .innerJoin(
@@ -55,7 +56,7 @@ export class LeaveAccrualsService {
                 );
 
             for (const rule of rules) {
-                const result = await this.accrueForEmployee(emp.employeeId, rule, accrualKey);
+                const result = await this.accrueForEmployee(emp.employeeId, emp.employmentType, rule, accrualKey);
                 if (result) processedCount++;
             }
         }
@@ -65,9 +66,15 @@ export class LeaveAccrualsService {
 
     private async accrueForEmployee(
         employeeId: string,
+        employmentType: string,
         rule: InferSelectModel<typeof leavePolicyRules>,
         accrualKey: string
     ) {
+        if (rule.isRegularOnly && employmentType !== 'REGULAR') {
+            this.logger.debug(`Skipping accrual for employee ${employeeId} (Non-regular, rule is regular only)`);
+            return false;
+        }
+
         return this.db.withTransaction(async (tx) => {
             // 1. Check if already accrued (idempotency)
             const [existing] = await tx

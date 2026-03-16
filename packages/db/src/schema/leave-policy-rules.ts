@@ -58,6 +58,8 @@ export const leavePolicyRules = pgTable(
             .default(false)
             .notNull(),
 
+        isRegularOnly: boolean('is_regular_only').default(false).notNull(),
+
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
             .notNull(),

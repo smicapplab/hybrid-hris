@@ -19,20 +19,26 @@ export default function LayoutClient({
 
         for (const category of navigation) {
             for (const item of category.elements) {
-                // Exact match
-                if (pathname === item.url) {
-                    return item.title;
+                // Check top-level elements
+                if (item.url) {
+                    if (pathname === item.url || pathname.startsWith(item.url + "/")) {
+                        return item.title;
+                    }
+
+                    // Handle base section
+                    const baseSection = item.url.split("/")[1];
+                    if (pathname === `/${baseSection}`) {
+                        return item.title;
+                    }
                 }
 
-                // Section match (e.g., /people/*, /leave/*, /admin/*)
-                if (pathname.startsWith(item.url + "/")) {
-                    return item.title;
-                }
-
-                // Handle base section like /people, /leave, /admin
-                const baseSection = item.url.split("/")[1];
-                if (pathname === `/${baseSection}`) {
-                    return item.title;
+                // Check sub-items
+                if (item.items) {
+                    for (const subItem of item.items) {
+                        if (pathname === subItem.url || pathname.startsWith(subItem.url + "/")) {
+                            return subItem.title;
+                        }
+                    }
                 }
             }
         }

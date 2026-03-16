@@ -295,6 +295,7 @@ CREATE TABLE "leave_policy_rules" (
 	"max_balance" numeric(10, 4),
 	"max_carry_over" numeric(10, 4),
 	"allow_negative_balance" boolean DEFAULT false NOT NULL,
+	"is_regular_only" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "leave_policy_rules_accrual_method_consistency_check" CHECK (
                 (accrual_method <> 'MONTHLY' OR accrual_rate_per_month IS NOT NULL)

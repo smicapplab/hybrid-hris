@@ -57,6 +57,7 @@ A rules-based engine designed for compliance with DOLE, BIR, and statutory regul
 
 ### Leave & Expenses
 -   **Ledger-Based Accruals:** Financial-style transaction logging for all leave credits and debits.
+-   **Leave Policy Restrictions:** Restrict specific leave types (e.g., Vacation/Sick Leave) to certain employment statuses (e.g., Regular only), preventing accrual for non-eligible employees.
 -   **Hierarchical Approvals:** Multi-level approval workflows for overtime, leave, and expenses.
 
 ## Tech Stack
@@ -74,7 +75,14 @@ pnpm install
 ```
 
 ### 2. Environment Setup
-Copy `.env.sample` to `.env` in the root directory and `apps/api`.
+Copy `.env.sample` to `.env` in the root directory. 
+
+> [!NOTE]
+> The root `.env` is used by all packages in the workspace. The API backend (`apps/api`) and Web frontend (`apps/web`) both rely on these variables for database connectivity and API URLs.
+
+**Key Environment Variables:**
+- `DATABASE_URL`: Connection string for PostgreSQL.
+- `NEXT_PUBLIC_API_URL`: The URL of the API server (required for the web application).
 
 ### 3. Database Initialization
 This command sets up the database, runs migrations, and populates it with a complete set of sample data, including the hierarchical organization structure.

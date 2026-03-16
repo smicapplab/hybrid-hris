@@ -37,6 +37,7 @@ export type LeavePolicyRule = {
     maxBalance: string | null
     maxCarryOver: string | null
     allowNegativeBalance: boolean
+    isRegularOnly: boolean
     createdAt: string
 }
 

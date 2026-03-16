@@ -22,6 +22,11 @@ export class CompensationTemplatesController {
         return this.service.findOne(id);
     }
 
+    @Get('job-level/:jobLevelId')
+    async findByJobLevel(@Param('jobLevelId') jobLevelId: string) {
+        return this.service.findByJobLevel(jobLevelId);
+    }
+
     @Post()
     @Roles(SystemRole.ADMIN, SystemRole.HR_ADMIN)
     async create(@Body() data: CreateCompensationTemplateDto, @CurrentUser('id') actorId: string) {

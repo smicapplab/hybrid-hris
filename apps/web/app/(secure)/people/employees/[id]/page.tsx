@@ -31,6 +31,7 @@ import { AttendanceTab } from './components/tabs/AttendanceTab'
 import { CompensationTab } from './components/tabs/CompensationTab'
 import { PayrollHistoryTab } from './components/tabs/PayrollHistoryTab'
 import { FinalPayTab } from './components/tabs/FinalPayTab'
+import { CompensationChangeDialog } from './components/compensation-change-dialog'
 import type { CompensationTemplate } from '@/types/compensation.types'
 import { removeUndefined, normalizeEmail } from '@/lib/helpers'
 import { stripSystemFields } from '../helpers'
@@ -65,6 +66,7 @@ export default function EmployeeDetailPage() {
     const { user: currentUser } = useAuth()
     const [employee, setEmployee] = useState<Employee | null>(null)
     const [originalStatus, setOriginalStatus] = useState<string | null>(null)
+    const [originalJobLevelId, setOriginalJobLevelId] = useState<string | null>(null)
     const [positions, setPositions] = useState<PositionOption[]>([])
     const [jobLevels, setJobLevels] = useState<JobLevel[]>([])
     const [policies, setPolicies] = useState<LeavePolicy[]>([])
@@ -81,6 +83,8 @@ export default function EmployeeDetailPage() {
     const [pendingShifts, setPendingShifts] = useState<PendingChangeItem[]>([])
     const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([])
     const [isChangeScheduleOpen, setIsChangeScheduleOpen] = useState(false)
+    const [isCompDialogOpen, setIsCompDialogOpen] = useState(false)
+    const [nextTemplate, setNextTemplate] = useState<any>(null)
 
     const fetchOrgUnits = useCallback(async (search: string) => {
         try {
@@ -134,6 +138,7 @@ export default function EmployeeDetailPage() {
                 const data = await apiFetch<Employee>(`/employees/${id}`)
                 setEmployee(data)
                 setOriginalStatus(data.status)
+                setOriginalJobLevelId(data.jobLevelId)
 
                 const [orgUnit, positionsData, jobLevelsData, policiesData, rolesData] = await Promise.all([
                     apiFetch<OrgUnitOption>(`/org-units/${data.orgUnitId}`),
@@ -197,9 +202,31 @@ export default function EmployeeDetailPage() {
         }
     }
 
-    async function handleSave() {
+    async function handleSave(bypassCompCheck: boolean | { preventDefault: () => void } = false) {
         if (!employee) return
 
+        const shouldBypass = typeof bypassCompCheck === 'boolean' ? bypassCompCheck : false;
+
+        // 1. Check if Job Level changed and we need confirmation
+        if (!shouldBypass && employee.jobLevelId !== originalJobLevelId && employee.jobLevelId) {
+            setSaving(true)
+            try {
+                const template = await apiFetch<any>(`/compensation-templates/job-level/${employee.jobLevelId}`);
+                if (template) {
+                    setNextTemplate(template);
+                    setIsCompDialogOpen(true);
+                    setSaving(false);
+                    return;
+                }
+            } catch (err) {
+                console.error('Failed to fetch template:', err);
+                // If it fails, we proceed without dialog or show error? 
+                // Better to proceed but maybe it's safer to alert.
+            } finally {
+                setSaving(false);
+            }
+        }
+        
         setFormError(null)
         setFieldErrors({})
 
@@ -505,6 +532,22 @@ export default function EmployeeDetailPage() {
                 employeeName={employee ? `${employee.firstName} ${employee.lastName}` : ''}
                 onSuccess={fetchAncillaryData}
             />
+
+            {employee && nextTemplate && (
+                <CompensationChangeDialog
+                    open={isCompDialogOpen}
+                    onOpenChange={setIsCompDialogOpen}
+                    onConfirm={() => {
+                        setIsCompDialogOpen(false);
+                        handleSave(true);
+                    }}
+                    oldRankName={jobLevels.find(l => l.id === originalJobLevelId)?.name || 'None'}
+                    newRankName={jobLevels.find(l => l.id === employee.jobLevelId)?.name || 'None'}
+                    currentCompensations={compensations}
+                    newTemplateComponents={nextTemplate.components}
+                    loading={saving}
+                />
+            )}
         </div>
     )
 }

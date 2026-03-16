@@ -202,6 +202,7 @@ export function PolicyDetailPanel({
                                     <th className="text-left px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Rate / Grant</th>
                                     <th className="text-left px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Max Balance</th>
                                     <th className="text-left px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Max Carry-Over</th>
+                                    <th className="text-left px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Regular Only?</th>
                                     <th className="text-left px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Neg.</th>
                                     <th className="px-3 py-2" />
                                 </tr>
@@ -225,6 +226,11 @@ export function PolicyDetailPanel({
                                         </td>
                                         <td className="px-4 py-3 text-xs">{fmtNum(rule.maxBalance)}</td>
                                         <td className="px-4 py-3 text-xs">{fmtNum(rule.maxCarryOver)}</td>
+                                        <td className="px-4 py-3 text-xs">
+                                            {rule.isRegularOnly
+                                                ? <span className="text-blue-600 font-medium">Yes</span>
+                                                : <span className="text-muted-foreground">No</span>}
+                                        </td>
                                         <td className="px-4 py-3 text-xs">
                                             {rule.allowNegativeBalance
                                                 ? <span className="text-emerald-600 font-medium">Yes</span>

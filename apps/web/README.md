@@ -3,7 +3,7 @@
 This is the Next.js frontend for the Hybrid HRIS project.
 
 ## Tech Stack
-- **Framework:** Next.js 15+ (App Router)
+- **Framework:** Next.js 16 (App Router)
 - **Styling:** Tailwind CSS 4, Shadcn/UI
 - **State Management:** React Hooks & Context API
 - **Icons:** Lucide React

@@ -142,6 +142,7 @@ export class LeavePoliciesService {
                 maxBalance: leavePolicyRules.maxBalance,
                 maxCarryOver: leavePolicyRules.maxCarryOver,
                 allowNegativeBalance: leavePolicyRules.allowNegativeBalance,
+                isRegularOnly: leavePolicyRules.isRegularOnly,
                 createdAt: leavePolicyRules.createdAt,
             })
             .from(leavePolicyRules)
@@ -337,6 +338,7 @@ export class LeavePoliciesService {
             maxBalance?: string
             maxCarryOver?: string
             allowNegativeBalance?: boolean
+            isRegularOnly?: boolean
         },
         actorId?: string,
     ) {
@@ -390,6 +392,7 @@ export class LeavePoliciesService {
                 maxBalance: data.maxBalance ?? null,
                 maxCarryOver: data.maxCarryOver ?? null,
                 allowNegativeBalance: data.allowNegativeBalance ?? false,
+                isRegularOnly: data.isRegularOnly ?? false,
             })
             .returning()
 
@@ -419,6 +422,7 @@ export class LeavePoliciesService {
             maxBalance?: string | null
             maxCarryOver?: string | null
             allowNegativeBalance?: boolean
+            isRegularOnly?: boolean
         },
         actorId?: string,
     ) {

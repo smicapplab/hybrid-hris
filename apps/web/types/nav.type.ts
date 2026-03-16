@@ -9,7 +9,7 @@ export type NavCategory = {
 
 export type Element = {
     title: string;
-    url: string;
+    url?: string;
     icon?: LucideIcon,
     isActive?: boolean;
     items?: Item[];

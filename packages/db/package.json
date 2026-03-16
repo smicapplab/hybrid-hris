@@ -19,7 +19,8 @@
     "seed": "dotenv -e ../../.env -- tsx src/seed.ts",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
-    "db:studio": "drizzle-kit studio --config drizzle.config.ts"
+    "db:studio": "drizzle-kit studio --config drizzle.config.ts",
+    "db:reset": "../../scripts/reset-db.sh"
   },
   "dependencies": {
     "@hybrid-hris/domain": "workspace:*",

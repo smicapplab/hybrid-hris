@@ -167,75 +167,90 @@ export const navigation: NavCategory[] = [
         roles: ['HR_ADMIN', 'ADMIN'],
         elements: [
             {
-                title: "Leave Policies",
-                url: "/admin/leave-management",
-                icon: Sailboat,
-            },
-            {
-                title: "Leave Types",
-                url: "/admin/leave-types",
-                icon: Settings,
-            },
-            {
-                title: "Skills Taxonomy",
-                url: "/admin/skills",
-                icon: GraduationCap,
-            },
-            {
-                title: "Training Catalog",
-                url: "/admin/training",
-                icon: Library,
-            },
-            {
-                title: "Holiday Maintenance",
-                url: "/admin/holidays",
-                icon: Umbrella,
-            },
-            {
-                title: "Shift Templates",
-                url: "/admin/shift-templates",
-                icon: Clock,
-            },
-            {
-                title: "Job Levels",
-                url: "/admin/job-levels",
+                title: "Policy & Compliance",
                 icon: Shield,
+                items: [
+                    {
+                        title: "Leave Policies",
+                        url: "/admin/leave-management",
+                    },
+                    {
+                        title: "Leave Types",
+                        url: "/admin/leave-types",
+                    },
+                    {
+                        title: "Holiday Maintenance",
+                        url: "/admin/holidays",
+                    },
+                ]
             },
             {
-                title: "Payroll Components",
-                url: "/admin/payroll-components",
-                icon: ReceiptText,
-            },
-            {
-                title: "Compensation Templates",
-                url: "/admin/compensation-templates",
-                icon: Wallet,
-            },
-            {
-                title: "Payroll Batches",
-                url: "/admin/payroll-batches",
-                icon: Calculator,
-            },
-            {
-                title: "13th Month Management",
-                url: "/admin/payroll/thirteenth-month",
-                icon: Wallet,
-            },
-            {
-                title: "Pending Changes",
-                url: "/admin/pending-changes",
-                icon: ArrowRight,
-            },
-            {
-                title: "Team Budgets",
-                url: "/admin/budgets",
-                icon: Calculator,
-            },
-            {
-                title: "Organization Settings",
-                url: "/admin/settings",
+                title: "HR Configuration",
                 icon: Settings,
-                roles: ['ADMIN'],
+                items: [
+                    {
+                        title: "Job Levels",
+                        url: "/admin/job-levels",
+                    },
+                    {
+                        title: "Shift Templates",
+                        url: "/admin/shift-templates",
+                    },
+                    {
+                        title: "Organization Settings",
+                        url: "/admin/settings",
+                    },
+                ]
+            },
+            {
+                title: "Payroll Management",
+                icon: Calculator,
+                items: [
+                    {
+                        title: "Payroll Components",
+                        url: "/admin/payroll-components",
+                    },
+                    {
+                        title: "Compensation Templates",
+                        url: "/admin/compensation-templates",
+                    },
+                    {
+                        title: "Payroll Batches",
+                        url: "/admin/payroll-batches",
+                    },
+                    {
+                        title: "13th Month Management",
+                        url: "/admin/payroll/thirteenth-month",
+                    },
+                ]
+            },
+            {
+                title: "Learning & Development",
+                icon: GraduationCap,
+                items: [
+                    {
+                        title: "Skills Taxonomy",
+                        url: "/admin/skills",
+                    },
+                    {
+                        title: "Training Catalog",
+                        url: "/admin/training",
+                    },
+                ]
+            },
+            {
+                title: "Operational Controls",
+                icon: CheckCircle2,
+                items: [
+                    {
+                        title: "Pending Changes",
+                        url: "/admin/pending-changes",
+                    },
+                    {
+                        title: "Team Budgets",
+                        url: "/admin/budgets",
+                    },
+                ]
             },
         ]
     },

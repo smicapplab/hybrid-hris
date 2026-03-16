@@ -46,6 +46,32 @@ export class CompensationTemplatesService {
         return { ...template, components };
     }
 
+    async findByJobLevel(jobLevelId: string) {
+        const [template] = await this.db.db
+            .select()
+            .from(compensationTemplates)
+            .where(and(
+                eq(compensationTemplates.jobLevelId, jobLevelId),
+                isNull(compensationTemplates.deletedAt)
+            ))
+            .limit(1);
+
+        if (!template) return null;
+
+        const components = await this.db.db
+            .select({
+                payrollComponentId: compensationTemplateComponents.payrollComponentId,
+                amount: compensationTemplateComponents.amount,
+                name: payrollComponents.name,
+                code: payrollComponents.code,
+            })
+            .from(compensationTemplateComponents)
+            .innerJoin(payrollComponents, eq(compensationTemplateComponents.payrollComponentId, payrollComponents.id))
+            .where(eq(compensationTemplateComponents.templateId, template.id));
+
+        return { ...template, components };
+    }
+
     async create(dto: CreateCompensationTemplateDto, actorId: string) {
         return this.db.withTransaction(async (tx) => {
             const [template] = await tx.insert(compensationTemplates).values({

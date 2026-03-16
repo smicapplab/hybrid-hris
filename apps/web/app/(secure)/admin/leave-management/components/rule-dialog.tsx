@@ -39,6 +39,7 @@ export function RuleDialog({ open, onOpenChangeAction, policyId, initialData, on
     const [maxBalance, setMaxBalance] = useState<number>(0)
     const [maxCarryOver, setMaxCarryOver] = useState<number>(0)
     const [allowNegativeBalance, setAllowNegativeBalance] = useState(false)
+    const [isRegularOnly, setIsRegularOnly] = useState(false)
     const [loading, setLoading] = useState(false)
     const [touched, setTouched] = useState(false)
 
@@ -59,6 +60,7 @@ export function RuleDialog({ open, onOpenChangeAction, policyId, initialData, on
             setMaxBalance(initialData.maxBalance ? parseFloat(initialData.maxBalance) : 0)
             setMaxCarryOver(initialData.maxCarryOver ? parseFloat(initialData.maxCarryOver) : 0)
             setAllowNegativeBalance(initialData.allowNegativeBalance)
+            setIsRegularOnly(initialData.isRegularOnly)
         } else {
             setLeaveTypeId('')
             setAccrualMethod('NONE')
@@ -67,6 +69,7 @@ export function RuleDialog({ open, onOpenChangeAction, policyId, initialData, on
             setMaxBalance(0)
             setMaxCarryOver(0)
             setAllowNegativeBalance(false)
+            setIsRegularOnly(false)
         }
         setTouched(false)
     }, [initialData, open])
@@ -93,6 +96,7 @@ export function RuleDialog({ open, onOpenChangeAction, policyId, initialData, on
                 maxBalance: maxBalance > 0 ? maxBalance.toString() : null,
                 maxCarryOver: maxCarryOver > 0 ? maxCarryOver.toString() : null,
                 allowNegativeBalance,
+                isRegularOnly,
             }
 
             if (isEdit) {
@@ -235,6 +239,15 @@ export function RuleDialog({ open, onOpenChangeAction, policyId, initialData, on
                     <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2.5">
                         <Label htmlFor="rule-neg" className="text-sm cursor-pointer">Allow negative balance</Label>
                         <Switch id="rule-neg" checked={allowNegativeBalance} onCheckedChange={setAllowNegativeBalance} />
+                    </div>
+
+                    {/* Regular Only */}
+                    <div className="flex items-center justify-between rounded-lg bg-blue-50/50 border border-blue-100 px-3 py-2.5">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="rule-reg" className="text-sm cursor-pointer text-blue-900 font-medium">Regular employees only</Label>
+                            <p className="text-[10px] text-blue-600 italic leading-tight">Accruals only start once regularized.</p>
+                        </div>
+                        <Switch id="rule-reg" checked={isRegularOnly} onCheckedChange={setIsRegularOnly} />
                     </div>
                 </div>
 
