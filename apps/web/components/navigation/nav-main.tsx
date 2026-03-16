@@ -1,3 +1,5 @@
+"use client"
+
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from "@/components/ui/sidebar"
 import { usePathname, useRouter } from "next/navigation"
 import { NavCategory } from "@/types/nav.type"

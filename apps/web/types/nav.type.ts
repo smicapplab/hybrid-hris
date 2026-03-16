@@ -18,5 +18,5 @@ export type Element = {
 
 export type Item = {
     title: string;
-    url?: string;
+    url: string;
 }
