@@ -33,11 +33,16 @@ import { manpowerRequests } from '../schema/manpower-requests';
 import { manpowerRequestApprovals } from '../schema/manpower-request-approvals';
 import { jobPostings } from '../schema/job-postings';
 import { jobLevels } from '../schema/job-levels';
+import { compensationTemplates } from '../schema/compensation-templates';
+import { compensationTemplateComponents } from '../schema/compensation-template-components';
+import { employeeCompensations } from '../schema/employee-compensations';
 import { faker } from '@faker-js/faker';
 import { seedSkillsEssential } from './skills-seed-essential';
 import { seedSkillsDemo } from './skills-seed-demo';
 import { seedHolidays } from './holidays.seed';
 import { seedOvertimeRequests } from './overtime-requests.seed';
+import { seedStatutoryBrackets } from './statutory-brackets.seed';
+import { seedPremiumPayRates } from './premium-pay-rates.seed';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -214,6 +219,8 @@ export async function seedSystem() {
     }
     const allPositions = await db.select().from(positions);
     const allLevels = await db.select().from(jobLevels);
+    const allCompTemplates = await db.select().from(compensationTemplates);
+    const allCompTemplateComps = await db.select().from(compensationTemplateComponents);
 
     // --- 7. Employees & Users (Hierarchical) ---
     console.log('  - Generating employees with proper reporting lines...');
@@ -250,7 +257,9 @@ export async function seedSystem() {
             birthDate: '1985-05-20',
             gender: faker.helpers.arrayElement(['MALE', 'FEMALE']),
             civilStatus: 'MARRIED',
-            emergencyContactMobileNo: '(+63) 917-123-4567',
+            emergencyContactMobileNo: faker.phone.number(),
+            payrollType: 'MONTHLY',
+            factorRate: '261.00',
         }).onConflictDoNothing();
 
         // IDs
@@ -298,6 +307,23 @@ export async function seedSystem() {
         await db.insert(employeeLeavePolicies).values({
             employeeId: resolvedEmp.id, policyId, effectiveFrom: '2022-01-01'
         }).onConflictDoNothing();
+
+        // Check for compensation template
+        if (level && level.id) {
+            const template = allCompTemplates.find(t => t.jobLevelId === level.id);
+            if (template) {
+                const components = allCompTemplateComps.filter(c => c.templateId === template.id);
+                if (components.length > 0) {
+                    const toInsert = components.map(c => ({
+                        employeeId: resolvedEmp.id,
+                        payrollComponentId: c.payrollComponentId,
+                        amount: c.amount,
+                        effectiveFrom: '2022-01-01',
+                    }));
+                    await db.insert(employeeCompensations).values(toInsert).onConflictDoNothing();
+                }
+            }
+        }
 
         return { emp: resolvedEmp, usr: resolvedUsr };
     }
@@ -397,11 +423,11 @@ export async function seedSystem() {
         }
     }
 
-    // --- 9. Attendance (Last 30 Days) ---
-    console.log('  - Seeding 30 days of attendance logs...');
+    // --- 9. Attendance (Last 180 Days) ---
+    console.log('  - Seeding 180 days of attendance logs...');
     const attendanceData: any[] = [];
     for (const emp of employeeList) {
-        for (let d = 1; d <= 30; d++) {
+        for (let d = 1; d <= 180; d++) {
             const date = new Date(today);
             date.setDate(today.getDate() - d);
             if (date.getDay() === 0 || date.getDay() === 6) continue;
@@ -607,6 +633,10 @@ export async function seedSystem() {
 
     // --- 16. Overtime Requests ---
     await seedOvertimeRequests(db);
+
+    // --- 17. Statutory Brackets ---
+    await seedStatutoryBrackets(db);
+    await seedPremiumPayRates(db);
 
     console.log('✅ Enterprise Seed Complete!');
 }

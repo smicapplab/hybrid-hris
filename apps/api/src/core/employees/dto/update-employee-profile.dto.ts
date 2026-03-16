@@ -6,8 +6,12 @@ import {
     MaxLength,
     IsEmail,
     Matches,
+    IsNumber,
+    Min,
+    Max,
 } from 'class-validator'
-import { Gender, GENDERS, CivilStatus, CIVIL_STATUSES } from '@hybrid-hris/domain'
+import { Gender, GENDERS, CivilStatus, CIVIL_STATUSES, PayrollType, PAYROLL_TYPES } from '@hybrid-hris/domain'
+import { Type } from 'class-transformer'
 
 export class UpdateEmployeeProfileDto {
     @IsOptional()
@@ -63,4 +67,15 @@ export class UpdateEmployeeProfileDto {
     @IsString()
     @MaxLength(500)
     notes?: string
+
+    @IsOptional()
+    @IsIn(PAYROLL_TYPES)
+    payrollType?: PayrollType
+
+    @IsOptional()
+    @IsNumber({ maxDecimalPlaces: 2 })
+    @Min(1)
+    @Max(400)
+    @Type(() => Number)
+    factorRate?: number
 }

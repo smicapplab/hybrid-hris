@@ -52,3 +52,14 @@ export type CivilStatus = (typeof CIVIL_STATUSES)[number]
 export function isCivilStatus(v: string): v is CivilStatus {
     return CIVIL_STATUSES.includes(v as CivilStatus)
 }
+
+export const PAYROLL_TYPES = [
+    'MONTHLY',
+    'DAILY',
+] as const
+
+export type PayrollType = (typeof PAYROLL_TYPES)[number]
+
+export function isPayrollType(v: string): v is PayrollType {
+    return PAYROLL_TYPES.includes(v as PayrollType)
+}

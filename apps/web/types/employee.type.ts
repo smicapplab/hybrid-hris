@@ -1,4 +1,4 @@
-import type { EmployeeStatus } from '@hybrid-hris/domain'
+import { CivilStatus, EmployeeStatus, EmploymentType, Gender, PayrollType } from '@hybrid-hris/domain';
 import type {
     Employee as DbEmployee,
     EmployeeProfile as DbEmployeeProfile,

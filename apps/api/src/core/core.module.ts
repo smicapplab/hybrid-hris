@@ -14,6 +14,7 @@ import { TrainingModule } from './training/training.module';
 import { AutomationModule } from './automation/automation.module';
 import { PendingShiftAssignmentsModule } from '../attendance/pending-shift-assignments/pending-shift-assignments.module';
 import { CompensationModule } from './compensation/compensation.module';
+import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { CompensationModule } from './compensation/compensation.module';
     AutomationModule,
     PendingShiftAssignmentsModule,
     CompensationModule,
+    PayrollModule,
   ],
   providers: [],
   exports: [
@@ -49,6 +51,7 @@ import { CompensationModule } from './compensation/compensation.module';
     TrainingModule,
     AutomationModule,
     CompensationModule,
+    PayrollModule,
   ]
 })
 export class CoreModule { }

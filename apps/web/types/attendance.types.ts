@@ -181,12 +181,24 @@ export type PresenceRecord = {
     } | null;
 };
 
+export type EmployeeCompensation = {
+    id: string;
+    amount: string;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+    component: {
+        code: string;
+        name: string;
+        type: 'EARNING' | 'DEDUCTION' | 'EMPLOYER_COST';
+    };
+};
+
 export type PayrollComponent = {
     id: string;
     code: string;
     name: string;
     description: string | null;
-    type: 'EARNING' | 'DEDUCTION';
+    type: 'EARNING' | 'DEDUCTION' | 'EMPLOYER_COST';
     isTaxable: boolean;
     isDeMinimis: boolean;
     isStatutory: boolean;

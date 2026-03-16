@@ -103,4 +103,12 @@ export class ProfileController {
         }
         return this.profileService.getMyAttendanceHistory(req.user.employeeId)
     }
+
+    @Get('me/payslips')
+    async getMyPayslips(@Req() req: AuthRequest) {
+        if (!req.user.employeeId) {
+            throw new UnprocessableEntityException('No employee record linked to this account')
+        }
+        return this.profileService.getMyPayslips(req.user.employeeId)
+    }
 }

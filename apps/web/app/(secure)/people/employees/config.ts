@@ -15,6 +15,8 @@ export const DEFAULT_PROFILE: EmployeeProfile = {
     emergencyContactName: null,
     emergencyContactRelationship: null,
     emergencyContactMobileNo: null,
+    payrollType: 'MONTHLY',
+    factorRate: '261.00',
     notes: null,
 }
 

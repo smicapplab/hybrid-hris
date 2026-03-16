@@ -1,5 +1,6 @@
 import { seedSystem } from './seeds/system.seed';
 import { seedCompensation } from './seeds/compensation.seed';
+import { seedPayroll } from './seeds/payroll.seed';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
@@ -12,6 +13,7 @@ const db = drizzle(pool);
 async function run() {
   await seedCompensation(db);
   await seedSystem();
+  await seedPayroll(db);
   process.exit(0);
 }
 

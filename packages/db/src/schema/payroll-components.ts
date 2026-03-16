@@ -11,7 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-export const payrollComponentTypeEnum = pgEnum('payroll_component_type', ['EARNING', 'DEDUCTION']);
+export const payrollComponentTypeEnum = pgEnum('payroll_component_type', ['EARNING', 'DEDUCTION', 'EMPLOYER_COST']);
 
 export const payrollComponents = pgTable(
     'payroll_components',

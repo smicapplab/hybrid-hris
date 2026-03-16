@@ -23,6 +23,7 @@ import {
     Umbrella,
     ArrowRight,
     UserCheck,
+    Wallet,
 } from "lucide-react";
 
 export const navigation: NavCategory[] = [
@@ -52,6 +53,11 @@ export const navigation: NavCategory[] = [
                 title: "My Organization",
                 url: "/me/organization",
                 icon: Building2,
+            },
+            {
+                title: "My Payslips",
+                url: "/me/payslips",
+                icon: Wallet,
             },
             {
                 title: "Account Security",
@@ -199,6 +205,16 @@ export const navigation: NavCategory[] = [
                 title: "Payroll Components",
                 url: "/admin/payroll-components",
                 icon: ReceiptText,
+            },
+            {
+                title: "Compensation Templates",
+                url: "/admin/compensation-templates",
+                icon: Wallet,
+            },
+            {
+                title: "Payroll Batches",
+                url: "/admin/payroll-batches",
+                icon: Calculator,
             },
             {
                 title: "Pending Changes",

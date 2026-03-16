@@ -4,8 +4,8 @@ import { EmployeesRepository } from './employees.repository'
 import { EmployeeFilterDto } from './dto/employee-filter.dto'
 import { CreateEmployeeDto } from './dto/create-employee.dto'
 import { UpdateEmployeeDto } from './dto/update-employee-dto'
-import { employees, leavePolicies, employeeLeavePolicies, userRoles, users } from '@hybrid-hris/db/schema'
-import { InferSelectModel, eq, and, isNull } from 'drizzle-orm'
+import { employees, leavePolicies, employeeLeavePolicies, userRoles, users, compensationTemplates, compensationTemplateComponents, employeeCompensations } from '@hybrid-hris/db/schema'
+import { InferSelectModel, eq, and, isNull, inArray } from 'drizzle-orm'
 import { DatabaseService } from 'src/database/database.service'
 import { Tx } from 'src/database/database.types'
 import { AuditService } from '../audit/audit.service'
@@ -431,6 +431,57 @@ export class EmployeesService {
                                 roleId
                             }))
                         );
+                    }
+                }
+            }
+
+            if (dto.jobLevelId !== undefined && dto.jobLevelId !== existing.jobLevelId) {
+                if (dto.jobLevelId) {
+                    const [template] = await tx
+                        .select({ id: compensationTemplates.id })
+                        .from(compensationTemplates)
+                        .where(eq(compensationTemplates.jobLevelId, dto.jobLevelId))
+                        .limit(1);
+
+                    if (template) {
+                        const templateComponents = await tx
+                            .select()
+                            .from(compensationTemplateComponents)
+                            .where(eq(compensationTemplateComponents.templateId, template.id));
+
+                        const existingComps = await tx.select().from(employeeCompensations).where(eq(employeeCompensations.employeeId, id));
+                        const newCompMap = new Map(templateComponents.map(c => [c.payrollComponentId, c]));
+                        const today = new Date().toISOString().slice(0, 10);
+                        const toInsert = [];
+                        const toUpdate = [];
+
+                        for (const newComp of templateComponents) {
+                            const current = existingComps.find(ec => ec.payrollComponentId === newComp.payrollComponentId);
+                            if (current) {
+                                if (current.amount !== newComp.amount) {
+                                    toUpdate.push(
+                                        tx.update(employeeCompensations)
+                                            .set({ amount: newComp.amount, updatedAt: new Date() })
+                                            .where(eq(employeeCompensations.id, current.id))
+                                    );
+                                }
+                            } else {
+                                toInsert.push({
+                                    employeeId: id,
+                                    payrollComponentId: newComp.payrollComponentId,
+                                    amount: newComp.amount,
+                                    effectiveFrom: today,
+                                });
+                            }
+                        }
+
+                        const toRemove = existingComps.filter(ec => !newCompMap.has(ec.payrollComponentId));
+                        if (toRemove.length > 0) {
+                            await tx.delete(employeeCompensations).where(inArray(employeeCompensations.id, toRemove.map(r => r.id)));
+                        }
+
+                        if (toInsert.length > 0) await tx.insert(employeeCompensations).values(toInsert);
+                        if (toUpdate.length > 0) await Promise.all(toUpdate);
                     }
                 }
             }

@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 
 export type DatePickerFieldProps = {
-    label: string
+    label?: string
     value: string | null | undefined
     onChangeAction: (value: string) => void
     required?: boolean
@@ -48,7 +48,7 @@ export function DatePickerField({
     return (
         <div className="space-y-1">
             <label className="text-sm font-medium leading-none">
-                {label}
+                {label ?? ""}
                 {required && <span className="text-red-500 ml-0.5">*</span>}
             </label>
             <Popover open={open} onOpenChange={setOpen}>

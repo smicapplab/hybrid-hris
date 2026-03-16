@@ -11,6 +11,7 @@ CREATE TYPE "public"."employee_status" AS ENUM('ACTIVE', 'PROBATION', 'SUSPENDED
 CREATE TYPE "public"."employment_type" AS ENUM('REGULAR', 'PROBATIONARY', 'CONTRACTUAL', 'CONSULTANT', 'INTERN');--> statement-breakpoint
 CREATE TYPE "public"."civil_status" AS ENUM('SINGLE', 'MARRIED', 'SEPARATED', 'WIDOWED', 'ANNULLED');--> statement-breakpoint
 CREATE TYPE "public"."gender" AS ENUM('MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY');--> statement-breakpoint
+CREATE TYPE "public"."payroll_type" AS ENUM('MONTHLY', 'DAILY');--> statement-breakpoint
 CREATE TYPE "public"."auth_provider" AS ENUM('GOOGLE', 'MICROSOFT');--> statement-breakpoint
 CREATE TYPE "public"."org_unit_leader_role" AS ENUM('HEAD', 'CO_HEAD', 'ACTING_HEAD');--> statement-breakpoint
 CREATE TYPE "public"."accrual_method" AS ENUM('MONTHLY', 'ANNUAL_GRANT', 'NONE');--> statement-breakpoint
@@ -30,7 +31,11 @@ CREATE TYPE "public"."manpower_request_type" AS ENUM('NEW_HEADCOUNT', 'REPLACEME
 CREATE TYPE "public"."request_priority" AS ENUM('LOW', 'NORMAL', 'HIGH', 'URGENT');--> statement-breakpoint
 CREATE TYPE "public"."manpower_approval_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
 CREATE TYPE "public"."job_posting_status" AS ENUM('DRAFT', 'OPEN', 'CLOSED');--> statement-breakpoint
-CREATE TYPE "public"."payroll_component_type" AS ENUM('EARNING', 'DEDUCTION');--> statement-breakpoint
+CREATE TYPE "public"."statutory_type" AS ENUM('SSS', 'PHIC', 'HDMF', 'WTAX');--> statement-breakpoint
+CREATE TYPE "public"."premium_pay_category" AS ENUM('OVERTIME', 'HOLIDAY', 'NIGHT_DIFF', 'REST_DAY');--> statement-breakpoint
+CREATE TYPE "public"."payroll_batch_status" AS ENUM('DRAFT', 'PROCESSING', 'COMPLETED', 'VOID');--> statement-breakpoint
+CREATE TYPE "public"."payslip_item_type" AS ENUM('EARNING', 'DEDUCTION', 'EMPLOYER_COST');--> statement-breakpoint
+CREATE TYPE "public"."payroll_component_type" AS ENUM('EARNING', 'DEDUCTION', 'EMPLOYER_COST');--> statement-breakpoint
 CREATE TABLE "employees" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"employee_no" varchar(50) NOT NULL,
@@ -89,6 +94,8 @@ CREATE TABLE "employee_profiles" (
 	"emergency_contact_name" varchar(160),
 	"emergency_contact_relationship" varchar(60),
 	"emergency_contact_mobile_no" varchar(30),
+	"payroll_type" "payroll_type" DEFAULT 'MONTHLY',
+	"factor_rate" numeric(5, 2) DEFAULT '261.00',
 	"notes" varchar(500),
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -768,6 +775,73 @@ CREATE TABLE "job_levels" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "statutory_brackets" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"type" "statutory_type" NOT NULL,
+	"name" varchar(250) NOT NULL,
+	"effective_from" date NOT NULL,
+	"effective_to" date,
+	"min_compensation" numeric(12, 2) DEFAULT '0.00' NOT NULL,
+	"max_compensation" numeric(12, 2),
+	"employee_share_amount" numeric(12, 2) DEFAULT '0.00',
+	"employee_share_rate" numeric(5, 4) DEFAULT '0.0000',
+	"employer_share_amount" numeric(12, 2) DEFAULT '0.00',
+	"employer_share_rate" numeric(5, 4) DEFAULT '0.0000',
+	"base_tax_amount" numeric(12, 2) DEFAULT '0.00',
+	"excess_tax_rate" numeric(5, 4) DEFAULT '0.0000',
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "premium_pay_rates" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"code" varchar(50) NOT NULL,
+	"name" varchar(250) NOT NULL,
+	"category" "premium_pay_category" NOT NULL,
+	"multiplier" numeric(5, 3) NOT NULL,
+	"description" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "premium_pay_rates_code_unique" UNIQUE("code")
+);
+--> statement-breakpoint
+CREATE TABLE "payroll_batches" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"name" varchar(250) NOT NULL,
+	"start_date" date NOT NULL,
+	"end_date" date NOT NULL,
+	"status" "payroll_batch_status" DEFAULT 'DRAFT' NOT NULL,
+	"total_amount" numeric(20, 2) DEFAULT '0.00' NOT NULL,
+	"processed_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "payslip_items" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"payslip_id" uuid NOT NULL,
+	"component_id" uuid,
+	"code" varchar(50) NOT NULL,
+	"name" varchar(250) NOT NULL,
+	"type" "payslip_item_type" NOT NULL,
+	"amount" numeric(15, 2) NOT NULL,
+	"description" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "payslips" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"batch_id" uuid NOT NULL,
+	"employee_id" uuid NOT NULL,
+	"gross_pay" numeric(15, 2) DEFAULT '0.00' NOT NULL,
+	"net_pay" numeric(15, 2) DEFAULT '0.00' NOT NULL,
+	"total_deductions" numeric(15, 2) DEFAULT '0.00' NOT NULL,
+	"remarks" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "payroll_components" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"code" varchar(50) NOT NULL,
@@ -782,6 +856,46 @@ CREATE TABLE "payroll_components" (
 	"deleted_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "employee_compensations" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"employee_id" uuid NOT NULL,
+	"payroll_component_id" uuid NOT NULL,
+	"amount" numeric(12, 2) NOT NULL,
+	"effective_from" date NOT NULL,
+	"effective_to" date,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "compensation_templates" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"code" varchar(50) NOT NULL,
+	"name" varchar(150) NOT NULL,
+	"description" text,
+	"job_level_id" uuid,
+	"deleted_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "compensation_template_components" (
+	"template_id" uuid NOT NULL,
+	"payroll_component_id" uuid NOT NULL,
+	"amount" numeric(12, 2) NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "compensation_template_components_template_id_payroll_component_id_pk" PRIMARY KEY("template_id","payroll_component_id")
+);
+--> statement-breakpoint
+CREATE TABLE "thirteenth_month_ledger" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"employee_id" uuid NOT NULL,
+	"payslip_id" uuid NOT NULL,
+	"year" varchar(4) NOT NULL,
+	"month" varchar(2) NOT NULL,
+	"accrual_amount" numeric(12, 2) NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_org_unit_id_org_units_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "public"."org_units"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -870,6 +984,17 @@ ALTER TABLE "training_enrollments" ADD CONSTRAINT "training_enrollments_employee
 ALTER TABLE "training_enrollments" ADD CONSTRAINT "training_enrollments_processed_by_id_employees_id_fk" FOREIGN KEY ("processed_by_id") REFERENCES "public"."employees"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "position_skills" ADD CONSTRAINT "position_skills_position_id_positions_id_fk" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "position_skills" ADD CONSTRAINT "position_skills_skill_id_skills_id_fk" FOREIGN KEY ("skill_id") REFERENCES "public"."skills"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payslip_items" ADD CONSTRAINT "payslip_items_payslip_id_payslips_id_fk" FOREIGN KEY ("payslip_id") REFERENCES "public"."payslips"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payslip_items" ADD CONSTRAINT "payslip_items_component_id_payroll_components_id_fk" FOREIGN KEY ("component_id") REFERENCES "public"."payroll_components"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payslips" ADD CONSTRAINT "payslips_batch_id_payroll_batches_id_fk" FOREIGN KEY ("batch_id") REFERENCES "public"."payroll_batches"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payslips" ADD CONSTRAINT "payslips_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_compensations" ADD CONSTRAINT "employee_compensations_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "employee_compensations" ADD CONSTRAINT "employee_compensations_payroll_component_id_payroll_components_id_fk" FOREIGN KEY ("payroll_component_id") REFERENCES "public"."payroll_components"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "compensation_templates" ADD CONSTRAINT "compensation_templates_job_level_id_job_levels_id_fk" FOREIGN KEY ("job_level_id") REFERENCES "public"."job_levels"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "compensation_template_components" ADD CONSTRAINT "compensation_template_components_template_id_compensation_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."compensation_templates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "compensation_template_components" ADD CONSTRAINT "compensation_template_components_payroll_component_id_payroll_components_id_fk" FOREIGN KEY ("payroll_component_id") REFERENCES "public"."payroll_components"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "thirteenth_month_ledger" ADD CONSTRAINT "thirteenth_month_ledger_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "thirteenth_month_ledger" ADD CONSTRAINT "thirteenth_month_ledger_payslip_id_payslips_id_fk" FOREIGN KEY ("payslip_id") REFERENCES "public"."payslips"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "employees_employee_no_uq" ON "employees" USING btree ("employee_no");--> statement-breakpoint
 CREATE INDEX "employees_hire_date_idx" ON "employees" USING btree ("hire_date");--> statement-breakpoint
 CREATE INDEX "employees_last_name_idx" ON "employees" USING btree ("last_name");--> statement-breakpoint
@@ -1004,4 +1129,8 @@ CREATE UNIQUE INDEX "training_enrollments_schedule_employee_uq" ON "training_enr
 CREATE INDEX "position_skills_position_idx" ON "position_skills" USING btree ("position_id");--> statement-breakpoint
 CREATE INDEX "position_skills_skill_idx" ON "position_skills" USING btree ("skill_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "job_levels_code_uq" ON "job_levels" USING btree ("code") WHERE deleted_at IS NULL;--> statement-breakpoint
-CREATE UNIQUE INDEX "payroll_components_code_uq" ON "payroll_components" USING btree ("code") WHERE deleted_at IS NULL;
+CREATE INDEX "statutory_brackets_type_date_idx" ON "statutory_brackets" USING btree ("type","effective_from","effective_to");--> statement-breakpoint
+CREATE UNIQUE INDEX "payroll_components_code_uq" ON "payroll_components" USING btree ("code") WHERE deleted_at IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "employee_compensations_active_comp_uq" ON "employee_compensations" USING btree ("employee_id","payroll_component_id") WHERE effective_to IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "compensation_templates_code_uq" ON "compensation_templates" USING btree ("code") WHERE deleted_at IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "compensation_templates_job_level_uq" ON "compensation_templates" USING btree ("job_level_id") WHERE deleted_at IS NULL;

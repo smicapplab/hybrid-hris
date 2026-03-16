@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common'
 import { and, asc, desc, eq, gte, isNull, sql, or, inArray, SQL, lte } from 'drizzle-orm'
 import * as bcrypt from 'bcrypt'
-import { employees, employeeProfiles, users, positions, orgUnits, orgUnitLeaders, employeeShiftAssignments, shiftTemplates, attendanceLogs, attendanceAdjustments } from '@hybrid-hris/db'
+import { employees, employeeProfiles, users, positions, orgUnits, orgUnitLeaders, employeeShiftAssignments, shiftTemplates, attendanceLogs, attendanceAdjustments, payslips, payrollBatches } from '@hybrid-hris/db'
 import { DatabaseService } from 'src/database/database.service'
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
@@ -467,5 +467,24 @@ export class ProfileService {
                 ),
             )
             .orderBy(desc(sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`));
+    }
+
+    async getMyPayslips(employeeId: string) {
+        return this.db.db
+            .select({
+                id: payslips.id,
+                grossPay: payslips.grossPay,
+                netPay: payslips.netPay,
+                totalDeductions: payslips.totalDeductions,
+                createdAt: payslips.createdAt,
+                batchName: payrollBatches.name,
+                startDate: payrollBatches.startDate,
+                endDate: payrollBatches.endDate,
+                processedAt: payrollBatches.processedAt,
+            })
+            .from(payslips)
+            .innerJoin(payrollBatches, eq(payslips.batchId, payrollBatches.id))
+            .where(eq(payslips.employeeId, employeeId))
+            .orderBy(desc(payrollBatches.endDate));
     }
 }

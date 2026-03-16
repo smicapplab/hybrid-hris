@@ -34,7 +34,7 @@ const INITIAL_FORM_DATA = {
     code: '',
     name: '',
     description: '',
-    type: 'EARNING' as 'EARNING' | 'DEDUCTION',
+    type: 'EARNING' as 'EARNING' | 'DEDUCTION' | 'EMPLOYER_COST',
     isTaxable: true,
     isDeMinimis: false,
     isStatutory: false,
@@ -177,7 +177,7 @@ export default function PayrollComponentsPage() {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant={c.type === 'EARNING' ? "default" : "destructive"} className="font-bold text-[10px]">
+                                        <Badge variant={c.type === 'EARNING' ? "default" : c.type === 'EMPLOYER_COST' ? 'outline' : "destructive"} className="font-bold text-[10px]">
                                             {c.type}
                                         </Badge>
                                     </TableCell>
@@ -257,10 +257,11 @@ export default function PayrollComponentsPage() {
                             <RequiredSelect
                                 label="Component Type"
                                 value={formData.type}
-                                onChangeAction={v => setFormData({...formData, type: v as 'EARNING' | 'DEDUCTION'})}
+                                onChangeAction={v => setFormData({...formData, type: v as 'EARNING' | 'DEDUCTION' | 'EMPLOYER_COST'})}
                             >
                                 <SelectItem value="EARNING">Earning</SelectItem>
                                 <SelectItem value="DEDUCTION">Deduction</SelectItem>
+                                <SelectItem value="EMPLOYER_COST">Employer Cost</SelectItem>
                             </RequiredSelect>
 
                             <div className="grid grid-cols-2 gap-4">

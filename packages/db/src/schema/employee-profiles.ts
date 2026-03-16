@@ -2,6 +2,7 @@ import {
     pgTable,
     uuid,
     varchar,
+    decimal,
     date,
     timestamp,
     index,
@@ -10,10 +11,11 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { employees } from './employees';
-import { CIVIL_STATUSES, GENDERS } from '@hybrid-hris/domain';
+import { CIVIL_STATUSES, GENDERS, PAYROLL_TYPES } from '@hybrid-hris/domain';
 
 export const genderEnum = pgEnum('gender', GENDERS);
 export const civilStatusEnum = pgEnum('civil_status', CIVIL_STATUSES);
+export const payrollTypeEnum = pgEnum('payroll_type', PAYROLL_TYPES);
 
 export const employeeProfiles = pgTable(
     'employee_profiles',
@@ -39,6 +41,10 @@ export const employeeProfiles = pgTable(
         emergencyContactName: varchar('emergency_contact_name', { length: 160 }),
         emergencyContactRelationship: varchar('emergency_contact_relationship', { length: 60 }),
         emergencyContactMobileNo: varchar('emergency_contact_mobile_no', { length: 30 }),
+
+        // Minimum DOLE Payroll Configurations
+        payrollType: payrollTypeEnum('payroll_type').default('MONTHLY'),
+        factorRate: decimal('factor_rate', { precision: 5, scale: 2 }).default('261.00'),
 
         // Optional free-form notes (keep short, avoid PII dumps)
         notes: varchar('notes', { length: 500 }),
