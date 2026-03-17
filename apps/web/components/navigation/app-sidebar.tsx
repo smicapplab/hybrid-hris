@@ -1,7 +1,17 @@
 "use client"
 
 import * as React from "react"
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail, useSidebar } from "@/components/ui/sidebar"
+import { 
+    Sidebar, 
+    SidebarContent, 
+    SidebarFooter, 
+    SidebarHeader, 
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarRail, 
+    useSidebar 
+} from "@/components/ui/sidebar"
 import { NavMain } from "./nav-main"
 import Image from "next/image"
 import { Separator } from "../ui/separator"
@@ -9,6 +19,7 @@ import { navigation } from "@/lib/config"
 import { NavUser } from "./nav-user"
 import { useAuth } from "@/context/AuthContext"
 import { NavCategory } from "@/types/nav.type"
+import { BookOpen } from "lucide-react"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar> & {}) {
 
@@ -64,7 +75,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar> & 
                     <NavMain key={i} navItem={nav} />
                 ))}
             </SidebarContent>
-            <SidebarFooter className="bg-blue-50">
+            <SidebarFooter className="bg-white">
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton asChild tooltip="User Manual">
+                            <a href="/manual" target="_blank" rel="noopener noreferrer">
+                                <BookOpen className="size-4" />
+                                <span>User Manual</span>
+                            </a>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
                 <NavUser />
             </SidebarFooter>
             <SidebarRail />

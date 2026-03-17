@@ -21,10 +21,27 @@ export class HrSettingsService {
         return settings[0];
     }
 
-    async updateSettings(dto: UpdateHrSettingsDto, actorId: string) {
+    async updateSettings(rawDto: UpdateHrSettingsDto, user: any) {
         const current = await this.getSettings();
         if (!current) {
             throw new NotFoundException('HR Settings not found. Please ensure the system is seeded.');
+        }
+
+        const isAdmin = user.roles.includes('ADMIN');
+        
+        let dto = { ...rawDto };
+
+        // If not admin, strip out restricted fields so they cannot be modified
+        if (!isAdmin) {
+            delete dto.employeeNoPrefix;
+            delete dto.employeeNoNext;
+            delete dto.employeeNoPadding;
+            delete dto.emailDomain;
+            delete dto.timezone;
+            delete dto.passwordLoginEnabled;
+            delete dto.googleLoginEnabled;
+            delete dto.microsoftLoginEnabled;
+            delete dto.allowedWorkspaceDomains;
         }
 
         // Logic Check: Cannot disable password login if no OAuth is enabled and ready
@@ -42,17 +59,31 @@ export class HrSettingsService {
             throw new BadRequestException('Cannot disable password login unless at least one Workspace provider (Google or Microsoft) is fully configured and enabled.');
         }
 
+        const updateData: any = {
+            ...dto,
+            updatedAt: new Date(),
+        };
+
+        if (dto.latePenaltyMultiplier !== undefined) {
+            updateData.latePenaltyMultiplier = dto.latePenaltyMultiplier.toString();
+        }
+        if (dto.undertimePenaltyMultiplier !== undefined) {
+            updateData.undertimePenaltyMultiplier = dto.undertimePenaltyMultiplier.toString();
+        }
+
+        // Check if there are actually any fields left to update
+        if (Object.keys(dto).length === 0) {
+            return current;
+        }
+
         const [updated] = await this.db.db
             .update(hrSettings)
-            .set({
-                ...dto,
-                updatedAt: new Date(),
-            })
+            .set(updateData)
             .where(eq(hrSettings.singleton, true))
             .returning();
 
         await this.auditService.log({
-            userId: actorId,
+            userId: user.id,
             action: 'UPDATE',
             entityType: 'HrSettings',
             entityId: 'GLOBAL_SETTINGS',

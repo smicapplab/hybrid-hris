@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, IsArray, ArrayUnique, IsInt, Min, Max, MaxLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsArray, ArrayUnique, IsInt, Min, Max, MaxLength, IsNumber } from 'class-validator';
 
 export class UpdateHrSettingsDto {
     @IsString()
@@ -44,4 +44,29 @@ export class UpdateHrSettingsDto {
     @ArrayUnique()
     @IsOptional()
     allowedWorkspaceDomains?: string[];
+
+    @IsInt()
+    @IsOptional()
+    @Min(0)
+    overtimeThresholdMinutes?: number;
+
+    @IsInt()
+    @IsOptional()
+    @Min(0)
+    lateGracePeriodMinutes?: number;
+
+    @IsInt()
+    @IsOptional()
+    @Min(0)
+    undertimeGracePeriodMinutes?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Min(0)
+    latePenaltyMultiplier?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Min(0)
+    undertimePenaltyMultiplier?: number;
 }

@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldCheck, Mail, Globe, Hash } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, Globe, Hash, Clock } from 'lucide-react';
 import { TIMEZONE_OPTIONS } from '@/lib/employee.enum';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/context/AuthContext';
 
 type HrSettings = {
     employeeNoPrefix: string;
@@ -23,9 +24,18 @@ type HrSettings = {
     googleLoginEnabled: boolean;
     microsoftLoginEnabled: boolean;
     allowedWorkspaceDomains: string[] | null;
+
+    overtimeThresholdMinutes: number;
+    lateGracePeriodMinutes: number;
+    undertimeGracePeriodMinutes: number;
+    latePenaltyMultiplier: string | number;
+    undertimePenaltyMultiplier: string | number;
 };
 
 export default function AdminSettingsPage() {
+    const { user } = useAuth();
+    const isAdmin = user?.roles?.includes('ADMIN') ?? false;
+
     const { toast } = useToast();
     const [settings, setSettings] = useState<HrSettings | null>(null);
     const [loading, setLoading] = useState(true);
@@ -62,7 +72,12 @@ export default function AdminSettingsPage() {
                 passwordLoginEnabled, 
                 googleLoginEnabled, 
                 microsoftLoginEnabled, 
-                allowedWorkspaceDomains 
+                allowedWorkspaceDomains,
+                overtimeThresholdMinutes,
+                lateGracePeriodMinutes,
+                undertimeGracePeriodMinutes,
+                latePenaltyMultiplier,
+                undertimePenaltyMultiplier
             } = settings;
 
             const payload = {
@@ -74,7 +89,12 @@ export default function AdminSettingsPage() {
                 passwordLoginEnabled,
                 googleLoginEnabled,
                 microsoftLoginEnabled,
-                allowedWorkspaceDomains
+                allowedWorkspaceDomains,
+                overtimeThresholdMinutes,
+                lateGracePeriodMinutes,
+                undertimeGracePeriodMinutes,
+                latePenaltyMultiplier: Number(latePenaltyMultiplier),
+                undertimePenaltyMultiplier: Number(undertimePenaltyMultiplier)
             };
             
             await apiFetch('/hr-settings', {
@@ -128,6 +148,7 @@ export default function AdminSettingsPage() {
                             <Label htmlFor="prefix">Employee No. Prefix</Label>
                             <Input
                                 id="prefix"
+                                disabled={!isAdmin}
                                 value={settings.employeeNoPrefix}
                                 onChange={(e) => setSettings({ ...settings, employeeNoPrefix: e.target.value })}
                                 placeholder="e.g., EMP-"
@@ -138,6 +159,7 @@ export default function AdminSettingsPage() {
                             <NumericInput
                                 className='w-16'
                                 id="padding"
+                                disabled={!isAdmin}
                                 mode="int"
                                 value={settings.employeeNoPadding}
                                 onChangeAction={(val) => setSettings({ ...settings, employeeNoPadding: val })}
@@ -149,6 +171,7 @@ export default function AdminSettingsPage() {
                             <Label htmlFor="domain">Company Email Domain</Label>
                             <Input
                                 id="domain"
+                                disabled={!isAdmin}
                                 value={settings.emailDomain || ''}
                                 onChange={(e) => setSettings({ ...settings, emailDomain: e.target.value })}
                                 placeholder="e.g., company.com"
@@ -157,6 +180,7 @@ export default function AdminSettingsPage() {
                         <div className="space-y-2">
                             <Label htmlFor="timezone">Default Timezone</Label>
                             <Select 
+                                disabled={!isAdmin}
                                 value={settings.timezone} 
                                 onValueChange={(v) => setSettings({ ...settings, timezone: v })}
                             >
@@ -173,6 +197,88 @@ export default function AdminSettingsPage() {
                             </Select>
                             <p className="text-[10px] text-muted-foreground italic">
                                 Used as fallback when an employee doesn&apos;t have a specific timezone set.
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Work Hours & Compliance */}
+                <Card className="shadow-sm border-blue-50">
+                    <CardHeader className="bg-blue-50/30 border-b">
+                        <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-blue-600" />
+                            <CardTitle className="text-lg">Work Hours & Compliance</CardTitle>
+                        </div>
+                        <CardDescription>Configure global grace periods, overtime thresholds, and automated penalty multipliers.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Overtime Policy</h3>
+                            <div className="space-y-2">
+                                <Label htmlFor="overtimeThreshold">OT Threshold (Minutes)</Label>
+                                <NumericInput
+                                    id="overtimeThreshold"
+                                    mode="int"
+                                    value={settings.overtimeThresholdMinutes}
+                                    onChangeAction={(val) => setSettings({ ...settings, overtimeThresholdMinutes: val })}
+                                    min={0}
+                                />
+                                <p className="text-[10px] text-muted-foreground">
+                                    Minimum extra minutes required beyond shift end before overtime is recognized (e.g., 30 mins).
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Late & Undertime Penalties</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="lateGrace">Late Grace (Mins)</Label>
+                                    <NumericInput
+                                        id="lateGrace"
+                                        mode="int"
+                                        value={settings.lateGracePeriodMinutes}
+                                        onChangeAction={(val) => setSettings({ ...settings, lateGracePeriodMinutes: val })}
+                                        min={0}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="lateMultiplier">Late Penalty Multiplier</Label>
+                                    <NumericInput
+                                        id="lateMultiplier"
+                                        mode="float"
+                                        value={Number(settings.latePenaltyMultiplier)}
+                                        onChangeAction={(val) => setSettings({ ...settings, latePenaltyMultiplier: val })}
+                                        min={0}
+                                        step={0.1}
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="undertimeGrace">Undertime Grace (Mins)</Label>
+                                    <NumericInput
+                                        id="undertimeGrace"
+                                        mode="int"
+                                        value={settings.undertimeGracePeriodMinutes}
+                                        onChangeAction={(val) => setSettings({ ...settings, undertimeGracePeriodMinutes: val })}
+                                        min={0}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="undertimeMultiplier">Undertime Penalty Multiplier</Label>
+                                    <NumericInput
+                                        id="undertimeMultiplier"
+                                        mode="float"
+                                        value={Number(settings.undertimePenaltyMultiplier)}
+                                        onChangeAction={(val) => setSettings({ ...settings, undertimePenaltyMultiplier: val })}
+                                        min={0}
+                                        step={0.1}
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-2">
+                                A multiplier of 1.0 deducts exact missed time. 1.5 deducts time-and-a-half.
                             </p>
                         </div>
                     </CardContent>
@@ -197,6 +303,7 @@ export default function AdminSettingsPage() {
                                     </p>
                                 </div>
                                 <Switch
+                                    disabled={!isAdmin}
                                     checked={settings.passwordLoginEnabled}
                                     onCheckedChange={(v) => setSettings({ ...settings, passwordLoginEnabled: v })}
                                 />
@@ -213,6 +320,7 @@ export default function AdminSettingsPage() {
                                     </p>
                                 </div>
                                 <Switch
+                                    disabled={!isAdmin}
                                     checked={settings.googleLoginEnabled}
                                     onCheckedChange={(v) => setSettings({ ...settings, googleLoginEnabled: v })}
                                 />
@@ -229,6 +337,7 @@ export default function AdminSettingsPage() {
                                     </p>
                                 </div>
                                 <Switch
+                                    disabled={!isAdmin}
                                     checked={settings.microsoftLoginEnabled}
                                     onCheckedChange={(v) => setSettings({ ...settings, microsoftLoginEnabled: v })}
                                 />
@@ -251,6 +360,7 @@ export default function AdminSettingsPage() {
                             <Label htmlFor="allowedDomains">Allowed Domains (Comma separated)</Label>
                             <Input
                                 id="allowedDomains"
+                                disabled={!isAdmin}
                                 value={settings.allowedWorkspaceDomains?.join(', ') || ''}
                                 onChange={(e) => {
                                     const domains = e.target.value.split(',').map(d => d.trim()).filter(Boolean);

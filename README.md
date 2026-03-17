@@ -21,6 +21,28 @@ Adapting the payroll engine for other countries would require significant modifi
 | **Department Manager** | `plat-mgr@hybrid-hris.local` | Manages the Platform Engineering department. |
 | **Standard Employee** | `employee@hybrid-hris.local` | Self-service access. |
 
+## User Manual
+-   **URL:** [https://hybrid-hris-web.vercel.app/manual](https://hybrid-hris-web.vercel.app/manual)
+
+## Screenshots
+###  Dashboard
+<img src="./apps/web/public/screenshots/dashboard-main.png" width="700" />
+
+###  Organization Settings
+<img src="./apps/web/public/screenshots/org-tree-view.png" width="700" />
+
+###  Plantilla & Recruitment
+<img src="./apps/web/public/screenshots/plantilla-inventory.png" width="700" />
+
+### Skill Management & Learning Management System
+<img src="./apps/web/public/screenshots/my-learning-active.png" width="700" />
+<img src="./apps/web/public/screenshots/my-team-skill-assignment.png" width="700" />
+
+### Payroll
+<img src="./apps/web/public/screenshots/compensation-templates.png" width="700" />
+<img src="./apps/web/public/screenshots/payroll-batch-create.png" width="700" />
+<img src="./apps/web/public/screenshots/my-payslip-current.png" width="700" />
+
 ## System Architecture
 
 The project uses a PNPM Workspaces monorepo for strict type safety and code reuse between a NestJS API and a Next.js (Turbopack) web application.

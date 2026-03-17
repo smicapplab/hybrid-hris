@@ -8,7 +8,7 @@ import { UpdateHrSettingsDto } from './dto/update-hr-settings.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(SystemRole.ADMIN)
+@Roles(SystemRole.ADMIN, SystemRole.HR_ADMIN)
 @Controller('hr-settings')
 export class HrSettingsController {
     constructor(private readonly service: HrSettingsService) { }
@@ -19,7 +19,7 @@ export class HrSettingsController {
     }
 
     @Patch()
-    async updateSettings(@Body() dto: UpdateHrSettingsDto, @CurrentUser('id') actorId: string) {
-        return this.service.updateSettings(dto, actorId);
+    async updateSettings(@Body() dto: UpdateHrSettingsDto, @CurrentUser() user: any) {
+        return this.service.updateSettings(dto, user);
     }
 }

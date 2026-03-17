@@ -4,6 +4,7 @@ import {
     integer,
     timestamp,
     boolean,
+    numeric,
 } from 'drizzle-orm/pg-core'
 
 export const hrSettings = pgTable(
@@ -42,6 +43,15 @@ export const hrSettings = pgTable(
         googleLoginEnabled: boolean('google_login_enabled').default(false).notNull(),
         microsoftLoginEnabled: boolean('microsoft_login_enabled').default(false).notNull(),
         allowedWorkspaceDomains: varchar('allowed_workspace_domains', { length: 255 }).array(),
+
+        // Work Hours & Compliance Settings
+        overtimeThresholdMinutes: integer('overtime_threshold_minutes').notNull().default(30),
+        lateGracePeriodMinutes: integer('late_grace_period_minutes').notNull().default(15),
+        undertimeGracePeriodMinutes: integer('undertime_grace_period_minutes').notNull().default(15),
+        
+        // Multipliers (e.g., 1.0 = exact deduction, 1.5 = time-and-a-half deduction)
+        latePenaltyMultiplier: numeric('late_penalty_multiplier', { precision: 5, scale: 2 }).notNull().default('1.00'),
+        undertimePenaltyMultiplier: numeric('undertime_penalty_multiplier', { precision: 5, scale: 2 }).notNull().default('1.00'),
 
         createdAt: timestamp('created_at', { withTimezone: true })
             .defaultNow()
