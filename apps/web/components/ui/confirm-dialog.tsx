@@ -1,6 +1,6 @@
-'use client';
+"use client"
 
-import * as React from 'react';
+import * as React from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,76 +10,55 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"
 
 interface ConfirmDialogProps {
-  title: string;
-  description: string;
-  onConfirm: () => void;
-  confirmText?: string;
-  cancelText?: string;
-  variant?: 'default' | 'destructive';
-  trigger?: React.ReactNode;
-  children?: React.ReactNode;
-  // Support controlled mode if needed
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void | Promise<void>
+  title?: string
+  description?: string
+  cancelText?: string
+  confirmText?: string
+  variant?: "default" | "destructive"
+  loading?: boolean
 }
 
-/**
- * A reusable confirmation dialog.
- * Can be used in controlled mode (via open/onOpenChange) 
- * or uncontrolled mode (via trigger).
- */
 export function ConfirmDialog({
-  title,
-  description,
-  onConfirm,
-  confirmText = "Continue",
-  cancelText = "Cancel",
-  variant = 'default',
-  trigger,
-  children,
   open,
   onOpenChange,
+  onConfirm,
+  title = "Are you sure?",
+  description = "This action cannot be undone.",
+  cancelText = "Cancel",
+  confirmText = "Confirm",
+  variant = "default",
+  loading = false,
 }: ConfirmDialogProps) {
-  const content = (
-    <AlertDialogContent className="text-foreground">
-      <AlertDialogHeader>
-        <AlertDialogTitle>{title}</AlertDialogTitle>
-        <AlertDialogDescription>{description}</AlertDialogDescription>
-      </AlertDialogHeader>
-      {children}
-      <AlertDialogFooter>
-        <AlertDialogCancel>{cancelText}</AlertDialogCancel>
-        <AlertDialogAction 
-          onClick={(e) => {
-            e.stopPropagation();
-            onConfirm();
-          }}
-          className={variant === 'destructive' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
-        >
-          {confirmText}
-        </AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  );
-
-  if (open !== undefined && onOpenChange !== undefined) {
-    return (
-      <AlertDialog open={open} onOpenChange={onOpenChange}>
-        {content}
-      </AlertDialog>
-    );
+  const handleConfirm = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    await onConfirm()
+    onOpenChange(false)
   }
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        {trigger}
-      </AlertDialogTrigger>
-      {content}
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={loading}>{cancelText}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleConfirm}
+            variant={variant}
+            disabled={loading}
+          >
+            {loading ? "Processing..." : confirmText}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
     </AlertDialog>
-  );
+  )
 }

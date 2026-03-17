@@ -97,11 +97,22 @@ export class ProfileController {
     }
 
     @Get('me/attendance-history')
-    async getMyAttendanceHistory(@Req() req: AuthRequest) {
+    async getMyAttendanceHistory(
+        @Req() req: AuthRequest,
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+    ) {
         if (!req.user.employeeId) {
             throw new UnprocessableEntityException('No employee record linked to this account')
         }
-        return this.profileService.getMyAttendanceHistory(req.user.employeeId)
+        return this.profileService.getMyAttendanceHistory(req.user.employeeId, {
+            from,
+            to,
+            page: page ? parseInt(page, 10) : undefined,
+            limit: limit ? parseInt(limit, 10) : undefined,
+        })
     }
 
     @Get('me/payslips')

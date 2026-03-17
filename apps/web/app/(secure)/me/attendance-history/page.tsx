@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
     Table,
     TableBody,
@@ -19,10 +20,11 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Clock, History, Lock, MoreHorizontal, Plus, Edit3, XCircle, AlertCircle, Timer, Umbrella } from 'lucide-react'
+import { format, parseISO, differenceInMinutes, subDays } from 'date-fns'
+import { AttendanceLog, PaginatedAttendanceLogs } from '@/types/attendance.types'
+import { DateRangePickerField } from '@/components/ui/date-range-picker-field'
 import { cn } from '@/lib/utils'
-import { format, parseISO, differenceInMinutes } from 'date-fns'
-import { AttendanceLog } from '@/types/attendance.types'
+import { Clock, History, Lock, MoreHorizontal, Plus, Edit3, XCircle, AlertCircle, Timer, Umbrella, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { AttendanceAdjustmentDialog } from '../../dashboard/components/attendance-adjustment-dialog'
 import { OvertimeRequestDialog } from '../../dashboard/components/overtime-request-dialog'
 import { useToast } from '@/hooks/use-toast'
@@ -164,6 +166,13 @@ export default function AttendanceHistoryPage() {
     const { user } = useAuth()
     const { toast } = useToast()
     const [records, setRecords] = useState<AttendanceLog[]>([])
+    const [total, setTotal] = useState(0)
+    const totalPages = Math.ceil(total / 30)
+    const [page, setPage] = useState(1)
+    const [range, setRange] = useState<{ from: string, to: string }>({
+        from: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+        to: format(new Date(), 'yyyy-MM-dd')
+    })
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
@@ -179,15 +188,22 @@ export default function AttendanceHistoryPage() {
     const loadLogs = useCallback(async () => {
         try {
             setLoading(true)
-            const data = await apiFetch<AttendanceLog[]>('/profile/me/attendance-history')
-            setRecords(data ?? [])
+            const query = new URLSearchParams({
+                from: range.from,
+                to: range.to,
+                page: page.toString(),
+                limit: '30'
+            })
+            const res = await apiFetch<PaginatedAttendanceLogs>(`/profile/me/attendance-history?${query.toString()}`)
+            setRecords(res.data ?? [])
+            setTotal(res.total ?? 0)
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to load attendance history';
             setError(message)
         } finally {
             setLoading(false)
         }
-    }, [])
+    }, [page, range])
 
     useEffect(() => {
         if (!user) return
@@ -254,20 +270,40 @@ export default function AttendanceHistoryPage() {
                 </div>
             )}
 
-            <Card className="shadow-sm border-blue-50">
-                <CardHeader className="pb-3 bg-blue-50/20 border-b">
+            <Card className="shadow-sm border-blue-50 overflow-hidden">
+                <CardHeader className="pb-3 bg-blue-50/20 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <CardTitle className="text-sm flex items-center gap-2">
                         <History className="w-4 h-4 text-blue-600" />
-                        Last 30 Days
-                        {records.length > 0 && (
-                            <span className="ml-auto text-[10px] uppercase font-bold text-muted-foreground">
-                                {records.length} record{records.length !== 1 ? 's' : ''}
-                            </span>
-                        )}
+                        Attendance History
                     </CardTitle>
+                    <div className="flex items-center gap-3">
+                        <div className="w-64">
+                            <DateRangePickerField
+                                label=""
+                                startDate={range.from}
+                                endDate={range.to}
+                                onChangeAction={(start, end) => {
+                                    setRange({ from: start, to: end })
+                                    setPage(1)
+                                }}
+                                placeholder="Filter range"
+                            />
+                        </div>
+                        <Badge variant="secondary" className="font-semibold text-[10px] whitespace-nowrap">
+                            {total} RECORDS
+                        </Badge>
+                    </div>
                 </CardHeader>
 
-                <CardContent className="p-0">
+                <CardContent className="p-0 relative">
+                    {loading && (
+                        <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center py-20">
+                            <div className="flex flex-col items-center gap-2">
+                                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                                <span className="text-xs font-medium text-blue-600 uppercase tracking-widest">Loading history...</span>
+                            </div>
+                        </div>
+                    )}
                     {records.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-3">
                             <Clock className="w-10 h-10 text-muted-foreground/40" />
@@ -448,6 +484,33 @@ export default function AttendanceHistoryPage() {
                         </Table>
                     )}
                 </CardContent>
+                {totalPages > 1 && (
+                    <div className="px-6 py-4 border-t bg-blue-50/10 flex items-center justify-between">
+                        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                            Page {page} of {totalPages}
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0 border-blue-200"
+                                onClick={() => setPage(Math.max(1, page - 1))}
+                                disabled={page === 1 || loading}
+                            >
+                                <ChevronLeft className="w-4 h-4 text-blue-600" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0 border-blue-200"
+                                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                                disabled={page === totalPages || loading}
+                            >
+                                <ChevronRight className="w-4 h-4 text-blue-600" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </Card>
 
             <AttendanceAdjustmentDialog

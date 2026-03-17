@@ -205,6 +205,7 @@ export const navigation: NavCategory[] = [
             {
                 title: "Payroll Management",
                 icon: Calculator,
+                roles: ['HR_ADMIN'],
                 items: [
                     {
                         title: "Payroll Components",

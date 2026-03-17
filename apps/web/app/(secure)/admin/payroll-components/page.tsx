@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Plus, Edit2, Trash2, ReceiptText, Info } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { PayrollComponent } from '@/types/attendance.types'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 const INITIAL_FORM_DATA = {
     code: '',
@@ -50,6 +51,9 @@ export default function PayrollComponentsPage() {
     const [editingId, setEditingId] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
     const [formData, setFormData] = useState(INITIAL_FORM_DATA)
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+    const [idToDelete, setIdToDelete] = useState<string | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     const fetchComponents = useCallback(async () => {
         try {
@@ -124,8 +128,14 @@ export default function PayrollComponentsPage() {
     }
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this payroll component?')) return
+        setIdToDelete(id)
+        setIsDeleteConfirmOpen(true)
+    }
 
+    const confirmDelete = async () => {
+        if (!idToDelete) return
+        const id = idToDelete
+        setIsDeleting(true)
         try {
             await apiFetch(`/payroll-components/${id}`, { method: 'DELETE' })
             toast({ title: "Component Deleted", variant: "success" })
@@ -133,6 +143,8 @@ export default function PayrollComponentsPage() {
         } catch (err) {
             console.error(err)
             toast({ title: "Error", description: "Failed to delete component", variant: "destructive" })
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -313,6 +325,16 @@ export default function PayrollComponentsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog
+                open={isDeleteConfirmOpen}
+                onOpenChange={setIsDeleteConfirmOpen}
+                onConfirm={confirmDelete}
+                title="Delete Payroll Component"
+                description="Are you sure you want to delete this payroll component? This action cannot be undone and may affect existing payroll calculations."
+                variant="destructive"
+                loading={isDeleting}
+            />
         </div>
     )
 }

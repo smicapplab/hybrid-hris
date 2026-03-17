@@ -12,13 +12,13 @@ export class BatchesController {
     constructor(private readonly batchesService: BatchesService) {}
 
     @Get()
-    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+    @Roles(SystemRole.HR_ADMIN)
     findAll() {
         return this.batchesService.findAll();
     }
 
     @Get(':id')
-    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN)
+    @Roles(SystemRole.HR_ADMIN)
     findOne(@Param('id') id: string) {
         return this.batchesService.findOne(id);
     }
@@ -35,15 +35,21 @@ export class BatchesController {
         return this.batchesService.processBatch(id);
     }
 
+    @Post(':id/re-process')
+    @Roles(SystemRole.HR_ADMIN)
+    reprocess(@Param('id') id: string) {
+        return this.batchesService.reprocessBatch(id);
+    }
+
     @Get('payslips/:id')
-    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.EMPLOYEE)
+    @Roles(SystemRole.HR_ADMIN, SystemRole.EMPLOYEE)
     getPayslip(@Param('id') id: string) {
         // TODO: In a real system, we'd check if the EMPLOYEE is the owner of the payslip
         return this.batchesService.getPayslipDetail(id);
     }
 
     @Get('payslips/employee/:id')
-    @Roles(SystemRole.HR_ADMIN, SystemRole.ADMIN, SystemRole.EMPLOYEE)
+    @Roles(SystemRole.HR_ADMIN, SystemRole.EMPLOYEE)
     getEmployeePayslips(@Param('id') id: string) {
         return this.batchesService.findEmployeePayslips(id);
     }

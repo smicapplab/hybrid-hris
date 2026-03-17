@@ -23,10 +23,11 @@ import {
 import { RequiredInput } from '@/components/ui/required-input'
 import { apiFetch } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Play, Calculator, Calendar, Clock } from 'lucide-react'
+import { Plus, Play, Calculator, Calendar, Clock, RotateCcw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 import type { PayrollBatch } from '@/types/payroll.types'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 export default function PayrollBatchesPage() {
     const { toast } = useToast()
@@ -40,6 +41,8 @@ export default function PayrollBatchesPage() {
         startDate: '',
         endDate: '',
     })
+    const [reProcessConfirmOpen, setReProcessConfirmOpen] = useState(false)
+    const [batchToReProcess, setBatchToReProcess] = useState<string | null>(null)
 
     const fetchBatches = useCallback(async () => {
         try {
@@ -91,6 +94,29 @@ export default function PayrollBatchesPage() {
             fetchBatches()
         } catch (err: any) {
             toast({ title: "Processing Failed", description: err.message, variant: "destructive" })
+        } finally {
+            setProcessingId(null)
+        }
+    }
+
+    const handleReProcess = async (id: string) => {
+        setBatchToReProcess(id)
+        setReProcessConfirmOpen(true)
+    }
+
+    const confirmReProcess = async () => {
+        if (!batchToReProcess) return;
+        const id = batchToReProcess;
+        try {
+            await apiFetch(`/payroll-batches/${id}/re-process`, { method: 'POST' })
+            toast({
+                title: "Payroll Re-processed",
+                description: "All payslips have been recalculated successfully.",
+                variant: "success"
+            })
+            fetchBatches()
+        } catch (err: any) {
+            toast({ title: "Re-processing Failed", description: err.message, variant: "destructive" })
         } finally {
             setProcessingId(null)
         }
@@ -180,13 +206,29 @@ export default function PayrollBatchesPage() {
                                                 {processingId === b.id ? 'Processing...' : 'Process'}
                                             </Button>
                                         )}
-                                        {b.status === 'COMPLETED' && (
-                                            <Link href={`/admin/payroll-batches/${b.id}`}>
-                                                <Button variant="outline" size="sm" className="h-8 font-bold gap-2 border-slate-200 text-slate-600 hover:bg-slate-100">
-                                                    <Calculator className="w-3 h-3" />
-                                                    View Register
+                                        {['COMPLETED', 'VOID', 'ERROR'].includes(b.status) && (
+                                            <div className="flex justify-end gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 font-bold gap-2 border-slate-200 text-slate-600 hover:bg-slate-100"
+                                                    onClick={() => handleReProcess(b.id)}
+                                                    disabled={processingId === b.id}
+                                                >
+                                                    {processingId === b.id ? (
+                                                        <Clock className="w-3 h-3 animate-spin" />
+                                                    ) : (
+                                                        <RotateCcw className="w-3 h-3" />
+                                                    )}
+                                                    {processingId === b.id ? 'Running...' : 'Re-run'}
                                                 </Button>
-                                            </Link>
+                                                <Link href={`/admin/payroll-batches/${b.id}`}>
+                                                    <Button variant="outline" size="sm" className="h-8 font-bold gap-2 border-slate-200 text-slate-600 hover:bg-slate-100">
+                                                        <Calculator className="w-3 h-3" />
+                                                        View Register
+                                                    </Button>
+                                                </Link>
+                                            </div>
                                         )}
                                     </TableCell>
                                 </TableRow>
@@ -239,6 +281,17 @@ export default function PayrollBatchesPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog
+                open={reProcessConfirmOpen}
+                onOpenChange={setReProcessConfirmOpen}
+                onConfirm={confirmReProcess}
+                title="Re-run Payroll Batch"
+                description="Are you sure you want to re-run this batch? This will overwrite all existing payslips in this batch. This action cannot be undone."
+                confirmText="Re-run Batch"
+                variant="destructive"
+                loading={processingId !== null}
+            />
         </div>
     )
 }

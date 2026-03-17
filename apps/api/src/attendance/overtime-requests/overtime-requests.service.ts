@@ -7,6 +7,7 @@ import { CreateOvertimeRequestDto } from './dto/create-overtime-request.dto';
 import { OvertimeStatus } from '@hybrid-hris/domain';
 import { UsersService } from 'src/identity/users/users.service';
 import { OrgUnitsService } from 'src/core/org-units/org-units.service';
+import { AttendanceComputeService } from '../attendance-compute/attendance-compute.service';
 
 @Injectable()
 export class OvertimeRequestsService {
@@ -15,6 +16,7 @@ export class OvertimeRequestsService {
         private readonly auditService: AuditService,
         private readonly usersService: UsersService,
         private readonly orgUnitsService: OrgUnitsService,
+        private readonly attendanceComputeService: AttendanceComputeService,
     ) { }
 
     async createRequest(employeeId: string, dto: CreateOvertimeRequestDto, actorId: string) {
@@ -138,6 +140,13 @@ export class OvertimeRequestsService {
             })
             .where(eq(overtimeRequests.id, id))
             .returning();
+
+        if (status === 'APPROVED') {
+            await this.attendanceComputeService.computeForEmployeeOnDate(
+                updated.employeeId,
+                updated.date.toISOString().split('T')[0],
+            );
+        }
 
         await this.auditService.log({
             userId: actorId,

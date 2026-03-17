@@ -17,11 +17,15 @@ import type { PendingChangeItem } from '@/types/attendance.types'
 import { Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 export default function PendingChangesPage() {
     const { toast } = useToast()
     const [pending, setPending] = useState<PendingChangeItem[]>([])
     const [loading, setLoading] = useState(true)
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+    const [selectedId, setSelectedId] = useState<string | null>(null)
+    const [isProcessing, setIsProcessing] = useState(false)
 
     const fetchPendingChanges = useCallback(async () => {
         setLoading(true)
@@ -41,8 +45,14 @@ export default function PendingChangesPage() {
     }, [fetchPendingChanges])
     
     const handleCancel = async (id: string) => {
-        if (!confirm('Are you sure you want to cancel this pending change?')) return
+        setSelectedId(id)
+        setIsConfirmOpen(true)
+    }
 
+    const confirmCancel = async () => {
+        if (!selectedId) return
+        const id = selectedId
+        setIsProcessing(true)
         try {
             await apiFetch(`/pending-shift-assignments/${id}`, { method: 'DELETE' })
             toast({ title: "Change Cancelled", variant: "success" })
@@ -50,6 +60,8 @@ export default function PendingChangesPage() {
         } catch (err) {
             console.error(err)
             toast({ title: "Error", description: "Failed to cancel change", variant: "destructive" })
+        } finally {
+            setIsProcessing(false)
         }
     }
 
@@ -128,6 +140,16 @@ export default function PendingChangesPage() {
                     </Table>
                 </CardContent>
             </Card>
+
+            <ConfirmDialog
+                open={isConfirmOpen}
+                onOpenChange={setIsConfirmOpen}
+                onConfirm={confirmCancel}
+                title="Cancel Pending Change"
+                description="Are you sure you want to cancel this pending schedule change? This action cannot be undone."
+                variant="destructive"
+                loading={isProcessing}
+            />
         </div>
     )
 }

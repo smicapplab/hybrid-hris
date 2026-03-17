@@ -28,6 +28,7 @@ import { RequiredSelect } from '@/components/ui/required-select'
 import { SelectItem } from '@/components/ui/select'
 import { RequiredInput } from '@/components/ui/required-input'
 import { DatePickerField } from '@/components/ui/date-picker-field'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface ManageCompensationDialogProps {
     employeeId: string
@@ -52,6 +53,8 @@ export function ManageCompensationDialog({
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [editingRecord, setEditingRecord] = useState<EditableCompensation | null>(null)
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+    const [idToDelete, setIdToDelete] = useState<string | null>(null)
 
     const fetchCompData = useCallback(async () => {
         if (!employeeId) return
@@ -119,7 +122,13 @@ export function ManageCompensationDialog({
     }
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to permanently delete this compensation item?')) return
+        setIdToDelete(id)
+        setIsDeleteConfirmOpen(true)
+    }
+
+    const confirmDelete = async () => {
+        if (!idToDelete) return
+        const id = idToDelete
 
         setSaving(true)
         try {
@@ -239,6 +248,16 @@ export function ManageCompensationDialog({
                     <Button onClick={() => onOpenChange(false)}>Close</Button>
                 </DialogFooter>
             </DialogContent>
+
+            <ConfirmDialog
+                open={isDeleteConfirmOpen}
+                onOpenChange={setIsDeleteConfirmOpen}
+                onConfirm={confirmDelete}
+                title="Delete Compensation Item"
+                description="Are you sure you want to permanently delete this compensation item? This action cannot be undone."
+                variant="destructive"
+                loading={saving}
+            />
         </Dialog>
     )
 }

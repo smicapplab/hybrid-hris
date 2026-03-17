@@ -58,7 +58,7 @@ export class AttendanceComputeService {
                 and(
                     eq(overtimeRequests.employeeId, log.employeeId),
                     eq(overtimeRequests.status, 'APPROVED'),
-                    sql`DATE(${overtimeRequests.date}) = ${log.workDate}`
+                    sql`DATE(${overtimeRequests.date} AT TIME ZONE 'Asia/Manila') = ${log.workDate}`
                 )
             );
         
@@ -95,7 +95,29 @@ export class AttendanceComputeService {
             })
             .where(eq(attendanceLogs.id, logId));
 
-        this.logger.log(`Computed attendance for log ${logId}: ${totalHours.toFixed(2)}h, Status: ${status}`);
+        this.logger.log(`Computed attendance for log ${logId} (${log.workDate}): ${totalHours.toFixed(2)}h, OT: ${overtimeHours.toFixed(2)}h, Status: ${status}`);
+    }
+
+    /**
+     * Finds the attendance log for a specific employee and date, and re-computes it.
+     */
+    async computeForEmployeeOnDate(employeeId: string, workDate: string) {
+        const [log] = await this.db.db
+            .select({ id: attendanceLogs.id })
+            .from(attendanceLogs)
+            .where(
+                and(
+                    eq(attendanceLogs.employeeId, employeeId),
+                    eq(attendanceLogs.workDate, workDate)
+                )
+            )
+            .limit(1);
+
+        if (log) {
+            await this.computeForLog(log.id);
+        } else {
+            this.logger.debug(`No attendance log found for employee ${employeeId} on ${workDate} to re-compute`);
+        }
     }
 
     /**

@@ -415,23 +415,53 @@ export class ProfileService {
         return row ?? null
     }
 
-    async getMyAttendanceHistory(employeeId: string) {
-        const since = new Date();
-        since.setUTCDate(since.getUTCDate() - 30);
-        const sinceStr = since.toISOString().slice(0, 10);
+    async getMyAttendanceHistory(employeeId: string, options: { from?: string; to?: string; page?: number; limit?: number } = {}) {
+        const { from, to, page = 1, limit = 30 } = options
+        const offset = (page - 1) * limit
 
-        return this.db.db
+        let sinceStr = from
+        if (!sinceStr && !to) {
+            const since = new Date();
+            since.setUTCDate(since.getUTCDate() - 30);
+            sinceStr = since.toISOString().slice(0, 10);
+        }
+
+        const whereClauses = [
+            eq(sql`COALESCE(${attendanceLogs.employeeId}, ${attendanceAdjustments.employeeId})`, employeeId)
+        ]
+
+        if (sinceStr) {
+            whereClauses.push(gte(sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`, sinceStr))
+        }
+        if (to) {
+            whereClauses.push(lte(sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`, to))
+        }
+
+        const [countResult] = await this.db.db
+            .select({ count: sql<number>`cast(count(DISTINCT COALESCE(${attendanceLogs.id}, ${attendanceAdjustments.id})) as int)` })
+            .from(attendanceLogs)
+            .fullJoin(
+                attendanceAdjustments,
+                and(
+                    eq(attendanceLogs.employeeId, attendanceAdjustments.employeeId),
+                    eq(attendanceLogs.workDate, attendanceAdjustments.workDate),
+                    eq(attendanceAdjustments.status, 'PENDING')
+                )
+            )
+            .where(and(...whereClauses))
+
+        const total = countResult?.count ?? 0
+
+        const data = await this.db.db
             .select({
                 id: attendanceLogs.id,
                 workDate: sql<string>`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`,
-                // ADD THESE BACK:
                 actualInAt: attendanceLogs.actualInAt,
                 actualOutAt: attendanceLogs.actualOutAt,
                 sourceIn: attendanceLogs.sourceIn,
                 sourceOut: attendanceLogs.sourceOut,
                 isLocked: attendanceLogs.isLocked,
                 status: attendanceLogs.status,
-                // Existing fields:
                 startTime: employeeShiftAssignments.startTime,
                 endTime: employeeShiftAssignments.endTime,
                 pendingStatus: attendanceAdjustments.status,
@@ -452,7 +482,6 @@ export class ProfileService {
                 employeeShiftAssignments,
                 and(
                     eq(employeeShiftAssignments.employeeId, employeeId),
-                    // RANGE JOIN: Finds the exact shift active on this specific work date
                     lte(employeeShiftAssignments.effectiveFrom, sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`),
                     or(
                         isNull(employeeShiftAssignments.effectiveUntil),
@@ -460,13 +489,12 @@ export class ProfileService {
                     )
                 )
             )
-            .where(
-                and(
-                    eq(sql`COALESCE(${attendanceLogs.employeeId}, ${attendanceAdjustments.employeeId})`, employeeId),
-                    gte(sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`, sinceStr),
-                ),
-            )
-            .orderBy(desc(sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`));
+            .where(and(...whereClauses))
+            .orderBy(desc(sql`COALESCE(${attendanceLogs.workDate}, ${attendanceAdjustments.workDate})`))
+            .limit(limit)
+            .offset(offset);
+
+        return { data, total }
     }
 
     async getMyPayslips(employeeId: string) {

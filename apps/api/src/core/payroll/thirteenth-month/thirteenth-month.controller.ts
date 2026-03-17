@@ -3,10 +3,11 @@ import { ThirteenthMonthService } from './thirteenth-month.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
+import { SystemRole } from '@hybrid-hris/domain';
 
 @Controller('payroll/thirteenth-month')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'HR_ADMIN')
+@Roles(SystemRole.HR_ADMIN)
 export class ThirteenthMonthController {
     constructor(private readonly thirteenthMonthService: ThirteenthMonthService) {}
 

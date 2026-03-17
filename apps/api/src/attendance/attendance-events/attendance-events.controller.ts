@@ -24,8 +24,19 @@ export class AttendanceEventsController {
 
     @UseGuards(AuthGuard('jwt'))
     @Get()
-    async findAllByEmployee(@Query('employeeId') employeeId: string) {
-        return this.attendanceEventsService.findAllByEmployee(employeeId)
+    async findAllByEmployee(
+        @Query('employeeId') employeeId: string,
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+    ) {
+        return this.attendanceEventsService.findAllByEmployee(employeeId, {
+            from,
+            to,
+            page: page ? parseInt(page, 10) : undefined,
+            limit: limit ? parseInt(limit, 10) : undefined,
+        })
     }
 
     @UseGuards(AuthGuard('jwt'))

@@ -23,6 +23,7 @@ import { format } from 'date-fns'
 import { Plus, Edit, Trash2, Wallet } from 'lucide-react'
 import { DatePickerField } from '@/components/ui/date-picker-field'
 import { SectionHeading } from '../../../helpers'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface CompensationTabProps {
     employee: Employee;
@@ -42,6 +43,9 @@ export function CompensationTab({
     const { toast } = useToast()
     const [editingComp, setEditingComp] = useState<EditableCompensation | null>(null);
     const [saving, setSaving] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+    const [idToDelete, setIdToDelete] = useState<string | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     const handleCompSave = async (record: EditableCompensation) => {
         if (!record.payrollComponentId || !record.amount || !record.effectiveFrom) {
@@ -70,7 +74,14 @@ export function CompensationTab({
     }
 
     const handleCompDelete = async (compId: string) => {
-        if (!confirm('Are you sure?')) return;
+        setIdToDelete(compId)
+        setIsDeleteConfirmOpen(true)
+    }
+
+    const confirmCompDelete = async () => {
+        if (!idToDelete) return
+        const compId = idToDelete
+        setIsDeleting(true)
         try {
             await apiFetch(`/employee-compensations/${compId}`, { method: 'DELETE' });
             toast({ title: 'Success', description: 'Compensation record deleted.' });
@@ -78,6 +89,8 @@ export function CompensationTab({
         } catch (err) {
             console.error(err);
             toast({ title: 'Error', description: 'Failed to delete record.', variant: 'destructive' });
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -178,6 +191,16 @@ export function CompensationTab({
                     </Button>
                 </div>
             </CardContent>
+
+            <ConfirmDialog
+                open={isDeleteConfirmOpen}
+                onOpenChange={setIsDeleteConfirmOpen}
+                onConfirm={confirmCompDelete}
+                title="Delete Compensation"
+                description="Are you sure you want to delete this compensation record? This action cannot be undone."
+                variant="destructive"
+                loading={isDeleting}
+            />
         </Card>
     );
 }

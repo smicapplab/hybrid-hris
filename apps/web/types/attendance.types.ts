@@ -1,4 +1,9 @@
 export type AttendanceSource = 'WEB' | 'MOBILE' | 'KIOSK' | 'API';
+
+export type PaginatedAttendanceLogs = {
+    data: AttendanceLog[];
+    total: number;
+};
 export type AttendanceAdjustmentStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 export type OvertimeType = 'REGULAR_OT' | 'REST_DAY_OT' | 'HOLIDAY_OT';
 export type OvertimeStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';

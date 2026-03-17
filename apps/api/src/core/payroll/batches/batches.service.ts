@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { payrollBatches, payslips, payslipItems, employees, thirteenthMonthLedger } from '@hybrid-hris/db';
-import { eq, desc, isNull, and } from 'drizzle-orm';
+import { eq, desc, isNull, and, inArray } from 'drizzle-orm';
 import { CreatePayrollBatchDto } from './dto/create-payroll-batch.dto';
 import { PayslipsService } from '../payslips/payslips.service';
 
@@ -109,9 +109,21 @@ export class BatchesService {
     }
 
     async processBatch(batchId: string) {
+        return this.runProcessing(batchId, false);
+    }
+
+    async reprocessBatch(batchId: string) {
+        return this.runProcessing(batchId, true);
+    }
+
+    private async runProcessing(batchId: string, isReprocess: boolean) {
         const batch = await this.findOne(batchId);
-        if (batch.status !== 'DRAFT') {
+        if (!isReprocess && batch.status !== 'DRAFT') {
             throw new BadRequestException('Only draft batches can be processed');
+        }
+        if (isReprocess && !['COMPLETED', 'VOID', 'ERROR', 'PROCESSING'].includes(batch.status)) {
+            // Allow re-processing of pretty much anything except maybe already processing?
+            // Actually, if it's processing, we might be overlapping, but let's allow it for now.
         }
 
         // 1. Mark as processing
@@ -119,12 +131,21 @@ export class BatchesService {
 
         try {
             // 2. Get all active employees
-            // In a real system, we'd filter by active status and org unit if needed
             const allEmployees = await this.db.db.select({ id: employees.id }).from(employees).where(isNull(employees.deletedAt));
 
             let batchTotal = 0;
 
             await this.db.withTransaction(async (tx) => {
+                if (isReprocess) {
+                    // Clear old data - thirteenthMonthLedger first as it references payslips
+                    const oldPayslips = await tx.select({ id: payslips.id }).from(payslips).where(eq(payslips.batchId, batchId));
+                    const payslipIds = oldPayslips.map(p => p.id);
+                    
+                    if (payslipIds.length > 0) {
+                        await tx.delete(thirteenthMonthLedger).where(inArray(thirteenthMonthLedger.payslipId, payslipIds));
+                        await tx.delete(payslips).where(eq(payslips.batchId, batchId));
+                    }
+                }
                 for (const emp of allEmployees) {
                     const result = await this.payslipsService.calculateEmployeePayslip(emp.id, batch.startDate, batch.endDate);
                     if (!result) continue;

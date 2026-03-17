@@ -14,12 +14,12 @@ import type { OrgUnitOption } from '@/types/org-unit.type'
 import type { PositionOption } from '@/types/position.types'
 import type { LeavePolicy } from '@/types/leave.types'
 import type { Role } from '@/lib/auth-types'
-import type { ShiftAssignment, AttendanceLog, PendingChangeItem, EmployeeCompensation, PayrollComponent } from '@/types/attendance.types'
+import type { ShiftAssignment, AttendanceLog, PendingChangeItem, EmployeeCompensation, PayrollComponent, PaginatedAttendanceLogs } from '@/types/attendance.types'
 import {
     isEmployeeStatus,
 } from '@hybrid-hris/domain'
 import { getBackgroundColor } from '@/lib/utils'
-import { format } from 'date-fns'
+import { format, subDays } from 'date-fns'
 import { useToast } from "@/hooks/use-toast";
 import { STATUS_CONFIG, EMPLOYMENT_TYPE_LABELS } from '@/lib/employee.enum'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -39,6 +39,7 @@ import { cleanPhoneNumber } from '@/components/ui/phone-input'
 import { cleanLandline } from '@/components/ui/landline-input'
 import { RequiredSelect } from '@/components/ui/required-select'
 import { SelectItem } from '@/components/ui/select'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface JobLevel {
     id: string;
@@ -81,9 +82,10 @@ export default function EmployeeDetailPage() {
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
     const [activeTab, setActiveTab] = useState('work')
     const [pendingShifts, setPendingShifts] = useState<PendingChangeItem[]>([])
-    const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([])
     const [isChangeScheduleOpen, setIsChangeScheduleOpen] = useState(false)
     const [isCompDialogOpen, setIsCompDialogOpen] = useState(false)
+    const [isCancelShiftConfirmOpen, setIsCancelShiftConfirmOpen] = useState(false)
+    const [shiftToCancel, setShiftToCancel] = useState<string | null>(null)
     const [nextTemplate, setNextTemplate] = useState<any>(null)
 
     const fetchOrgUnits = useCallback(async (search: string) => {
@@ -113,18 +115,49 @@ export default function EmployeeDetailPage() {
         }
     }, [])
 
+    const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([])
+    const [attendancePage, setAttendancePage] = useState(1)
+    const [attendanceTotal, setAttendanceTotal] = useState(0)
+    const [attendanceLoading, setAttendanceLoading] = useState(false)
+    const [attendanceRange, setAttendanceRange] = useState<{ from: string, to: string }>({
+        from: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+        to: format(new Date(), 'yyyy-MM-dd')
+    })
+
+    const fetchAttendance = useCallback(async () => {
+        try {
+            setAttendanceLoading(true)
+            const query = new URLSearchParams({
+                employeeId: id,
+                from: attendanceRange.from,
+                to: attendanceRange.to,
+                page: attendancePage.toString(),
+                limit: '30'
+            })
+            const res = await apiFetch<PaginatedAttendanceLogs>(`/attendance?${query.toString()}`)
+            setAttendanceLogs(res.data)
+            setAttendanceTotal(res.total)
+        } catch (err) {
+            console.error('Failed to fetch attendance:', err)
+        } finally {
+            setAttendanceLoading(false)
+        }
+    }, [id, attendanceRange, attendancePage])
+
+    useEffect(() => {
+        fetchAttendance()
+    }, [fetchAttendance])
+
     const fetchAncillaryData = useCallback(async () => {
         try {
-            const [shift, pending, logs, comps, payComps] = await Promise.all([
+            const [shift, pending, comps, payComps] = await Promise.all([
                 apiFetch<ShiftAssignment>(`/shift-assignments?employeeId=${id}`).catch(() => null),
                 apiFetch<PendingChangeItem[]>(`/pending-shift-assignments?employeeId=${id}&status=PENDING`).catch(() => []),
-                apiFetch<AttendanceLog[]>(`/attendance?employeeId=${id}`).catch(() => []),
                 apiFetch<EmployeeCompensation[]>(`/employee-compensations?employeeId=${id}`).catch(() => []),
                 apiFetch<PayrollComponent[]>('/payroll-components').catch(() => []),
             ])
             setEmployee(prev => prev ? { ...prev, shiftAssignment: shift } : prev)
             setPendingShifts(pending)
-            setAttendanceLogs(logs)
             setCompensations(comps)
             setPayrollComponents(payComps)
         } catch (err) {
@@ -308,8 +341,13 @@ export default function EmployeeDetailPage() {
     }
 
     async function handleCancelPendingShift(pendingId: string) {
-        if (!confirm('Are you sure you want to cancel this upcoming schedule change?')) return
+        setShiftToCancel(pendingId)
+        setIsCancelShiftConfirmOpen(true)
+    }
 
+    async function confirmCancelPendingShift() {
+        if (!shiftToCancel) return
+        const pendingId = shiftToCancel
         try {
             await apiFetch(`/pending-shift-assignments/${pendingId}`, { method: 'DELETE' })
             toast({
@@ -442,7 +480,7 @@ export default function EmployeeDetailPage() {
                         <Clock className="w-3 h-3 mr-2 opacity-50" />
                         Schedule & Attendance
                     </TabsTrigger>
-                    {(currentUser?.roles.includes('ADMIN') || currentUser?.roles.includes('HR_ADMIN')) && (
+                    {currentUser?.roles.includes('HR_ADMIN') && (
                         <>
                         <TabsTrigger value="payroll" className="rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm font-semibold text-xs uppercase tracking-wider">
                             <FileText className="w-3 h-3 mr-2 opacity-50" />
@@ -497,13 +535,19 @@ export default function EmployeeDetailPage() {
                         employee={employee}
                         pendingShifts={pendingShifts}
                         attendanceLogs={attendanceLogs}
+                        attendanceRange={attendanceRange}
+                        onRangeChange={setAttendanceRange}
+                        attendancePage={attendancePage}
+                        onPageChange={setAttendancePage}
+                        attendanceTotal={attendanceTotal}
+                        attendanceLoading={attendanceLoading}
                         getShiftDays={getShiftDays}
                         handleCancelPendingShift={handleCancelPendingShift}
                         setIsChangeScheduleOpen={setIsChangeScheduleOpen}
                     />
                 </TabsContent>
 
-                {(currentUser?.roles.includes('ADMIN') || currentUser?.roles.includes('HR_ADMIN')) && (
+                {currentUser?.roles.includes('HR_ADMIN') && (
                     <>
                     <TabsContent value="payroll" className="space-y-6 outline-hidden">
                         <PayrollHistoryTab employeeId={id} />
@@ -531,6 +575,15 @@ export default function EmployeeDetailPage() {
                 employeeId={id}
                 employeeName={employee ? `${employee.firstName} ${employee.lastName}` : ''}
                 onSuccess={fetchAncillaryData}
+            />
+
+            <ConfirmDialog
+                open={isCancelShiftConfirmOpen}
+                onOpenChange={setIsCancelShiftConfirmOpen}
+                onConfirm={confirmCancelPendingShift}
+                title="Cancel Schedule Change"
+                description="Are you sure you want to cancel this upcoming schedule change? This action cannot be undone."
+                variant="destructive"
             />
 
             {employee && nextTemplate && (

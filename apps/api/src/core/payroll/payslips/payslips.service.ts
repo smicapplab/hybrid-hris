@@ -41,7 +41,7 @@ export class PayslipsService {
 
         // 3. Fetch Data Prerequisites (Compensations, Statutories, Premiums, Holidays)
         const todayStr = new Date().toISOString().split('T')[0];
-        const [compensations, statutoryGrid, premiumGrid, holidayList] = await Promise.all([
+        const [compensations, statutoryGrid, premiumGrid, holidayList, approvedOTRequests] = await Promise.all([
             this.db.db
                 .select({
                     amount: employeeCompensations.amount,
@@ -63,7 +63,14 @@ export class PayslipsService {
                 )
             ),
             this.db.db.select().from(premiumPayRates),
-            this.db.db.select().from(holidays).where(between(holidays.date, startDate, endDate))
+            this.db.db.select().from(holidays).where(between(holidays.date, startDate, endDate)),
+            this.db.db.select().from(overtimeRequests).where(
+                and(
+                    eq(overtimeRequests.employeeId, employeeId),
+                    eq(overtimeRequests.status, 'APPROVED'),
+                    between(sql`DATE(${overtimeRequests.date} AT TIME ZONE 'Asia/Manila')`, startDate, endDate)
+                )
+            )
         ]);
 
         // 4. Fetch Attendance Logs
@@ -115,15 +122,30 @@ export class PayslipsService {
             // Classification helper
             const getPremiumValue = (code: string) => Number(premiumGrid.find(p => p.code === code)?.multiplier || 1.0);
 
-            // 1. Overtime Calculation
-            if (Number(log.overtimeHours) > 0) {
-                let otMultiplier = getPremiumValue('ORD_OT');
-                if (hDay?.type === 'REGULAR') otMultiplier = getPremiumValue('REG_HOL_OT');
-                else if (hDay?.type === 'SPECIAL') otMultiplier = isRestDay ? getPremiumValue('SPE_HOL_REST') * 1.3 : getPremiumValue('SPE_HOL') * 1.3;
-                else if (isRestDay) otMultiplier = getPremiumValue('REST_DAY_OT');
+             // 1. Overtime Calculation
+             // We use the approved OT requests for this date
+             const dailyApprovedOT = approvedOTRequests
+                .filter(ot => {
+                    // Standardize to YYYY-MM-DD in PH time
+                    const otDate = new Intl.DateTimeFormat('en-CA', {
+                        timeZone: 'Asia/Manila',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                    }).format(new Date(ot.date));
+                    
+                    return otDate === logDate;
+                })
+                .reduce((acc, ot) => acc + Number(ot.hours), 0);
 
-                totalOTAmount += Number(log.overtimeHours) * hourlyRate * otMultiplier;
-            }
+             if (dailyApprovedOT > 0) {
+                 let otMultiplier = getPremiumValue('ORD_OT');
+                 if (hDay?.type === 'REGULAR') otMultiplier = getPremiumValue('REG_HOL_OT');
+                 else if (hDay?.type === 'SPECIAL') otMultiplier = isRestDay ? getPremiumValue('SPE_HOL_REST') * 1.3 : getPremiumValue('SPE_HOL') * 1.3;
+                 else if (isRestDay) otMultiplier = getPremiumValue('REST_DAY_OT');
+ 
+                 totalOTAmount += dailyApprovedOT * hourlyRate * otMultiplier;
+             }
 
             // 2. Night Differential (10% standard premium on top of basic/OT)
             if (Number(log.nightDiffHours) > 0) {
@@ -180,7 +202,8 @@ export class PayslipsService {
         }
 
         // C. Allowances (Frequency Adjusted)
-        compensations.filter(c => c.type === 'EARNING' && c.code !== 'BASIC').forEach(c => {
+        const dynamicCodes = ['BASIC', 'OT', 'ND', 'PREM_PAY', 'HOL_PAY', 'VL_PAY', 'SL_PAY'];
+        compensations.filter(c => c.type === 'EARNING' && !dynamicCodes.includes(c.code)).forEach(c => {
             const amt = Number(c.amount) * frequencyMultiplier;
             items.push({ code: c.code, name: c.name, type: 'EARNING', amount: amt.toFixed(2) });
             grossPay += amt;

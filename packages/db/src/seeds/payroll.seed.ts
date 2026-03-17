@@ -11,7 +11,8 @@ import {
     premiumPayRates,
     thirteenthMonthLedger,
     employeeProfiles,
-    holidays
+    holidays,
+    overtimeRequests
 } from '../schema';
 import { differenceInDays, parseISO } from 'date-fns';
 
@@ -71,6 +72,14 @@ export async function seedPayroll(db: any) {
 
         // Fetch Holidays for the period
         const holidayList = await db.select().from(holidays).where(between(holidays.date, startIso, endIso));
+
+        // Fetch ALL approved OT requests for this period to avoid N+1 queries in the employee loop
+        const periodApprovedOT = await db.select().from(overtimeRequests).where(
+            and(
+                eq(overtimeRequests.status, 'APPROVED'),
+                between(sql`DATE(${overtimeRequests.date} AT TIME ZONE 'Asia/Manila')`, startIso, endIso)
+            )
+        );
 
         console.log(`  - Processing batch: ${period.name}...`);
 
@@ -147,11 +156,25 @@ export async function seedPayroll(db: any) {
                 const isRestDay = !log.scheduledInAt;
                 const getPremiumValue = (code: string) => Number(premiumGrid.find((p: any) => p.code === code)?.multiplier || 1.0);
 
-                if (Number(log.overtimeHours) > 0) {
+                // 1. Overtime Calculation
+                // Use the approved OT requests for this employee and date
+                const dailyApprovedOT = periodApprovedOT
+                    .filter((ot: any) => {
+                        const otDate = new Intl.DateTimeFormat('en-CA', {
+                            timeZone: 'Asia/Manila',
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                        }).format(new Date(ot.date));
+                        return ot.employeeId === emp.id && otDate === logDate;
+                    })
+                    .reduce((acc: number, ot: any) => acc + Number(ot.hours), 0);
+
+                if (dailyApprovedOT > 0) {
                     let otMultiplier = getPremiumValue('ORD_OT');
                     if (hDay?.type === 'REGULAR') otMultiplier = getPremiumValue('REG_HOL_OT');
                     else if (isRestDay) otMultiplier = getPremiumValue('REST_DAY_OT');
-                    totalOTAmount += Number(log.overtimeHours) * hourlyRate * otMultiplier;
+                    totalOTAmount += dailyApprovedOT * hourlyRate * otMultiplier;
                 }
 
                 if (Number(log.nightDiffHours) > 0) {
@@ -195,7 +218,8 @@ export async function seedPayroll(db: any) {
             }
 
             // C. Other earnings (Allowances - Frequency Adjusted)
-            compensations.filter((c: any) => c.type === 'EARNING' && c.code !== 'BASIC').forEach((c: any) => {
+            const dynamicCodes = ['BASIC', 'OT', 'ND', 'PREM_PAY', 'HOL_PAY', 'VL_PAY', 'SL_PAY'];
+            compensations.filter((c: any) => c.type === 'EARNING' && !dynamicCodes.includes(c.code)).forEach((c: any) => {
                 const amt = Number(c.amount) * frequencyMultiplier;
                 items.push({ code: c.code, name: c.name, type: 'EARNING', amount: amt.toFixed(2) });
                 grossPay += amt;

@@ -3,7 +3,7 @@ import {
     NotFoundException,
     BadRequestException,
 } from '@nestjs/common'
-import { and, eq, isNull, desc, sql } from 'drizzle-orm'
+import { and, eq, isNull, desc, sql, gte, lte } from 'drizzle-orm'
 import * as bcrypt from 'bcrypt'
 import {
     attendanceLogs,
@@ -252,12 +252,38 @@ export class AttendanceEventsService {
         return row?.employeeNoPrefix ?? ''
     }
 
-    async findAllByEmployee(employeeId: string) {
-        return this.db.db
+    async findAllByEmployee(
+        employeeId: string,
+        options: { from?: string; to?: string; page?: number; limit?: number } = {}
+    ) {
+        const { from, to, page = 1, limit = 30 } = options
+        const offset = (page - 1) * limit
+
+        const whereClauses = [eq(attendanceLogs.employeeId, employeeId)]
+
+        if (from) {
+            whereClauses.push(gte(attendanceLogs.workDate, from))
+        }
+        if (to) {
+            whereClauses.push(lte(attendanceLogs.workDate, to))
+        }
+
+        const [countResult] = await this.db.db
+            .select({ count: sql<number>`cast(count(${attendanceLogs.id}) as int)` })
+            .from(attendanceLogs)
+            .where(and(...whereClauses))
+
+        const total = countResult?.count ?? 0
+
+        const data = await this.db.db
             .select()
             .from(attendanceLogs)
-            .where(eq(attendanceLogs.employeeId, employeeId))
+            .where(and(...whereClauses))
             .orderBy(desc(attendanceLogs.workDate))
+            .limit(limit)
+            .offset(offset)
+
+        return { data, total }
     }
 
     async findById(id: string) {
