@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
@@ -14,7 +14,14 @@ export class PresenceController {
     constructor(private readonly presenceService: PresenceService) { }
 
     @Get()
-    async getTeamPresence(@CurrentUser() user: User) {
-        return this.presenceService.getTeamPresence(user);
+    async getTeamPresence(
+        @CurrentUser() user: User,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+    ) {
+        return this.presenceService.getTeamPresence(user, {
+            page: page ? parseInt(page, 10) : 1,
+            limit: limit ? parseInt(limit, 10) : 50,
+        });
     }
 }

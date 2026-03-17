@@ -3,7 +3,7 @@ import {
     NotFoundException,
     BadRequestException,
 } from '@nestjs/common'
-import { and, eq, lte } from 'drizzle-orm'
+import { and, eq, lte, inArray } from 'drizzle-orm'
 import {
     employeeShiftAssignments,
     shiftTemplates,
@@ -74,6 +74,33 @@ export class ShiftAssignmentsService {
         if (!row[key]) return null
 
         return row
+    }
+
+    /**
+     * Return active shift assignments for multiple employees for the given work date.
+     * "Active" means:
+     *   1. An assignment exists with effectiveFrom <= workDate
+     *   2. workDate falls on a scheduled work day (isMon–isSun snapshot)
+     */
+    async findActiveForDateByEmployeeIds(
+        employeeIds: string[],
+        workDate: string,
+    ): Promise<EmployeeShiftAssignment[]> {
+        if (!employeeIds.length) return []
+
+        const rows = await this.db.db
+            .select()
+            .from(employeeShiftAssignments)
+            .where(
+                and(
+                    inArray(employeeShiftAssignments.employeeId, employeeIds),
+                    lte(employeeShiftAssignments.effectiveFrom, workDate),
+                ),
+            )
+
+        // Guard: is this date a scheduled work day for this shift?
+        const key = dowKey(workDate)
+        return rows.filter((row) => row[key])
     }
 
     /**

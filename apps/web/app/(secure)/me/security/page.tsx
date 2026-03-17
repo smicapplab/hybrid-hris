@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
-import { COMMON_PASSWORDS } from '@/lib/employee.enum'
+import { COMMON_PASSWORDS } from '@hybrid-hris/domain'
 
 type RuleResult = { label: string; passed: boolean }
 

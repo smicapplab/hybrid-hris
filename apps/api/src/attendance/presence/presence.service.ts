@@ -28,14 +28,32 @@ export class PresenceService {
         private readonly shiftsService: ShiftAssignmentsService,
     ) { }
 
-    async getTeamPresence(actor: User): Promise<PresenceRecord[]> {
-        const targetEmployeeIds = await this.getVisibleEmployeeIds(actor);
+    async getTeamPresence(actor: User, options?: { page?: number; limit?: number }) {
+        const page = options?.page ?? 1;
+        const limit = options?.limit ?? 50;
+        const offset = (page - 1) * limit;
 
-        if (targetEmployeeIds.length === 0) {
-            return [];
+        const allTargetEmployeeIds = await this.getVisibleEmployeeIds(actor);
+
+        if (allTargetEmployeeIds.length === 0) {
+            return {
+                data: [],
+                meta: { total: 0, page, limit, totalPages: 0 }
+            };
         }
 
         const today = new Date().toISOString().split('T')[0];
+        
+        // Apply Pagination
+        const total = allTargetEmployeeIds.length;
+        const targetEmployeeIds = allTargetEmployeeIds.slice(offset, offset + limit);
+
+        if (targetEmployeeIds.length === 0) {
+            return {
+                data: [],
+                meta: { total, page, limit, totalPages: Math.ceil(total / limit) }
+            };
+        }
         
         // 1. Fetch employees in scope
         const targetEmployees = await this.db.db
@@ -57,10 +75,8 @@ export class PresenceService {
                 eq(attendanceLogs.workDate, today)
             ));
 
-        // 3. Fetch today's schedules for them
-        const schedules = await Promise.all(
-            targetEmployees.map(emp => this.shiftsService.findActiveForDate(emp.id, today))
-        );
+        // 3. Fetch today's schedules for them in bulk rather than individual queries (Fixes N+1 issue)
+        const schedules = await this.shiftsService.findActiveForDateByEmployeeIds(targetEmployeeIds, today);
 
         // 4. Determine status for each employee
         const presenceRecords: PresenceRecord[] = targetEmployees.map(emp => {
@@ -107,7 +123,10 @@ export class PresenceService {
             };
         });
 
-        return presenceRecords;
+        return {
+            data: presenceRecords,
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) }
+        };
     }
 
     private async getVisibleEmployeeIds(actor: User): Promise<string[]> {

@@ -12,6 +12,7 @@ import { PresenceModule } from "./presence/presence.module";
 @Module({
     imports: [
         CoreModule,
+        PresenceModule,
         ShiftAssignmentsModule,
         ShiftTemplatesModule,
         PendingShiftAssignmentsModule,
@@ -19,7 +20,6 @@ import { PresenceModule } from "./presence/presence.module";
         OvertimeRequestsModule,
         AttendanceEventsModule,
         AttendanceComputeModule,
-        PresenceModule,
     ],
     providers: [],
     exports: [

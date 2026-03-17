@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
@@ -14,6 +14,16 @@ import {
 import { apiFetch } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import type { PresenceRecord, PresenceStatus } from '@/types/attendance.types'
+
+interface PresenceResponse {
+    data: PresenceRecord[];
+    meta: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }
+}
 import { Clock, Search, UserCheck, UserMinus, UserX, Coffee, CalendarOff, LucideIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
@@ -33,27 +43,57 @@ export default function PresenceDashboardPage() {
     const { toast } = useToast()
     const [records, setPresenceRecords] = useState<PresenceRecord[]>([])
     const [loading, setLoading] = useState(true)
+    const [loadingMore, setLoadingMore] = useState(false)
     const [search, setSearch] = useState('')
+    const [page, setPage] = useState(1)
+    const [hasMore, setHasMore] = useState(true)
+    const [totalRecords, setTotalRecords] = useState(0)
 
-    const fetchPresence = useCallback(async () => {
-        setLoading(true)
+    const fetchPresence = useCallback(async (pageNum = 1, append = false) => {
+        if (!append) setLoading(true)
+        else setLoadingMore(true)
+
         try {
-            const data = await apiFetch<PresenceRecord[]>('/attendance/presence')
-            setPresenceRecords(data)
+            // Using a default limit of 50
+            const response = await apiFetch<PresenceResponse>(`/attendance/presence?page=${pageNum}&limit=50`)
+            
+            if (append) {
+                setPresenceRecords(prev => [...prev, ...response.data])
+            } else {
+                setPresenceRecords(response.data)
+            }
+            
+            setHasMore(response.meta.page < response.meta.totalPages)
+            setPage(response.meta.page)
+            setTotalRecords(response.meta.total)
         } catch (err) {
             console.error(err)
             toast({ title: "Error", description: "Failed to load presence data", variant: "destructive" })
         } finally {
             setLoading(false)
+            setLoadingMore(false)
         }
     }, [toast])
 
     useEffect(() => {
-        fetchPresence()
-        // Refresh every 5 minutes
-        const interval = setInterval(fetchPresence, 5 * 60 * 1000)
+        fetchPresence(1, false)
+        // Refresh page 1 every 5 minutes
+        const interval = setInterval(() => fetchPresence(1, false), 5 * 60 * 1000)
         return () => clearInterval(interval)
     }, [fetchPresence])
+
+    // Infinite scroll observer
+    const observer = useRef<IntersectionObserver | null>(null)
+    const lastRecordRef = useCallback((node: HTMLTableRowElement | null) => {
+        if (loadingMore) return
+        if (observer.current) observer.current.disconnect()
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                fetchPresence(page + 1, true)
+            }
+        })
+        if (node) observer.current.observe(node)
+    }, [loadingMore, hasMore, fetchPresence, page])
 
     const filteredRecords = useMemo(() => {
         return records.filter(r => 
@@ -65,7 +105,7 @@ export default function PresenceDashboardPage() {
 
     const stats = useMemo(() => {
         const counts = {
-            TOTAL: records.length,
+            TOTAL: totalRecords,
             ON_TIME: records.filter(r => r.status === 'ON_TIME').length,
             LATE: records.filter(r => r.status === 'LATE').length,
             ABSENT: records.filter(r => r.status === 'ABSENT').length,
@@ -142,10 +182,16 @@ export default function PresenceDashboardPage() {
                                 <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">Loading live presence data...</TableCell></TableRow>
                             ) : filteredRecords.length === 0 ? (
                                 <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">No matching records found.</TableCell></TableRow>
-                            ) : filteredRecords.map((r) => {
+                            ) : filteredRecords.map((r, index) => {
                                 const cfg = STATUS_CONFIG[r.status]
+                                const isLast = index === filteredRecords.length - 1
+                                
                                 return (
-                                    <TableRow key={r.employee.id} className="group">
+                                    <TableRow 
+                                        key={r.employee.id} 
+                                        className="group"
+                                        ref={isLast ? lastRecordRef : undefined}
+                                    >
                                         <TableCell>
                                             <div className="flex flex-col">
                                                 <span className="font-bold text-sm">{r.employee.firstName} {r.employee.lastName}</span>
@@ -176,6 +222,14 @@ export default function PresenceDashboardPage() {
                                     </TableRow>
                                 )
                             })}
+                            
+                            {loadingMore && (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="text-center py-4 text-xs text-muted-foreground font-medium animate-pulse">
+                                        Loading more records...
+                                    </TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>
