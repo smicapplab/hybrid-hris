@@ -1,5 +1,5 @@
 {
-  "id": "e8d6b1a7-2e9d-4865-9447-326fb0de713a",
+  "id": "3558446e-04c5-4887-be7f-3d3dd0036182",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -3542,6 +3542,41 @@
           "type": "varchar(255)[]",
           "primaryKey": false,
           "notNull": false
+        },
+        "overtime_threshold_minutes": {
+          "name": "overtime_threshold_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 30
+        },
+        "late_grace_period_minutes": {
+          "name": "late_grace_period_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 15
+        },
+        "undertime_grace_period_minutes": {
+          "name": "undertime_grace_period_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 15
+        },
+        "late_penalty_multiplier": {
+          "name": "late_penalty_multiplier",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'1.00'"
+        },
+        "undertime_penalty_multiplier": {
+          "name": "undertime_penalty_multiplier",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'1.00'"
         },
         "created_at": {
           "name": "created_at",
