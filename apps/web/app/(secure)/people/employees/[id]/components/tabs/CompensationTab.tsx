@@ -48,18 +48,22 @@ export function CompensationTab({
     const [isDeleting, setIsDeleting] = useState(false)
 
     const handleCompSave = async (record: EditableCompensation) => {
-        if (!record.payrollComponentId || !record.amount || !record.effectiveFrom) {
-            toast({ title: 'Validation Error', description: 'Component, Amount, and Effective Date are required.', variant: 'destructive' })
+        const isNew = record.id === 'new';
+        
+        if ((isNew && !record.payrollComponentId) || !record.amount || !record.effectiveFrom) {
+            toast({ title: 'Validation Error', description: isNew ? 'Component, Amount, and Effective Date are required.' : 'Amount and Effective Date are required.', variant: 'destructive' })
             return;
         }
 
         setSaving(true)
         try {
-            const isNew = record.id === 'new';
             const method = isNew ? 'POST' : 'PATCH';
             const endpoint = isNew ? '/employee-compensations' : `/employee-compensations/${record.id}`;
 
-            const payload = { ...record, employeeId: employee.id, id: isNew ? undefined : record.id };
+            // Strip nested component object and keep only what's needed for the DTO
+            const { component, ...restRecord } = record as any;
+            const payload = { ...restRecord, employeeId: employee.id, id: isNew ? undefined : record.id };
+            
             await apiFetch(endpoint, { method, body: JSON.stringify(payload) });
 
             toast({ title: 'Success', description: `Compensation record ${isNew ? 'added' : 'updated'}.` })
