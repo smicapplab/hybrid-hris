@@ -160,7 +160,7 @@ export default function PresenceDashboardPage() {
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchPresence} className="font-bold">
+                <Button variant="outline" size="sm" onClick={() => fetchPresence()} className="font-bold">
                     Refresh Now
                 </Button>
             </div>
