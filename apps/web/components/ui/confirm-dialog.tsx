@@ -22,6 +22,7 @@ interface ConfirmDialogProps {
   confirmText?: string
   variant?: "default" | "destructive"
   loading?: boolean
+  children?: React.ReactNode
 }
 
 export function ConfirmDialog({
@@ -34,6 +35,7 @@ export function ConfirmDialog({
   confirmText = "Confirm",
   variant = "default",
   loading = false,
+  children,
 }: ConfirmDialogProps) {
   const handleConfirm = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -48,6 +50,7 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>{cancelText}</AlertDialogCancel>
           <AlertDialogAction

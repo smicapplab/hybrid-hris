@@ -53,6 +53,7 @@ export function RoleSkillsRequirementPanel({ positionId }: Props) {
     // Form state
     const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
     const [targetLevel, setTargetLevel] = useState<string>('INTERMEDIATE');
+    const [removingSkill, setRemovingSkill] = useState<{ id: string; name: string } | null>(null);
 
     const loadReqs = useCallback(async () => {
         try {
@@ -187,21 +188,32 @@ export function RoleSkillsRequirementPanel({ positionId }: Props) {
                                     </span>
                                 </div>
                             </div>
-                            <ConfirmDialog
-                                title="Remove Skill Requirement"
-                                description={`Are you sure you want to remove ${r.skillName} as a requirement for this position?`}
-                                onConfirm={() => handleRemove(r.skillId)}
-                                variant="destructive"
-                                trigger={
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors">
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                }
-                            />
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+                                onClick={() => setRemovingSkill({ id: r.skillId, name: r.skillName })}
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
                         </div>
                     ))
                 )}
             </div>
+
+            <ConfirmDialog
+                open={!!removingSkill}
+                onOpenChange={(o) => !o && setRemovingSkill(null)}
+                title="Remove Skill Requirement"
+                description={`Are you sure you want to remove ${removingSkill?.name} as a requirement for this position?`}
+                onConfirm={async () => {
+                    if (removingSkill) {
+                        await handleRemove(removingSkill.id);
+                        setRemovingSkill(null);
+                    }
+                }}
+                variant="destructive"
+            />
         </div>
     );
 }

@@ -38,6 +38,7 @@ export function MandatoryTrainingRequirementPanel({ targetId, type }: Props) {
 
     // Form state
     const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
+    const [removingProgram, setRemovingProgram] = useState<{ id: string; title: string } | null>(null);
 
     const loadReqs = useCallback(async () => {
         try {
@@ -159,21 +160,32 @@ export function MandatoryTrainingRequirementPanel({ targetId, type }: Props) {
                                     </Badge>
                                 </div>
                             </div>
-                            <ConfirmDialog
-                                title="Remove Mandatory Training"
-                                description={`Are you sure you want to remove ${r.title} as a requirement?`}
-                                onConfirm={() => handleRemove(r.programId)}
-                                variant="destructive"
-                                trigger={
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors">
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                }
-                            />
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+                                onClick={() => setRemovingProgram({ id: r.programId, title: r.title })}
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
                         </div>
                     ))
                 )}
             </div>
+
+            <ConfirmDialog
+                open={!!removingProgram}
+                onOpenChange={(o) => !o && setRemovingProgram(null)}
+                title="Remove Mandatory Training"
+                description={`Are you sure you want to remove ${removingProgram?.title} as a requirement?`}
+                onConfirm={async () => {
+                    if (removingProgram) {
+                        await handleRemove(removingProgram.id);
+                        setRemovingProgram(null);
+                    }
+                }}
+                variant="destructive"
+            />
         </div>
     );
 }

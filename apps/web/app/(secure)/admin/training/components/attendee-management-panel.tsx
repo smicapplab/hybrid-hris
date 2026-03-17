@@ -54,6 +54,7 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
   // Confirm states
   const [attendeeToRemove, setAttendeeToRemove] = useState<string | null>(null);
   const [showBulkRemoveConfirm, setShowBulkRemoveConfirm] = useState(false);
+  const [showAutoEnrollConfirm, setShowAutoEnrollConfirm] = useState(false);
 
   const loadAttendees = useCallback(async () => {
     try {
@@ -262,17 +263,24 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
           </div>
         </div>
 
+        <Button 
+            variant="outline" 
+            className="gap-2 font-bold uppercase text-[10px] h-9 border-primary/20 text-primary hover:bg-primary/5 shadow-none" 
+            disabled={enrollingEligible}
+            onClick={() => setShowAutoEnrollConfirm(true)}
+        >
+            {enrollingEligible ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GraduationCap className="w-3.5 h-3.5" />}
+            Sync Non-Compliant
+        </Button>
+
         <ConfirmDialog
+            open={showAutoEnrollConfirm}
+            onOpenChange={setShowAutoEnrollConfirm}
             title="Auto-Enroll Non-Compliant Staff"
             description="This will identify all employees who are required to take this training (based on Global, Position, or Org rules) and haven't completed it yet, then enroll them into this schedule."
             onConfirm={handleAutoEnroll}
             confirmText={enrollingEligible ? 'Syncing...' : 'Start Sync'}
-            trigger={
-                <Button variant="outline" className="gap-2 font-bold uppercase text-[10px] h-9 border-primary/20 text-primary hover:bg-primary/5 shadow-none" disabled={enrollingEligible}>
-                    {enrollingEligible ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GraduationCap className="w-3.5 h-3.5" />}
-                    Sync Non-Compliant
-                </Button>
-            }
+            loading={enrollingEligible}
         />
       </div>
 
