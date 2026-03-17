@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { RequiredInput } from '@/components/ui/required-input'
 import { RequiredSelect } from '@/components/ui/required-select'
-import { SelectItem } from '@/components/ui/select'
+import { SelectItem, SelectValue } from '@/components/ui/select'
 import { apiFetch } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Plus, Edit2, Trash2, Wallet } from 'lucide-react'
@@ -115,7 +115,7 @@ export default function CompensationTemplatesPage() {
         try {
             const method = editingTemplate ? 'PATCH' : 'POST'
             const endpoint = editingTemplate ? `/compensation-templates/${editingTemplate.id}` : '/compensation-templates'
-            
+
             await apiFetch(endpoint, {
                 method,
                 body: JSON.stringify({
@@ -212,7 +212,7 @@ export default function CompensationTemplatesPage() {
                     </Table>
                 </CardContent>
             </Card>
-            
+
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
@@ -221,39 +221,100 @@ export default function CompensationTemplatesPage() {
                         </DialogTitle>
                     </DialogHeader>
                     <div className="grid grid-cols-2 gap-4 py-4">
-                        <RequiredInput label="Code" value={formData.code} onChangeAction={v => setFormData({...formData, code: v.toUpperCase()})} disabled={!!editingTemplate} />
-                        <RequiredInput label="Name" value={formData.name} onChangeAction={v => setFormData({...formData, name: v})} />
-                        <RequiredSelect label="Link to Job Level (Optional)" value={formData.jobLevelId} onChangeAction={v => setFormData({...formData, jobLevelId: v})}>
+                        <RequiredInput label="Code" value={formData.code} onChangeAction={v => setFormData({ ...formData, code: v.toUpperCase() })} disabled={!!editingTemplate} />
+                        <RequiredInput label="Name" value={formData.name} onChangeAction={v => setFormData({ ...formData, name: v })} />
+                        <RequiredSelect label="Link to Job Level (Optional)" value={formData.jobLevelId} onChangeAction={v => setFormData({ ...formData, jobLevelId: v })}>
                             <SelectItem value="none">None</SelectItem>
                             {jobLevels.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                         </RequiredSelect>
                     </div>
-                    <div className="space-y-2">
-                        <h3 className="font-bold text-sm">Components</h3>
-                        {formData.components.map((c: any, i: number) => (
-                            <div key={i} className="flex items-center gap-2">
-                                <RequiredSelect
-                                    value={c.payrollComponentId}
-                                    onChangeAction={v => {
-                                        const newComps = [...formData.components];
-                                        newComps[i].payrollComponentId = v;
-                                        setFormData({...formData, components: newComps});
-                                    }}
-                                >
-                                    {payrollComponents.map(pc => <SelectItem key={pc.id} value={pc.id}>{pc.name}</SelectItem>)}
-                                </RequiredSelect>
-                                <RequiredInput 
-                                    value={c.amount}
-                                    onChangeAction={v => {
-                                        const newComps = [...formData.components];
-                                        newComps[i].amount = v;
-                                        setFormData({...formData, components: newComps});
-                                    }}
-                                />
-                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeComponent(i)}><Trash2 className="w-4 h-4" /></Button>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-bold text-sm text-primary uppercase tracking-wider">Compensation Components</h3>
+                            <Button variant="outline" size="sm" onClick={addComponent} className="h-8 shadow-sm">
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add Component
+                            </Button>
+                        </div>
+
+                        <div className="border rounded-md overflow-hidden bg-card">
+                            <div className="max-h-[400px] overflow-y-auto pr-0.5">
+                                <Table>
+                                    <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm transition-shadow">
+                                        <TableRow>
+                                            <TableHead className="w-[60%] font-bold text-xs uppercase tracking-wider">Component</TableHead>
+                                            <TableHead className="w-[30%] font-bold text-xs uppercase tracking-wider">Amount</TableHead>
+                                            <TableHead className="w-[10%] text-center font-bold text-xs uppercase tracking-wider"></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {formData.components.map((c: any, i: number) => (
+                                            <TableRow key={i} className="group/row hover:bg-muted/30 transition-colors border-b last:border-0">
+                                                <TableCell className="py-2">
+                                                    <RequiredSelect
+                                                        value={c.payrollComponentId}
+                                                        onChangeAction={v => {
+                                                            const isDuplicate = formData.components.some((item: any, idx: number) => item.payrollComponentId === v && idx !== i);
+                                                            if (isDuplicate) {
+                                                                toast({
+                                                                    title: "Duplicate Component",
+                                                                    description: "This component is already added to the template.",
+                                                                    variant: "destructive"
+                                                                });
+                                                                return;
+                                                            }
+                                                            const newComps = [...formData.components];
+                                                            newComps[i].payrollComponentId = v;
+                                                            setFormData({ ...formData, components: newComps });
+                                                        }}
+                                                        className="space-y-0"
+                                                        placeholder="Select component"
+                                                    >
+                                                        {payrollComponents.map(pc => <SelectItem key={pc.id} value={pc.id}>{pc.name}</SelectItem>)}
+                                                    </RequiredSelect>
+                                                </TableCell>
+                                                <TableCell className="py-2">
+                                                    <RequiredInput
+                                                        value={c.amount}
+                                                        onChangeAction={v => {
+                                                            const newComps = [...formData.components];
+                                                            newComps[i].amount = v;
+                                                            setFormData({ ...formData, components: newComps });
+                                                        }}
+                                                        className="space-y-0"
+                                                        placeholder="0.00"
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="py-2 text-center">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover/row:opacity-100 transition-all hover:scale-110 active:scale-95"
+                                                        onClick={() => removeComponent(i)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+
+                                        {formData.components.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={3} className="py-12">
+                                                    <div className="flex flex-col items-center justify-center space-y-3 opacity-40">
+                                                        <Wallet className="w-10 h-10 text-muted-foreground" />
+                                                        <div className="text-center">
+                                                            <p className="text-sm font-medium">No compensation items</p>
+                                                            <p className="text-xs">Click "Add Component" above.</p>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
                             </div>
-                        ))}
-                         <Button variant="outline" size="sm" className="mt-2" onClick={addComponent}><Plus className="w-4 h-4 mr-2" />Add Component</Button>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>

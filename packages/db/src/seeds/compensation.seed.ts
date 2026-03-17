@@ -26,6 +26,9 @@ export async function seedCompensation(db: any) {
         { code: 'OT', name: 'Overtime Pay', type: 'EARNING', isTaxable: true, isRecurring: false },
         { code: 'ND', name: 'Night Differential Pay', type: 'EARNING', isTaxable: true, isRecurring: false },
         { code: 'HOL_PAY', name: 'Holiday Pay', type: 'EARNING', isTaxable: true, isRecurring: false },
+        { code: 'VL_PAY', name: 'Vacation Leave Pay', type: 'EARNING', isTaxable: true, isRecurring: false },
+        { code: 'SL_PAY', name: 'Sick Leave Pay', type: 'EARNING', isTaxable: true, isRecurring: false },
+        { code: 'LEAVE_CONV', name: 'Leave Conversion', type: 'EARNING', isTaxable: true, isRecurring: false },
 
         // Standard Allowances (Taxable)
         { code: 'TRANSPO', name: 'Transportation Allowance', type: 'EARNING', isTaxable: true, isRecurring: true },
@@ -111,7 +114,12 @@ export async function seedCompensation(db: any) {
             { code: 'ER_SSS', amount: '0.00' },
             { code: 'ER_PHIC', amount: '0.00' },
             { code: 'ER_HDMF', amount: '0.00' },
-            { code: 'D_WTAX', amount: '0.00' },
+            { code: 'WTAX', amount: '0.00' },
+            { code: 'OT', amount: '0.00' },
+            { code: 'ND', amount: '0.00' },
+            { code: 'HOL_PAY', amount: '0.00' },
+            { code: 'VL_PAY', amount: '0.00' },
+            { code: 'SL_PAY', amount: '0.00' },
             { code: 'BONUS_13', amount: '0.00' },
             { code: 'BONUS_PERF', amount: '0.00' },
         ];
