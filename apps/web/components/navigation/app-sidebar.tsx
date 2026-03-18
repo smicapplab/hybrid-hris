@@ -1,16 +1,16 @@
 "use client"
 
 import * as React from "react"
-import { 
-    Sidebar, 
-    SidebarContent, 
-    SidebarFooter, 
-    SidebarHeader, 
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarHeader,
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
-    SidebarRail, 
-    useSidebar 
+    SidebarRail,
+    useSidebar
 } from "@/components/ui/sidebar"
 import { NavMain } from "./nav-main"
 import Image from "next/image"
@@ -29,7 +29,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar> & 
     const visibleNav = navigation.reduce<NavCategory[]>((acc, category) => {
         // Filter the category itself based on roles
         const categoryRoles = category.roles || [];
-        const hasCategoryAccess = categoryRoles.length === 0 || 
+        const hasCategoryAccess = categoryRoles.length === 0 ||
             categoryRoles.some((role) => user?.roles.includes(role));
 
         if (!hasCategoryAccess) return acc;
@@ -60,13 +60,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar> & 
                     }`}
             >
                 <div className="flex items-center gap-2 font-bold text-xl text-blue-900">
-                    <Image
-                        src="/icon.png"
-                        alt="Logo"
-                        width={30}
-                        height={75}
-                        priority
-                    /> HRIS
+                    <div className="bg-blue-600 p-1 rounded text-white italic">H</div>Hybrid HRIS
                 </div>
             </SidebarHeader>
             <Separator />

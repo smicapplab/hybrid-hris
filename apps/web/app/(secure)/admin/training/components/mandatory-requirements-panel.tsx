@@ -33,7 +33,7 @@ interface MandatoryItem {
 export function MandatoryRequirementsPanel() {
   const { toast } = useToast();
   const [activeSubTab, setActiveSubTab] = useState('position');
-  
+
   const [targetId, setTargetId] = useState<string | null>(null);
   const [programId, setProgramId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,7 +62,7 @@ export function MandatoryRequirementsPanel() {
     }
     try {
       setLoading(true);
-      const endpoint = activeSubTab === 'position' 
+      const endpoint = activeSubTab === 'position'
         ? `/training/mandatory/positions/${targetId}`
         : `/training/mandatory/org-units/${targetId}`;
       const res = await apiFetch<MandatoryItem[]>(endpoint);
@@ -76,7 +76,7 @@ export function MandatoryRequirementsPanel() {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId, activeSubTab, toast, refreshKey]);
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export function MandatoryRequirementsPanel() {
   const handleAddRequirement = async () => {
     if (!targetId || !programId) return;
     try {
-      const endpoint = activeSubTab === 'position' 
+      const endpoint = activeSubTab === 'position'
         ? `/training/mandatory/positions`
         : `/training/mandatory/org-units`;
       const body = { targetId, programId };
@@ -111,10 +111,10 @@ export function MandatoryRequirementsPanel() {
   const handleRemoveRequirement = async (pid: string) => {
     if (!targetId) return;
     try {
-      const endpoint = activeSubTab === 'position' 
+      const endpoint = activeSubTab === 'position'
         ? `/training/mandatory/positions/${targetId}/${pid}`
         : `/training/mandatory/org-units/${targetId}/${pid}`;
-      
+
       await apiFetch(endpoint, { method: 'DELETE' });
       toast({ title: 'Requirement removed', variant: 'success' });
       setRefreshKey(prev => prev + 1);
@@ -128,7 +128,7 @@ export function MandatoryRequirementsPanel() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl mx-auto pb-12 text-foreground">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12 text-foreground">
       <div className="flex flex-col gap-1 px-1">
         <h2 className="text-xl font-bold flex items-center gap-2">
           <ShieldAlert className="w-5 h-5 text-primary" /> Mandatory Training Management
@@ -194,8 +194,8 @@ export function MandatoryRequirementsPanel() {
                         disabled={!targetId}
                       />
                     </div>
-                    <Button 
-                      onClick={handleAddRequirement} 
+                    <Button
+                      onClick={handleAddRequirement}
                       disabled={!targetId || !programId}
                       className="shadow-sm"
                     >
@@ -240,9 +240,9 @@ export function MandatoryRequirementsPanel() {
                             <span className="text-sm font-bold">{r.title}</span>
                             <span className="text-[9px] text-muted-foreground uppercase font-medium mt-0.5 tracking-tight">Requirement Active</span>
                           </div>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={() => handleRemoveRequirement(r.programId)}
                           >

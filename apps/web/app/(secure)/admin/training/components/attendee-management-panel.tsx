@@ -115,10 +115,10 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
       const res = await apiFetch<{ count: number }>(`/training/schedules/${scheduleId}/enroll-eligible`, {
         method: 'POST'
       });
-      toast({ 
-        title: 'Auto-enrollment complete', 
+      toast({
+        title: 'Auto-enrollment complete',
         description: `Enrolled ${res.count} eligible staff who haven't completed this training.`,
-        variant: 'success' 
+        variant: 'success'
       });
       loadAttendees();
     } catch (err) {
@@ -166,10 +166,10 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
       setNewEmployeeId(null);
       loadAttendees();
     } catch (err) {
-      toast({ 
-        title: 'Failed to add attendee', 
+      toast({
+        title: 'Failed to add attendee',
         description: err instanceof Error ? err.message : 'Please try again.',
-        variant: 'destructive' 
+        variant: 'destructive'
       });
     }
   }
@@ -250,7 +250,7 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
   };
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-right-4 duration-300 text-foreground">
+    <div className="space-y-6 text-foreground">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -263,24 +263,24 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
           </div>
         </div>
 
-        <Button 
-            variant="outline" 
-            className="gap-2 font-bold uppercase text-[10px] h-9 border-primary/20 text-primary hover:bg-primary/5 shadow-none" 
-            disabled={enrollingEligible}
-            onClick={() => setShowAutoEnrollConfirm(true)}
+        <Button
+          variant="outline"
+          className="gap-2 font-bold uppercase text-[10px] h-9 border-primary/20 text-primary hover:bg-primary/5 shadow-none"
+          disabled={enrollingEligible}
+          onClick={() => setShowAutoEnrollConfirm(true)}
         >
-            {enrollingEligible ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GraduationCap className="w-3.5 h-3.5" />}
-            Sync Non-Compliant
+          {enrollingEligible ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GraduationCap className="w-3.5 h-3.5" />}
+          Sync Non-Compliant
         </Button>
 
         <ConfirmDialog
-            open={showAutoEnrollConfirm}
-            onOpenChange={setShowAutoEnrollConfirm}
-            title="Auto-Enroll Non-Compliant Staff"
-            description="This will identify all employees who are required to take this training (based on Global, Position, or Org rules) and haven't completed it yet, then enroll them into this schedule."
-            onConfirm={handleAutoEnroll}
-            confirmText={enrollingEligible ? 'Syncing...' : 'Start Sync'}
-            loading={enrollingEligible}
+          open={showAutoEnrollConfirm}
+          onOpenChange={setShowAutoEnrollConfirm}
+          title="Auto-Enroll Non-Compliant Staff"
+          description="This will identify all employees who are required to take this training (based on Global, Position, or Org rules) and haven't completed it yet, then enroll them into this schedule."
+          onConfirm={handleAutoEnroll}
+          confirmText={enrollingEligible ? 'Syncing...' : 'Start Sync'}
+          loading={enrollingEligible}
         />
       </div>
 
@@ -299,7 +299,7 @@ export function AttendeeManagementPanel({ scheduleId, programTitle, onBackAction
               />
             </div>
             {selectedIds.size > 0 ? (
-              <div className="flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-primary mr-2">
                   {selectedIds.size} Selected
                 </span>

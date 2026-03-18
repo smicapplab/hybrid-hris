@@ -21,9 +21,9 @@ interface ComplianceReport {
 }
 
 interface PaginatedResponse {
-    data: ComplianceReport[];
-    total: number;
-    hasMore: boolean;
+  data: ComplianceReport[];
+  total: number;
+  hasMore: boolean;
 }
 
 type Props = {
@@ -39,7 +39,7 @@ export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search, s
   const [reports, setReports] = useState<ComplianceReport[]>([]);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  
+
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
@@ -58,10 +58,10 @@ export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search, s
       });
 
       const res = await apiFetch<PaginatedResponse>(`/training/team-compliance?${params.toString()}`);
-      
+
       setTotal(res.total);
       setHasMore(res.hasMore);
-      
+
       if (append) {
         setReports(prev => [...prev, ...res.data]);
       } else {
@@ -90,15 +90,15 @@ export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search, s
 
   if (reports.length === 0 && !loading) {
     return (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 bg-muted/5 rounded-2xl border border-dashed text-foreground">
-          <ShieldCheck className="w-12 h-12 text-muted-foreground/20" />
-          <p className="text-sm font-medium text-muted-foreground italic text-center">No matching team members found.</p>
-        </div>
+      <div className="flex flex-col items-center justify-center py-20 gap-3 bg-muted/5 rounded-2xl border border-dashed text-foreground">
+        <ShieldCheck className="w-12 h-12 text-muted-foreground/20" />
+        <p className="text-sm font-medium text-muted-foreground italic text-center">No matching team members found.</p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 text-foreground pb-10">
+    <div className="space-y-6 text-foreground pb-10">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Stats Summary */}
         <Card className="bg-blue-50/20 border-blue-100 shadow-none">
@@ -115,7 +115,7 @@ export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search, s
           </CardContent>
         </Card>
         <div className="md:col-span-2 flex items-center justify-end px-2">
-             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{total} total members monitored</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{total} total members monitored</span>
         </div>
       </div>
 
@@ -131,8 +131,8 @@ export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search, s
           </TableHeader>
           <TableBody>
             {reports.map((r) => (
-              <TableRow 
-                key={r.id} 
+              <TableRow
+                key={r.id}
                 className="cursor-pointer hover:bg-muted/50 transition-colors group"
                 onClick={() => onSelectEmployeeAction(r.id)}
               >
@@ -195,14 +195,14 @@ export function TeamComplianceTab({ onSelectEmployeeAction, recursive, search, s
       {/* Pagination */}
       {hasMore && (
         <div className="flex justify-center pt-4">
-            <button 
-                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                onClick={handleLoadMore}
-                disabled={loadingMore}
-            >
-                {loadingMore ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                Show More ({total - reports.length} remaining)
-            </button>
+          <button
+            className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+          >
+            {loadingMore ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            Show More ({total - reports.length} remaining)
+          </button>
         </div>
       )}
     </div>

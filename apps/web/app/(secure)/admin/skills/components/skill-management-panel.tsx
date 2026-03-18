@@ -48,7 +48,7 @@ export function SkillManagementPanel({ category }: Props) {
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6">
       {/* Category Header */}
       <div className="flex items-start justify-between gap-4 p-5 rounded-xl border bg-linear-to-br from-card to-muted/20 shadow-sm">
         <div className="flex gap-4">
@@ -65,9 +65,9 @@ export function SkillManagementPanel({ category }: Props) {
               <p className="text-sm text-muted-foreground mt-1 italic">No description provided.</p>
             )}
             <div className="flex gap-4 mt-3">
-               <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">
-                  {skills.length} Total Skills
-               </div>
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">
+                {skills.length} Total Skills
+              </div>
             </div>
           </div>
         </div>
@@ -83,7 +83,7 @@ export function SkillManagementPanel({ category }: Props) {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
-             Skills List
+            Skills List
           </h3>
           <div className="relative w-64">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -100,7 +100,7 @@ export function SkillManagementPanel({ category }: Props) {
           {filtered.length === 0 && !loading && (
             <div className="col-span-full py-12 text-center rounded-xl border border-dashed bg-muted/20">
               <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-                 <ShieldCheck className="w-5 h-5 text-muted-foreground opacity-50" />
+                <ShieldCheck className="w-5 h-5 text-muted-foreground opacity-50" />
               </div>
               <p className="text-sm text-muted-foreground">No skills found in this category.</p>
             </div>
@@ -127,8 +127,8 @@ export function SkillManagementPanel({ category }: Props) {
                       {skill.description}
                     </p>
                   )}
-                  
-                    <div className="flex items-center gap-4 mt-auto pt-1 border-t border-border/40">
+
+                  <div className="flex items-center gap-4 mt-auto pt-1 border-t border-border/40">
                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium uppercase tracking-tight">
                       <Clock className="w-3 h-3" />
                       {skill.expiryMonths ? `${skill.expiryMonths}M Expiry` : 'No Expiry'}

@@ -103,24 +103,24 @@ export default function PayrollComponentsPage() {
         try {
             const method = editingId ? 'PATCH' : 'POST'
             const endpoint = editingId ? `/payroll-components/${editingId}` : '/payroll-components'
-            
+
             await apiFetch(endpoint, {
                 method,
                 body: JSON.stringify(formData)
             })
 
-            toast({ 
-                title: editingId ? "Component Updated" : "Component Created", 
-                variant: "success" 
+            toast({
+                title: editingId ? "Component Updated" : "Component Created",
+                variant: "success"
             })
             setDialogOpen(false)
             fetchComponents()
         } catch (err) {
             console.error(err)
-            toast({ 
-                title: "Error", 
-                description: err instanceof Error ? err.message : "Failed to save payroll component", 
-                variant: "destructive" 
+            toast({
+                title: "Error",
+                description: err instanceof Error ? err.message : "Failed to save payroll component",
+                variant: "destructive"
             })
         } finally {
             setSaving(false)
@@ -242,24 +242,24 @@ export default function PayrollComponentsPage() {
 
                     <div className="grid grid-cols-2 gap-6 py-4">
                         <div className="space-y-4">
-                            <RequiredInput 
-                                label="Component Code" 
-                                value={formData.code} 
-                                onChangeAction={v => setFormData({...formData, code: v.toUpperCase()})}
+                            <RequiredInput
+                                label="Component Code"
+                                value={formData.code}
+                                onChangeAction={v => setFormData({ ...formData, code: v.toUpperCase() })}
                                 disabled={!!editingId}
                                 placeholder="e.g. BASIC_PAY, RICE_SUB"
                             />
-                            <RequiredInput 
-                                label="Display Name" 
-                                value={formData.name} 
-                                onChangeAction={v => setFormData({...formData, name: v})}
+                            <RequiredInput
+                                label="Display Name"
+                                value={formData.name}
+                                onChangeAction={v => setFormData({ ...formData, name: v })}
                                 placeholder="e.g. Basic Salary"
                             />
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-bold uppercase tracking-wider">Description</Label>
-                                <textarea 
+                                <textarea
                                     value={formData.description}
-                                    onChange={e => setFormData({...formData, description: e.target.value})}
+                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
                                     className="flex min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                 />
                             </div>
@@ -269,7 +269,7 @@ export default function PayrollComponentsPage() {
                             <RequiredSelect
                                 label="Component Type"
                                 value={formData.type}
-                                onChangeAction={v => setFormData({...formData, type: v as 'EARNING' | 'DEDUCTION' | 'EMPLOYER_COST'})}
+                                onChangeAction={v => setFormData({ ...formData, type: v as 'EARNING' | 'DEDUCTION' | 'EMPLOYER_COST' })}
                             >
                                 <SelectItem value="EARNING">Earning</SelectItem>
                                 <SelectItem value="DEDUCTION">Deduction</SelectItem>
@@ -279,36 +279,36 @@ export default function PayrollComponentsPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-4 pt-2">
                                     <div className="flex items-center space-x-2">
-                                        <Checkbox id="isTaxable" checked={formData.isTaxable} onCheckedChange={v => setFormData({...formData, isTaxable: !!v})} />
+                                        <Checkbox id="isTaxable" checked={formData.isTaxable} onCheckedChange={v => setFormData({ ...formData, isTaxable: !!v })} />
                                         <Label htmlFor="isTaxable" className="text-sm font-medium">Taxable</Label>
                                     </div>
                                     <div className="flex items-center space-x-2">
-                                        <Checkbox id="isRecurring" checked={formData.isRecurring} onCheckedChange={v => setFormData({...formData, isRecurring: !!v})} />
+                                        <Checkbox id="isRecurring" checked={formData.isRecurring} onCheckedChange={v => setFormData({ ...formData, isRecurring: !!v })} />
                                         <Label htmlFor="isRecurring" className="text-sm font-medium">Recurring</Label>
                                     </div>
                                 </div>
                                 <div className="space-y-4 pt-2">
                                     <div className="flex items-center space-x-2">
-                                        <Checkbox id="isDeMinimis" checked={formData.isDeMinimis} onCheckedChange={v => setFormData({...formData, isDeMinimis: !!v})} />
+                                        <Checkbox id="isDeMinimis" checked={formData.isDeMinimis} onCheckedChange={v => setFormData({ ...formData, isDeMinimis: !!v })} />
                                         <Label htmlFor="isDeMinimis" className="text-sm font-medium">De Minimis</Label>
                                     </div>
                                     <div className="flex items-center space-x-2">
-                                        <Checkbox id="isStatutory" checked={formData.isStatutory} onCheckedChange={v => setFormData({...formData, isStatutory: !!v})} />
+                                        <Checkbox id="isStatutory" checked={formData.isStatutory} onCheckedChange={v => setFormData({ ...formData, isStatutory: !!v })} />
                                         <Label htmlFor="isStatutory" className="text-sm font-medium">Statutory</Label>
                                     </div>
                                 </div>
                             </div>
 
                             {formData.isDeMinimis && (
-                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2">
+                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
                                     <div className="flex items-center gap-2 text-blue-700">
                                         <Info className="w-4 h-4" />
                                         <span className="text-xs font-bold uppercase tracking-wider">De Minimis Settings</span>
                                     </div>
-                                    <RequiredInput 
-                                        label="Tax Exempt Limit (Monthly)" 
-                                        value={formData.taxExemptLimit} 
-                                        onChangeAction={v => setFormData({...formData, taxExemptLimit: v})}
+                                    <RequiredInput
+                                        label="Tax Exempt Limit (Monthly)"
+                                        value={formData.taxExemptLimit}
+                                        onChangeAction={v => setFormData({ ...formData, taxExemptLimit: v })}
                                         placeholder="0.00"
                                     />
                                     <p className="text-[10px] text-blue-600 italic">Amounts exceeding this limit will automatically be treated as taxable income.</p>

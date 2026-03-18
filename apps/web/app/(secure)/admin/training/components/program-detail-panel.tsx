@@ -138,7 +138,7 @@ export function ProgramDetailPanel({ programId, onEditAction, onManageAttendeesA
   if (!program) return null;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 p-5 rounded-xl border bg-card shadow-sm">
         <div className="flex gap-4">

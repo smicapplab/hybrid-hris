@@ -115,7 +115,7 @@ export default function OrganizationPage() {
             </div>
 
             {isLeadershipTab && (
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
                     <div className="relative flex-1 sm:w-64">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                         <Input

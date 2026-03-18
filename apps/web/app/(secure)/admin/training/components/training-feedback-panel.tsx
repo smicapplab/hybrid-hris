@@ -19,7 +19,7 @@ export function TrainingFeedbackPanel({ programId }: { programId?: string }) {
   const [total, setTotal] = useState(0);
   const [avgRating, setAvgRating] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  
+
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
@@ -39,11 +39,11 @@ export function TrainingFeedbackPanel({ programId }: { programId?: string }) {
       }
 
       const res = await apiFetch<PaginatedFeedbackResponse>(`/training/feedback?${params.toString()}`);
-      
+
       setTotal(res.total);
       setAvgRating(res.averageRating);
       setHasMore(res.hasMore);
-      
+
       if (append) {
         setData(prev => [...prev, ...res.data]);
       } else {
@@ -72,7 +72,7 @@ export function TrainingFeedbackPanel({ programId }: { programId?: string }) {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 text-foreground pb-10">
+    <div className="space-y-6 text-foreground pb-10">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
@@ -187,9 +187,9 @@ export function TrainingFeedbackPanel({ programId }: { programId?: string }) {
 
       {hasMore && (
         <div className="flex justify-center pt-4">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="gap-2 font-bold uppercase text-[10px] h-9 px-8 rounded-full border-border/60 hover:bg-muted/50"
             onClick={handleLoadMore}
             disabled={loadingMore}

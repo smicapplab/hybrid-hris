@@ -47,9 +47,9 @@ export function FinalPayTab({ employee }: FinalPayTabProps) {
                 <CardContent className="pt-8 space-y-6">
                     <div className="flex items-center justify-between">
                         <SectionHeading>Final Pay Settlement</SectionHeading>
-                        <Button 
-                            onClick={handleCalculate} 
-                            disabled={loading || employee.status === 'ACTIVE'} 
+                        <Button
+                            onClick={handleCalculate}
+                            disabled={loading || employee.status === 'ACTIVE'}
                             className="font-bold gap-2"
                         >
                             <Calculator size={16} />
@@ -75,7 +75,7 @@ export function FinalPayTab({ employee }: FinalPayTabProps) {
                     )}
 
                     {calculation && (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="space-y-8">
                             {/* Summary Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <Card className="bg-slate-50 border-slate-200 shadow-none">

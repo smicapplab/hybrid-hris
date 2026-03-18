@@ -16,8 +16,8 @@ interface PublicScheduleDetails extends TrainingSchedule {
   program: TrainingProgram;
   sessions: TrainingScheduleSession[];
   attendeeCount: number;
-  myEnrollment: { 
-    id: string; 
+  myEnrollment: {
+    id: string;
     status: string;
     feedbackRating: string | null;
     feedbackComments: string | null;
@@ -93,7 +93,7 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
   const hasFeedback = !!data.myEnrollment?.feedbackSubmittedAt;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto pb-12 text-foreground">
+    <div className="space-y-8 max-w-4xl mx-auto pb-12 text-foreground">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start justify-between gap-6 p-6 rounded-2xl border bg-card shadow-sm">
         <div className="flex gap-5">
@@ -271,7 +271,7 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
         </div>
       </div>
 
-      <ConfirmDialog 
+      <ConfirmDialog
         open={showUnenrollConfirm}
         onOpenChange={setShowUnenrollConfirm}
         title="Un-enroll from Training"
@@ -281,7 +281,7 @@ export function TrainingDetailPanel({ scheduleId, onUnenrollAction }: Props) {
         confirmText="Un-enroll"
       />
 
-      <TrainingFeedbackDialog 
+      <TrainingFeedbackDialog
         open={showFeedbackDialog}
         onOpenChangeAction={setShowFeedbackDialog}
         scheduleId={scheduleId}

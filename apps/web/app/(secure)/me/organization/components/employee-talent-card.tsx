@@ -12,22 +12,22 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TrainingSchedule } from '@/types/training.types';
-import { 
-    Dialog, 
-    DialogContent, 
-    DialogDescription, 
-    DialogFooter, 
-    DialogHeader, 
-    DialogTitle, 
-    DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { 
-    Select, 
-    SelectContent, 
-    SelectItem, 
-    SelectTrigger, 
-    SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import { PROFICIENCY_LEVEL_OPTIONS } from '@/lib/employee.enum';
 import { AsyncSearchSelect } from '@/components/ui/async-search-select';
@@ -64,15 +64,15 @@ interface TalentCardData {
 }
 
 interface SkillOption {
-    id: string;
-    label: string;
-    category: string;
+  id: string;
+  label: string;
+  category: string;
 }
 
 interface TaxonomyCategory {
-    id: string;
-    name: string;
-    skills: { id: string; name: string }[];
+  id: string;
+  name: string;
+  skills: { id: string; name: string }[];
 }
 
 type Props = {
@@ -109,21 +109,21 @@ export function EmployeeTalentCard({ employeeId, onBackAction }: Props) {
   if (loading || !data) return <div className="p-12 text-center animate-pulse text-foreground text-sm font-medium">Loading talent profile…</div>;
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-right-4 duration-300 text-foreground">
+    <div className="space-y-6 text-foreground">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={onBackAction} className="text-foreground">
+          <Button variant="ghost" size="icon" onClick={onBackAction} className="text-foreground">
             <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <div>
+          </Button>
+          <div>
             <h2 className="text-xl font-bold tracking-tight text-foreground">Talent Profile</h2>
             <p className="text-sm text-muted-foreground">Team Member Performance & Development</p>
-            </div>
+          </div>
         </div>
-        <DirectSkillAssignmentDialog 
-            employeeId={employeeId} 
-            onSuccessAction={loadData} 
+        <DirectSkillAssignmentDialog
+          employeeId={employeeId}
+          onSuccessAction={loadData}
         />
       </div>
 
@@ -239,61 +239,61 @@ export function EmployeeTalentCard({ employeeId, onBackAction }: Props) {
 
                 {/* ADDITIONAL SKILLS (Verified but not in baseline) */}
                 {(() => {
-                    const additional = data.skills.actual.filter(s => 
-                        s.verificationStatus === 'VERIFIED' && 
-                        !data.skills.required.some(r => r.skillId === s.skillId)
-                    );
-                    if (additional.length === 0) return null;
-                    return (
-                        <div className="pt-4 space-y-3">
-                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                                <Info className="w-3.5 h-3.5" /> Additional Verified Skills
-                            </h4>
-                            <div className="grid grid-cols-1 gap-2">
-                                {additional.map(s => (
-                                    <div key={s.id} className="flex items-center justify-between p-3 rounded-xl border border-dashed bg-muted/5">
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-bold text-foreground">{s.skillName}</p>
-                                            <Badge variant="secondary" className="text-[9px] h-4 font-bold mt-1 shadow-none">
-                                                {s.proficiencyLevel}
-                                            </Badge>
-                                        </div>
-                                        <div className="w-8 h-8 rounded-full bg-primary/5 text-primary flex items-center justify-center border border-primary/10">
-                                            <CheckCircle2 className="w-4 h-4" />
-                                        </div>
-                                    </div>
-                                ))}
+                  const additional = data.skills.actual.filter(s =>
+                    s.verificationStatus === 'VERIFIED' &&
+                    !data.skills.required.some(r => r.skillId === s.skillId)
+                  );
+                  if (additional.length === 0) return null;
+                  return (
+                    <div className="pt-4 space-y-3">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                        <Info className="w-3.5 h-3.5" /> Additional Verified Skills
+                      </h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        {additional.map(s => (
+                          <div key={s.id} className="flex items-center justify-between p-3 rounded-xl border border-dashed bg-muted/5">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-foreground">{s.skillName}</p>
+                              <Badge variant="secondary" className="text-[9px] h-4 font-bold mt-1 shadow-none">
+                                {s.proficiencyLevel}
+                              </Badge>
                             </div>
-                        </div>
-                    );
+                            <div className="w-8 h-8 rounded-full bg-primary/5 text-primary flex items-center justify-center border border-primary/10">
+                              <CheckCircle2 className="w-4 h-4" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
                 })()}
 
                 {/* PENDING SKILLS (Needs Manager Action) */}
                 {(() => {
-                    const pending = data.skills.actual.filter(s => s.verificationStatus === 'PENDING');
-                    if (pending.length === 0) return null;
-                    return (
-                        <div className="pt-4 space-y-3">
-                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-orange-600 flex items-center gap-2">
-                                <Clock className="w-3.5 h-3.5" /> Awaiting Verification
-                            </h4>
-                            <div className="grid grid-cols-1 gap-2">
-                                {pending.map(s => (
-                                    <div key={s.id} className="flex items-center justify-between p-3 rounded-xl border border-orange-100 bg-orange-50/20">
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-bold text-foreground">{s.skillName}</p>
-                                            <Badge variant="outline" className="text-[9px] h-4 font-bold mt-1 border-orange-200 text-orange-700">
-                                                Self-Declared: {s.proficiencyLevel}
-                                            </Badge>
-                                        </div>
-                                        <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center border border-orange-200 animate-pulse">
-                                            <Clock className="w-4 h-4" />
-                                        </div>
-                                    </div>
-                                ))}
+                  const pending = data.skills.actual.filter(s => s.verificationStatus === 'PENDING');
+                  if (pending.length === 0) return null;
+                  return (
+                    <div className="pt-4 space-y-3">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-orange-600 flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5" /> Awaiting Verification
+                      </h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        {pending.map(s => (
+                          <div key={s.id} className="flex items-center justify-between p-3 rounded-xl border border-orange-100 bg-orange-50/20">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-foreground">{s.skillName}</p>
+                              <Badge variant="outline" className="text-[9px] h-4 font-bold mt-1 border-orange-200 text-orange-700">
+                                Self-Declared: {s.proficiencyLevel}
+                              </Badge>
                             </div>
-                        </div>
-                    );
+                            <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center border border-orange-200 animate-pulse">
+                              <Clock className="w-4 h-4" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
                 })()}
               </div>
             </CardContent>
@@ -332,22 +332,22 @@ export function EmployeeTalentCard({ employeeId, onBackAction }: Props) {
               {/* Scheduled Mandatory */}
               {data.training.scheduledMandatory.length > 0 && (
                 <div className="space-y-3 text-foreground pt-4 border-t border-dashed">
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-600 flex items-center gap-2 mb-4 leading-none">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-600 flex items-center gap-2 mb-4 leading-none">
                     <Clock className="w-3.5 h-3.5" /> Scheduled Mandatory Items
-                    </h4>
-                    <div className="grid grid-cols-1 gap-2">
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
                     {data.training.scheduledMandatory.map(m => (
-                        <div key={m.id} className="flex items-center justify-between p-3 rounded-xl border border-amber-100 bg-amber-50/10 group text-foreground">
+                      <div key={m.id} className="flex items-center justify-between p-3 rounded-xl border border-amber-100 bg-amber-50/10 group text-foreground">
                         <div className="flex flex-col gap-0.5 min-w-0">
-                            <span className="text-sm font-bold truncate pr-4">{m.title}</span>
-                            <span className="text-[10px] text-muted-foreground font-medium">Starts {new Date(m.startAt).toLocaleDateString()}</span>
+                          <span className="text-sm font-bold truncate pr-4">{m.title}</span>
+                          <span className="text-[10px] text-muted-foreground font-medium">Starts {new Date(m.startAt).toLocaleDateString()}</span>
                         </div>
                         <Badge variant="outline" className="text-[9px] uppercase font-bold border-amber-200 text-amber-700 bg-amber-50 shadow-none shrink-0">
-                            Enrolled
+                          Enrolled
                         </Badge>
-                        </div>
+                      </div>
                     ))}
-                    </div>
+                  </div>
                 </div>
               )}
 
@@ -383,114 +383,114 @@ export function EmployeeTalentCard({ employeeId, onBackAction }: Props) {
 }
 
 function DirectSkillAssignmentDialog({ employeeId, onSuccessAction }: { employeeId: string; onSuccessAction: () => void }) {
-    const { toast } = useToast();
-    const [open, setOpen] = useState(false);
-    const [saving, setSaving] = useState(false);
-    
-    const [skillId, setSkillId] = useState<string | null>(null);
-    const [level, setLevel] = useState<string>('BEGINNER');
-    const [notes, setNotes] = useState('');
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-    const fetchSkills = async (s: string): Promise<SkillOption[]> => {
-        const res = await apiFetch<TaxonomyCategory[]>(`/skills/taxonomy`);
-        const list: SkillOption[] = [];
-        res.forEach(cat => {
-            cat.skills.forEach((sk) => {
-                if (sk.name.toLowerCase().includes(s.toLowerCase())) {
-                    list.push({ id: sk.id, label: sk.name, category: cat.name });
-                }
-            });
-        });
-        return list;
-    };
+  const [skillId, setSkillId] = useState<string | null>(null);
+  const [level, setLevel] = useState<string>('BEGINNER');
+  const [notes, setNotes] = useState('');
 
-    const handleAssign = async () => {
-        if (!skillId) return;
-        try {
-            setSaving(true);
-            await apiFetch('/skills/assign', {
-                method: 'POST',
-                body: JSON.stringify({
-                    employeeId,
-                    skillId,
-                    proficiencyLevel: level,
-                    notes
-                })
-            });
-            toast({ title: 'Skill assigned successfully', variant: 'success' });
-            setOpen(false);
-            setSkillId(null);
-            setNotes('');
-            onSuccessAction();
-        } catch (err) {
-            toast({
-                title: 'Assignment failed',
-                description: err instanceof Error ? err.message : 'An unknown error occurred',
-                variant: 'destructive'
-            });
-        } finally {
-            setSaving(false);
+  const fetchSkills = async (s: string): Promise<SkillOption[]> => {
+    const res = await apiFetch<TaxonomyCategory[]>(`/skills/taxonomy`);
+    const list: SkillOption[] = [];
+    res.forEach(cat => {
+      cat.skills.forEach((sk) => {
+        if (sk.name.toLowerCase().includes(s.toLowerCase())) {
+          list.push({ id: sk.id, label: sk.name, category: cat.name });
         }
-    };
+      });
+    });
+    return list;
+  };
 
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button size="sm" className="gap-2 font-bold uppercase text-[10px]">
-                    <Plus className="w-3.5 h-3.5" /> Assign Skill
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-106.25 text-foreground">
-                <DialogHeader>
-                    <DialogTitle>Assign Verified Skill</DialogTitle>
-                    <DialogDescription>
-                        Directly assign and verify a skill for this team member. This action does not require further approval.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label>Select Skill</Label>
-                        <AsyncSearchSelect
-                            placeholder="Search skill catalog..."
-                            value={skillId}
-                            onChangeAction={setSkillId}
-                            fetchOptions={fetchSkills}
-                            getOptionLabel={(o) => o.label}
-                            getOptionValue={(o) => o.id}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Proficiency Level</Label>
-                        <Select value={level} onValueChange={setLevel}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {PROFICIENCY_LEVEL_OPTIONS.map(opt => (
-                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Manager Notes (Optional)</Label>
-                        <Textarea 
-                            placeholder="Reason for assignment or evidence noted..." 
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            className="h-20"
-                        />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
-                    <Button onClick={handleAssign} disabled={!skillId || saving}>
-                        {saving ? 'Assigning...' : 'Confirm Assignment'}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
+  const handleAssign = async () => {
+    if (!skillId) return;
+    try {
+      setSaving(true);
+      await apiFetch('/skills/assign', {
+        method: 'POST',
+        body: JSON.stringify({
+          employeeId,
+          skillId,
+          proficiencyLevel: level,
+          notes
+        })
+      });
+      toast({ title: 'Skill assigned successfully', variant: 'success' });
+      setOpen(false);
+      setSkillId(null);
+      setNotes('');
+      onSuccessAction();
+    } catch (err) {
+      toast({
+        title: 'Assignment failed',
+        description: err instanceof Error ? err.message : 'An unknown error occurred',
+        variant: 'destructive'
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="gap-2 font-bold uppercase text-[10px]">
+          <Plus className="w-3.5 h-3.5" /> Assign Skill
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-106.25 text-foreground">
+        <DialogHeader>
+          <DialogTitle>Assign Verified Skill</DialogTitle>
+          <DialogDescription>
+            Directly assign and verify a skill for this team member. This action does not require further approval.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <Label>Select Skill</Label>
+            <AsyncSearchSelect
+              placeholder="Search skill catalog..."
+              value={skillId}
+              onChangeAction={setSkillId}
+              fetchOptions={fetchSkills}
+              getOptionLabel={(o) => o.label}
+              getOptionValue={(o) => o.id}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Proficiency Level</Label>
+            <Select value={level} onValueChange={setLevel}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PROFICIENCY_LEVEL_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Manager Notes (Optional)</Label>
+            <Textarea
+              placeholder="Reason for assignment or evidence noted..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="h-20"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
+          <Button onClick={handleAssign} disabled={!skillId || saving}>
+            {saving ? 'Assigning...' : 'Confirm Assignment'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function EnrollButton({ programId, employeeId, onSuccessAction }: { programId: string; employeeId: string; onSuccessAction: () => void }) {
