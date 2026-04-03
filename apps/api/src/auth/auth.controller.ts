@@ -29,19 +29,22 @@ export class AuthController {
     private cookieOptions() {
         const isProduction = process.env.NODE_ENV === 'production';
 
-        // Production (Vercel → EC2 cross-domain): must use SameSite=None + Secure.
-        // Development (same-origin localhost): lax + insecure is fine.
-        const secure =
-            process.env.COOKIE_SECURE !== undefined
-                ? process.env.COOKIE_SECURE === 'true'
-                : isProduction;
+        // Cross-domain deployments (Vercel frontend + EC2 API on different domains)
+        // require SameSite=None + Secure=true or browsers will silently drop the
+        // refresh-token cookie and every page reload redirects to login.
+        //
+        // In production these values are forced to cross-domain-safe defaults.
+        // In development they fall back to lax/false so localhost works without HTTPS.
+        const secure = isProduction
+            ? process.env.COOKIE_SECURE !== 'false'          // true unless explicitly opted out
+            : process.env.COOKIE_SECURE === 'true';           // false unless explicitly opted in
 
-        const sameSite =
-            (process.env.COOKIE_SAMESITE as
-                | 'lax'
-                | 'strict'
-                | 'none'
-                | undefined) || (isProduction ? 'none' : 'lax');
+        const sameSite: 'none' | 'lax' | 'strict' = isProduction
+            ? ((process.env.COOKIE_SAMESITE as 'none' | 'lax' | 'strict') === 'none' ||
+               (process.env.COOKIE_SAMESITE as 'none' | 'lax' | 'strict') === 'strict'
+                ? (process.env.COOKIE_SAMESITE as 'none' | 'strict')
+                : 'none')                                      // default to none in production
+            : ((process.env.COOKIE_SAMESITE as 'none' | 'lax' | 'strict') || 'lax'); // default lax in dev
 
         const domain = process.env.COOKIE_DOMAIN || undefined;
 

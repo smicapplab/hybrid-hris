@@ -1,10 +1,15 @@
 import { config } from 'dotenv';
 import path from 'path';
 
-// Load root .env
-config({
-  path: path.resolve(__dirname, '../../../.env'),
-});
+// In production the process is configured with real system environment variables
+// (set via PM2, systemd, or the hosting environment). Loading the .env file in
+// production would overwrite those with development defaults (e.g. COOKIE_SAMESITE=lax),
+// which breaks cross-domain cookie behaviour on Vercel → EC2 deployments.
+if (process.env.NODE_ENV !== 'production') {
+  config({
+    path: path.resolve(__dirname, '../../../.env'),
+  });
+}
 
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';

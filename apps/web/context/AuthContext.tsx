@@ -9,7 +9,7 @@ import {
     useEffect,
 } from 'react';
 
-import { apiFetch, setAccessToken, refreshAccessToken } from '@/lib/api';
+import { apiFetch, setAccessToken, getAccessToken, refreshAccessToken, isTokenExpired } from '@/lib/api';
 import type { JwtUser, LoginResponse } from '@/lib/auth-types';
 
 type AuthContextType = {
@@ -30,14 +30,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         async function bootstrap() {
             try {
-                // On page reload the in-memory access token is gone.
-                // Explicitly call /auth/refresh first so the HttpOnly refresh-token
-                // cookie is exchanged for a fresh access token before we hit /auth/me.
-                const token = await refreshAccessToken();
+                // api.ts pre-loads a valid (non-expired) access token from localStorage
+                // on module initialisation, so getAccessToken() is already set if the
+                // token survived the reload. Only fall back to the refresh-cookie flow
+                // when the stored token is missing or expired.
+                let token = getAccessToken();
+
+                if (!token || isTokenExpired(token)) {
+                    // Stored token gone or expired — try the HttpOnly refresh cookie.
+                    token = await refreshAccessToken();
+                }
+
                 if (!token) {
-                    setIsHydrated(true);
+                    // No valid session at all — let the layout redirect to /login.
                     return;
                 }
+
                 const me = await apiFetch<JwtUser>('/auth/me', { retry: false });
                 setUser(me);
             } catch {

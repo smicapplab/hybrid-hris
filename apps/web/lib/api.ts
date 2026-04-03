@@ -1,15 +1,51 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL as string
+const TOKEN_STORAGE_KEY = 'hris_access_token'
 
-let accessToken: string | null = null
+// Decode JWT expiry from the payload (no signature verification — server validates on use)
+function isTokenExpired(token: string): boolean {
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1])) as { exp?: number }
+        return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()
+    } catch {
+        return true
+    }
+}
+
+// Hydrate from localStorage on module load so the access token survives page reloads.
+// Falls back to null on SSR (no window) or if the stored token is already expired.
+let accessToken: string | null = (() => {
+    if (typeof window === 'undefined') return null
+    try {
+        const stored = localStorage.getItem(TOKEN_STORAGE_KEY)
+        if (stored && !isTokenExpired(stored)) return stored
+        localStorage.removeItem(TOKEN_STORAGE_KEY)
+        return null
+    } catch {
+        return null
+    }
+})()
+
 let refreshing: Promise<string | null> | null = null
 
 export function setAccessToken(token: string | null) {
     accessToken = token
+    if (typeof window === 'undefined') return
+    try {
+        if (token) {
+            localStorage.setItem(TOKEN_STORAGE_KEY, token)
+        } else {
+            localStorage.removeItem(TOKEN_STORAGE_KEY)
+        }
+    } catch {
+        // Ignore storage errors (private browsing quota limits, etc.)
+    }
 }
 
 export function getAccessToken() {
     return accessToken
 }
+
+export { isTokenExpired }
 
 export async function refreshAccessToken(): Promise<string | null> {
     if (!refreshing) {
