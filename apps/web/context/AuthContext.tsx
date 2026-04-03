@@ -9,7 +9,7 @@ import {
     useEffect,
 } from 'react';
 
-import { apiFetch, setAccessToken } from '@/lib/api';
+import { apiFetch, setAccessToken, refreshAccessToken } from '@/lib/api';
 import type { JwtUser, LoginResponse } from '@/lib/auth-types';
 
 type AuthContextType = {
@@ -30,7 +30,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         async function bootstrap() {
             try {
-                const me = await apiFetch<JwtUser>('/auth/me');
+                // On page reload the in-memory access token is gone.
+                // Explicitly call /auth/refresh first so the HttpOnly refresh-token
+                // cookie is exchanged for a fresh access token before we hit /auth/me.
+                const token = await refreshAccessToken();
+                if (!token) {
+                    setIsHydrated(true);
+                    return;
+                }
+                const me = await apiFetch<JwtUser>('/auth/me', { retry: false });
                 setUser(me);
             } catch {
                 setUser(null);

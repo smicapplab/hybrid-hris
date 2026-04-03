@@ -27,13 +27,22 @@ export class AuthController {
     }
 
     private cookieOptions() {
-        const secure = process.env.COOKIE_SECURE === 'true';
+        const isProduction = process.env.NODE_ENV === 'production';
+
+        // Production (Vercel → EC2 cross-domain): must use SameSite=None + Secure.
+        // Development (same-origin localhost): lax + insecure is fine.
+        const secure =
+            process.env.COOKIE_SECURE !== undefined
+                ? process.env.COOKIE_SECURE === 'true'
+                : isProduction;
+
         const sameSite =
             (process.env.COOKIE_SAMESITE as
                 | 'lax'
                 | 'strict'
                 | 'none'
-                | undefined) || 'lax';
+                | undefined) || (isProduction ? 'none' : 'lax');
+
         const domain = process.env.COOKIE_DOMAIN || undefined;
 
         return {

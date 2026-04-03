@@ -11,7 +11,7 @@ export function getAccessToken() {
     return accessToken
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
     if (!refreshing) {
         refreshing = (async () => {
             const res = await fetch(`${API_URL}/auth/refresh`, {
