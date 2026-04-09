@@ -1,3 +1,9 @@
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Load environment variables from the root .env file
+dotenv.config({ path: path.join(__dirname, '.env') });
+
 module.exports = {
   apps: [
     {
@@ -8,6 +14,7 @@ module.exports = {
       instances: 1,
       exec_mode: 'fork',
       env: {
+        ...process.env,
         NODE_ENV: 'production',
         PORT: 4000,
       },
@@ -20,6 +27,7 @@ module.exports = {
       instances: 1,
       exec_mode: 'fork',
       env: {
+        ...process.env,
         NODE_ENV: 'production',
         PORT: 3000,
       },
