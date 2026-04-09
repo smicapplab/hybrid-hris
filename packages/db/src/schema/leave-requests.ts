@@ -80,6 +80,7 @@ export const leaveRequests = pgTable(
       .on(t.startDate) // Sorts pending requests by date automatically
       .where(sql`status = 'PENDING'`),
     leaveTypeIdx: index('leave_requests_leave_type_idx').on(t.leaveTypeId),
+    approvedByIdx: index('leave_requests_approved_by_idx').on(t.approvedBy),
     statusIdx: index('leave_requests_status_idx').on(t.status),
     dateOrderCheck: check(
       'leave_requests_date_order_check',

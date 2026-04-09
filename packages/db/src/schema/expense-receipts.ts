@@ -3,6 +3,7 @@ import {
     uuid,
     timestamp,
     varchar,
+    index,
 } from 'drizzle-orm/pg-core';
 import { expenseClaims } from './expense-claims';
 import { users } from './users';
@@ -23,4 +24,8 @@ export const expenseReceipts = pgTable(
             .defaultNow()
             .notNull(),
     },
+    (t) => ({
+        expenseClaimIdx: index('expense_receipts_expense_claim_idx').on(t.expenseClaimId),
+        uploadedByIdx: index('expense_receipts_uploaded_by_idx').on(t.uploadedBy),
+    }),
 );

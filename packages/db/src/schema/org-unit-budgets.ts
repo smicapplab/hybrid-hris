@@ -4,6 +4,7 @@ import {
     timestamp,
     uniqueIndex,
     numeric,
+    index,
 } from 'drizzle-orm/pg-core';
 import { orgUnits } from './org-units';
 import { budgetPeriods } from './budget-periods';
@@ -39,5 +40,7 @@ export const orgUnitBudgets = pgTable(
             t.budgetPeriodId,
             t.expenseCategoryId,
         ),
+        budgetPeriodIdx: index('org_unit_budgets_period_idx').on(t.budgetPeriodId),
+        expenseCategoryIdx: index('org_unit_budgets_category_idx').on(t.expenseCategoryId),
     }),
 );

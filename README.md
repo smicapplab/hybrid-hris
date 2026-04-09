@@ -113,10 +113,43 @@ pnpm --filter @hybrid-hris/db run db:reset
 ```
 
 ### 4. Running the Apps
+To run both the **API** and **Web** applications simultaneously in development mode:
 ```bash
+pnpm run dev
+```
+
+Alternatively, you can run them individually:
+```bash
+# API only
 pnpm --filter api start:dev
+
+# Web only
 pnpm --filter web dev
 ```
+
+## Deployment
+
+### EC2 Deployment (using PM2)
+
+1. **Build the Project**
+   Ensure all packages and apps are built for production:
+   ```bash
+   pnpm run build
+   ```
+
+2. **Configure PM2**
+   A root `ecosystem.config.js` is provided to manage both processes. It uses relative paths, so it should work out-of-the-box when run from the project root.
+
+3. **Start the Applications**
+   ```bash
+   pm2 start ecosystem.config.js
+   ```
+
+4. **Monitor Processes**
+   ```bash
+   pm2 list
+   pm2 logs
+   ```
 
 ## License
 

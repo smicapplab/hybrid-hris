@@ -62,6 +62,7 @@ export const leaveLedger = pgTable(
   (t) => ({
     employeeIdx: index('leave_ledger_employee_idx').on(t.employeeId),
     leaveTypeIdx: index('leave_ledger_leave_type_idx').on(t.leaveTypeId),
+    referenceLeaveRequestIdx: index('leave_ledger_reference_leave_request_idx').on(t.referenceLeaveRequestId),
     // Composite for latest balance lookup
     balanceLookupIdx: index('leave_ledger_balance_lookup_idx').on(
       t.employeeId,

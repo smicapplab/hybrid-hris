@@ -54,6 +54,8 @@ export const employeeSkills = pgTable(
     employeeSkillUq: unique('employee_skills_employee_skill_uq').on(t.employeeId, t.skillId),
     employeeIdx: index('employee_skills_employee_idx').on(t.employeeId),
     skillIdx: index('employee_skills_skill_idx').on(t.skillId),
+    trainingEnrollmentIdx: index('employee_skills_training_enrollment_idx').on(t.trainingEnrollmentId),
+    verifiedByIdx: index('employee_skills_verified_by_idx').on(t.verifiedById),
     statusIdx: index('employee_skills_status_idx').on(t.verificationStatus),
   })
 );

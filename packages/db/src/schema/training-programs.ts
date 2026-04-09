@@ -6,6 +6,7 @@ import {
   text,
   boolean,
   uniqueIndex,
+  index,
 } from 'drizzle-orm/pg-core';
 import { skills } from './skills';
 import { positions } from './positions';
@@ -47,7 +48,11 @@ export const trainingProgramSkills = pgTable(
 
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  }
+  },
+  (t) => ({
+    programIdx: index('training_program_skills_program_idx').on(t.programId),
+    skillIdx: index('training_program_skills_skill_idx').on(t.skillId),
+  })
 );
 
 // Prerequisite management
@@ -66,6 +71,7 @@ export const trainingPrerequisites = pgTable(
   },
   (t) => ({
     uq: uniqueIndex('training_prerequisites_uq').on(t.programId, t.prerequisiteProgramId),
+    prerequisiteIdx: index('training_prerequisites_prerequisite_idx').on(t.prerequisiteProgramId),
   })
 );
 
@@ -85,6 +91,7 @@ export const positionMandatoryTrainings = pgTable(
   },
   (t) => ({
     uq: uniqueIndex('position_mandatory_trainings_uq').on(t.positionId, t.programId),
+    programIdx: index('position_mandatory_trainings_program_idx').on(t.programId),
   })
 );
 
@@ -104,5 +111,6 @@ export const orgUnitMandatoryTrainings = pgTable(
   },
   (t) => ({
     uq: uniqueIndex('org_unit_mandatory_trainings_uq').on(t.orgUnitId, t.programId),
+    programIdx: index('org_unit_mandatory_trainings_program_idx').on(t.programId),
   })
 );

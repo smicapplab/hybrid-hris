@@ -42,6 +42,7 @@ export const overtimeRequests = pgTable(
   (t) => ({
     employeeIdx: index('ot_requests_employee_idx').on(t.employeeId),
     statusIdx: index('ot_requests_status_idx').on(t.status),
+    approverIdx: index('ot_requests_approver_idx').on(t.approverId),
     dateIdx: index('ot_requests_date_idx').on(t.date),
   })
 );

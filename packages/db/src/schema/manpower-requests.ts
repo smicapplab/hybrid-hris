@@ -74,6 +74,7 @@ export const manpowerRequests = pgTable(
   },
   (t) => ({
     orgUnitIdx: index('manpower_requests_org_unit_idx').on(t.orgUnitId),
+    positionIdx: index('manpower_requests_position_idx').on(t.positionId),
     statusIdx: index('manpower_requests_status_idx').on(t.status),
     requestedByIdx: index('manpower_requests_requested_by_idx').on(t.requestedBy),
   }),

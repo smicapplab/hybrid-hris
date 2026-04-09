@@ -82,6 +82,8 @@ export const attendanceAdjustments = pgTable(
         statusIdx: index('attendance_adjustments_status_idx').on(t.status),
         attendanceLogIdx: index('attendance_adjustments_log_idx').on(t.attendanceLogId),
         workDateIdx: index('attendance_adjustments_work_date_idx').on(t.workDate),
+        requestedByIdx: index('attendance_adjustments_requested_by_idx').on(t.requestedBy),
+        approvedByIdx: index('attendance_adjustments_approved_by_idx').on(t.approvedBy),
 
         // Prevent duplicate pending requests for the same employee and work date
         pendingPerDateUq: uniqueIndex('attendance_adjustments_pending_date_uq')

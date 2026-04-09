@@ -45,6 +45,7 @@ export const trainingEnrollments = pgTable(
   },
   (t) => ({
     employeeIdx: index('training_enrollments_employee_idx').on(t.employeeId),
+    processedByIdx: index('training_enrollments_processed_by_idx').on(t.processedById),
     // Prevent duplicate enrollment for the same schedule
     scheduleEmployeeUq: uniqueIndex('training_enrollments_schedule_employee_uq').on(
       t.scheduleId,

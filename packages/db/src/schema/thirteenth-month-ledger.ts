@@ -1,4 +1,4 @@
-import { pgTable, uuid, decimal, varchar, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, decimal, varchar, timestamp, index } from 'drizzle-orm/pg-core';
 import { employees } from './employees';
 import { payslips } from './payslips';
 
@@ -17,7 +17,12 @@ export const thirteenthMonthLedger = pgTable(
         accrualAmount: decimal('accrual_amount', { precision: 12, scale: 2 }).notNull(),
         
         createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    }
+    },
+    (t) => ({
+        employeeIdx: index('thirteenth_month_ledger_employee_idx').on(t.employeeId),
+        payslipIdx: index('thirteenth_month_ledger_payslip_idx').on(t.payslipId),
+        yearMonthIdx: index('thirteenth_month_ledger_year_month_idx').on(t.year, t.month),
+    })
 );
 
 export type ThirteenthMonthLedger = typeof thirteenthMonthLedger.$inferSelect;

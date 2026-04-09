@@ -1,5 +1,5 @@
 {
-  "id": "57ece586-24bd-43dd-8b61-c35f82f381ea",
+  "id": "b5fc8ac8-eb0c-4141-ba24-7d588fd1ae96",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1568,6 +1568,21 @@
         }
       },
       "indexes": {
+        "user_identities_user_idx": {
+          "name": "user_identities_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "user_identities_provider_id_uq": {
           "name": "user_identities_provider_id_uq",
           "columns": [
@@ -1869,6 +1884,21 @@
           "columns": [
             {
               "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ot_requests_approver_idx": {
+          "name": "ot_requests_approver_idx",
+          "columns": [
+            {
+              "expression": "approver_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3030,6 +3060,21 @@
           "method": "btree",
           "with": {}
         },
+        "leave_requests_approved_by_idx": {
+          "name": "leave_requests_approved_by_idx",
+          "columns": [
+            {
+              "expression": "approved_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "leave_requests_status_idx": {
           "name": "leave_requests_status_idx",
           "columns": [
@@ -3346,6 +3391,21 @@
           "columns": [
             {
               "expression": "leave_type_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leave_ledger_reference_leave_request_idx": {
+          "name": "leave_ledger_reference_leave_request_idx",
+          "columns": [
+            {
+              "expression": "reference_leave_request_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -4668,6 +4728,36 @@
           "method": "btree",
           "with": {}
         },
+        "attendance_adjustments_requested_by_idx": {
+          "name": "attendance_adjustments_requested_by_idx",
+          "columns": [
+            {
+              "expression": "requested_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attendance_adjustments_approved_by_idx": {
+          "name": "attendance_adjustments_approved_by_idx",
+          "columns": [
+            {
+              "expression": "approved_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "attendance_adjustments_pending_date_uq": {
           "name": "attendance_adjustments_pending_date_uq",
           "columns": [
@@ -4994,6 +5084,36 @@
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "org_unit_budgets_period_idx": {
+          "name": "org_unit_budgets_period_idx",
+          "columns": [
+            {
+              "expression": "budget_period_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "org_unit_budgets_category_idx": {
+          "name": "org_unit_budgets_category_idx",
+          "columns": [
+            {
+              "expression": "expense_category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -5619,7 +5739,38 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "expense_receipts_expense_claim_idx": {
+          "name": "expense_receipts_expense_claim_idx",
+          "columns": [
+            {
+              "expression": "expense_claim_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "expense_receipts_uploaded_by_idx": {
+          "name": "expense_receipts_uploaded_by_idx",
+          "columns": [
+            {
+              "expression": "uploaded_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "expense_receipts_expense_claim_id_expense_claims_id_fk": {
           "name": "expense_receipts_expense_claim_id_expense_claims_id_fk",
@@ -5783,6 +5934,21 @@
           "columns": [
             {
               "expression": "org_unit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "manpower_requests_position_idx": {
+          "name": "manpower_requests_position_idx",
+          "columns": [
+            {
+              "expression": "position_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6610,6 +6776,36 @@
           "method": "btree",
           "with": {}
         },
+        "employee_skills_training_enrollment_idx": {
+          "name": "employee_skills_training_enrollment_idx",
+          "columns": [
+            {
+              "expression": "training_enrollment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "employee_skills_verified_by_idx": {
+          "name": "employee_skills_verified_by_idx",
+          "columns": [
+            {
+              "expression": "verified_by_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "employee_skills_status_idx": {
           "name": "employee_skills_status_idx",
           "columns": [
@@ -6747,6 +6943,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "org_unit_mandatory_trainings_program_idx": {
+          "name": "org_unit_mandatory_trainings_program_idx",
+          "columns": [
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -6832,6 +7043,21 @@
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "position_mandatory_trainings_program_idx": {
+          "name": "position_mandatory_trainings_program_idx",
+          "columns": [
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -6923,6 +7149,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "training_prerequisites_prerequisite_idx": {
+          "name": "training_prerequisites_prerequisite_idx",
+          "columns": [
+            {
+              "expression": "prerequisite_program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -7004,7 +7245,38 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "training_program_skills_program_idx": {
+          "name": "training_program_skills_program_idx",
+          "columns": [
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_program_skills_skill_idx": {
+          "name": "training_program_skills_skill_idx",
+          "columns": [
+            {
+              "expression": "skill_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "training_program_skills_program_id_training_programs_id_fk": {
           "name": "training_program_skills_program_id_training_programs_id_fk",
@@ -7437,6 +7709,21 @@
           "columns": [
             {
               "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_enrollments_processed_by_idx": {
+          "name": "training_enrollments_processed_by_idx",
+          "columns": [
+            {
+              "expression": "processed_by_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7997,7 +8284,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "payroll_batches_status_idx": {
+          "name": "payroll_batches_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -8074,7 +8377,38 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "payslip_items_payslip_idx": {
+          "name": "payslip_items_payslip_idx",
+          "columns": [
+            {
+              "expression": "payslip_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "payslip_items_component_idx": {
+          "name": "payslip_items_component_idx",
+          "columns": [
+            {
+              "expression": "component_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "payslip_items_payslip_id_payslips_id_fk": {
           "name": "payslip_items_payslip_id_payslips_id_fk",
@@ -8174,7 +8508,38 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "payslips_batch_idx": {
+          "name": "payslips_batch_idx",
+          "columns": [
+            {
+              "expression": "batch_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "payslips_employee_idx": {
+          "name": "payslips_employee_idx",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "payslips_batch_id_payroll_batches_id_fk": {
           "name": "payslips_batch_id_payroll_batches_id_fk",
@@ -8673,7 +9038,59 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "thirteenth_month_ledger_employee_idx": {
+          "name": "thirteenth_month_ledger_employee_idx",
+          "columns": [
+            {
+              "expression": "employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "thirteenth_month_ledger_payslip_idx": {
+          "name": "thirteenth_month_ledger_payslip_idx",
+          "columns": [
+            {
+              "expression": "payslip_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "thirteenth_month_ledger_year_month_idx": {
+          "name": "thirteenth_month_ledger_year_month_idx",
+          "columns": [
+            {
+              "expression": "year",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "month",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "thirteenth_month_ledger_employee_id_employees_id_fk": {
           "name": "thirteenth_month_ledger_employee_id_employees_id_fk",

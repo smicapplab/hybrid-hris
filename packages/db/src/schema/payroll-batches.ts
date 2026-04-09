@@ -6,6 +6,7 @@ import {
     pgEnum,
     date,
     decimal,
+    index,
 } from 'drizzle-orm/pg-core';
 
 export const payrollBatchStatusEnum = pgEnum('payroll_batch_status', [
@@ -32,7 +33,10 @@ export const payrollBatches = pgTable(
         
         createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-    }
+    },
+    (t) => ({
+        statusIdx: index('payroll_batches_status_idx').on(t.status),
+    }),
 );
 
 export type PayrollBatch = typeof payrollBatches.$inferSelect;

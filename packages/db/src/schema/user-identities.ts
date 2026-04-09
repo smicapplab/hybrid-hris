@@ -5,6 +5,7 @@ import {
     timestamp,
     uniqueIndex,
     pgEnum,
+    index,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
@@ -33,6 +34,7 @@ export const userIdentities = pgTable(
             .notNull(),
     },
     (t) => ({
+        userIdx: index('user_identities_user_idx').on(t.userId),
         providerIdUq: uniqueIndex('user_identities_provider_id_uq').on(t.provider, t.providerId),
     }),
 );

@@ -6,6 +6,7 @@ import {
     timestamp,
     text,
     pgEnum,
+    index,
 } from 'drizzle-orm/pg-core';
 import { employees } from './employees';
 import { payrollBatches } from './payroll-batches';
@@ -32,7 +33,11 @@ export const payslips = pgTable(
 
         createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-    }
+    },
+    (t) => ({
+        batchIdx: index('payslips_batch_idx').on(t.batchId),
+        employeeIdx: index('payslips_employee_idx').on(t.employeeId),
+    }),
 );
 
 export const payslipItems = pgTable(
@@ -55,7 +60,11 @@ export const payslipItems = pgTable(
 
         createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-    }
+    },
+    (t) => ({
+        payslipIdx: index('payslip_items_payslip_idx').on(t.payslipId),
+        componentIdx: index('payslip_items_component_idx').on(t.componentId),
+    })
 );
 
 export type Payslip = typeof payslips.$inferSelect;
