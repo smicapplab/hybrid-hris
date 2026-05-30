@@ -80,3 +80,6 @@ pids
 # Demo and scripts
 scripts/reset-demo.sh
 scripts/reset-db.sh.bak
+
+# Antigravity agent configuration and workspace state
+.antigravitycli/

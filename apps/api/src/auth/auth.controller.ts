@@ -53,7 +53,7 @@ export class AuthController {
             secure,
             sameSite,
             domain,
-            path: '/auth/refresh',
+            path: '/auth',
         } as const;
     }
 

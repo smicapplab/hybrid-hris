@@ -4,7 +4,10 @@ const TOKEN_STORAGE_KEY = 'hris_access_token'
 // Decode JWT expiry from the payload (no signature verification — server validates on use)
 function isTokenExpired(token: string): boolean {
     try {
-        const payload = JSON.parse(atob(token.split('.')[1])) as { exp?: number }
+        const base64Url = token.split('.')[1]
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+        const padding = '='.repeat((4 - (base64.length % 4)) % 4)
+        const payload = JSON.parse(atob(base64 + padding)) as { exp?: number }
         return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()
     } catch {
         return true
